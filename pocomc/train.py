@@ -37,7 +37,7 @@ def fit(model,
 
     if context is not None:
         use_context = True
-        if not isinstance(data, torch.Tensor):
+        if not isinstance(context, torch.Tensor):
             context = torch.tensor(context, dtype=torch.float32)
     else:
         use_context = False
@@ -107,7 +107,7 @@ def fit(model,
                 loss = -model.log_prob(x).mean()
 
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), clip_grad_norm, error_if_nonfinite=True)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), clip_grad_norm)
             optimizer.step()
 
             train_loss += loss.data.item() * x.size(0)
@@ -179,34 +179,38 @@ def fit(model,
 
 def FlowTrainer(model, data, train_config=None):
 
+    default_train_config = dict(validation_split=0.2,
+                                epochs=500,
+                                batch_size=data.shape[0],
+                                patience=10,
+                                monitor='val_loss',
+                                shuffle=True,
+                                lr=[1e-2, 1e-3, 1e-4, 1e-5, 1e-6],
+                                weight_decay=1e-4,
+                                clip_grad_norm=1.0,
+                                device='cpu',
+                                verbose=0,
+                                )
+
     if train_config is None:
-        train_config = dict(validation_split=0.2,
-                            epochs=500,
-                            batch_size=100,
-                            patience=10,
-                            monitor='val_loss',
-                            shuffle=True,
-                            lr=[1e-3, 1e-4, 1e-5, 1e-6],
-                            weight_decay=1e-5,
-                            clip_grad_norm=1.0,
-                            )
+        train_config = default_train_config
     
-    for lr in train_config['lr']:
+    for lr in train_config.get('lr', default_train_config['lr']):
         history = fit(model,
                       data,
                       context=None,
                       validation_data=None,
                       validation_context=None,
-                      validation_split=train_config['validation_split'],
-                      epochs=train_config['epochs'],
-                      batch_size=train_config['batch_size'],
-                      patience=train_config['patience'],
-                      monitor=train_config['monitor'],
-                      shuffle=train_config['shuffle'],
+                      validation_split=train_config.get('validation_split', default_train_config['validation_split']),
+                      epochs=train_config.get('epochs', default_train_config['epochs']),
+                      batch_size=train_config.get('batch_size', default_train_config['batch_size']),
+                      patience=train_config.get('patience', default_train_config['patience']),
+                      monitor=train_config.get('monitor', default_train_config['monitor']),
+                      shuffle=train_config.get('shuffle', default_train_config['shuffle']),
                       lr=lr,
-                      weight_decay=train_config['weight_decay'],
-                      clip_grad_norm=train_config['clip_grad_norm'],
-                      device='cpu',
-                      verbose=0)
+                      weight_decay=train_config.get('weight_decay', default_train_config['weight_decay']),
+                      clip_grad_norm=train_config.get('clip_grad_norm', default_train_config['clip_grad_norm']),
+                      device=train_config.get('device', default_train_config['device']),
+                      verbose=train_config.get('verbose', default_train_config['verbose']))
 
     return history

@@ -62,53 +62,6 @@ class MaskedLinear(nn.Linear):
         ) + (self.cond_label_size != None) * ', cond_features={}'.format(self.cond_label_size)
 
 
-class LinearMaskedCoupling(nn.Module):
-    """ Modified RealNVP Coupling Layers per the MAF paper """
-    def __init__(self, input_size, hidden_size, n_hidden, mask, cond_label_size=None):
-        super().__init__()
-
-        self.register_buffer('mask', mask)
-
-        # scale function
-        s_net = [nn.Linear(input_size + (cond_label_size if cond_label_size is not None else 0), hidden_size)]
-        for _ in range(n_hidden):
-            s_net += [nn.Tanh(), nn.Linear(hidden_size, hidden_size)]
-        s_net += [nn.Tanh(), nn.Linear(hidden_size, input_size)]
-        self.s_net = nn.Sequential(*s_net)
-
-        # translation function
-        self.t_net = copy.deepcopy(self.s_net)
-        # replace Tanh with ReLU's per MAF paper
-        for i in range(len(self.t_net)):
-            if not isinstance(self.t_net[i], nn.Linear): self.t_net[i] = nn.ReLU()
-
-    def forward(self, x, y=None):
-        # apply mask
-        mx = x * self.mask
-
-        # run through model
-        s = self.s_net(mx if y is None else torch.cat([y, mx], dim=1))
-        t = self.t_net(mx if y is None else torch.cat([y, mx], dim=1))
-        u = mx + (1 - self.mask) * (x - t) * torch.exp(-s)  # cf RealNVP eq 8 where u corresponds to x (here we're modeling u)
-
-        log_abs_det_jacobian = - (1 - self.mask) * s  # log det du/dx; cf RealNVP 8 and 6; note, sum over input_size done at model log_prob
-
-        return u, log_abs_det_jacobian
-
-    def inverse(self, u, y=None):
-        # apply mask
-        mu = u * self.mask
-
-        # run through model
-        s = self.s_net(mu if y is None else torch.cat([y, mu], dim=1))
-        t = self.t_net(mu if y is None else torch.cat([y, mu], dim=1))
-        x = mu + (1 - self.mask) * (u * s.exp() + t)  # cf RealNVP eq 7
-
-        log_abs_det_jacobian = (1 - self.mask) * s  # log det dx/du
-
-        return x, log_abs_det_jacobian
-
-
 class BatchNorm(nn.Module):
     """ RealNVP BatchNorm layer """
     def __init__(self, input_size, momentum=0.9, eps=1e-5):
@@ -185,7 +138,7 @@ class FlowSequential(nn.Sequential):
 # --------------------
 
 class MADE(nn.Module):
-    def __init__(self, input_size, hidden_size, n_hidden, cond_label_size=None, activation='relu', input_order='sequential', input_degrees=None):
+    def __init__(self, input_size, hidden_size, n_hidden, cond_label_size=None, activation='relu', dropout=0.0, input_order='sequential', input_degrees=None):
         """
         Args:
             input_size -- scalar; dim of inputs
@@ -216,8 +169,8 @@ class MADE(nn.Module):
         self.net_input = MaskedLinear(input_size, hidden_size, masks[0], cond_label_size)
         self.net = []
         for m in masks[1:-1]:
-            self.net += [activation_fn, MaskedLinear(hidden_size, hidden_size, m)]
-        self.net += [activation_fn, MaskedLinear(hidden_size, 2 * input_size, masks[-1].repeat(2,1))]
+            self.net += [activation_fn, MaskedLinear(hidden_size, hidden_size, m), nn.Dropout(p=dropout)]
+        self.net += [activation_fn, MaskedLinear(hidden_size, 2 * input_size, masks[-1].repeat(2,1)), nn.Dropout(p=dropout)]
         self.net = nn.Sequential(*self.net)
 
     @property
@@ -249,7 +202,7 @@ class MADE(nn.Module):
 
 
 class MAF(nn.Module):
-    def __init__(self, n_blocks, input_size, hidden_size, n_hidden, cond_label_size=None, activation='relu', input_order='sequential', batch_norm=True):
+    def __init__(self, n_blocks, input_size, hidden_size, n_hidden, cond_label_size=None, activation='relu', dropout=0.0, input_order='sequential', batch_norm=True):
         super().__init__()
         # base distribution for calculation of log prob under the model
         self.register_buffer('base_dist_mean', torch.zeros(input_size))
@@ -259,7 +212,7 @@ class MAF(nn.Module):
         modules = []
         self.input_degrees = None
         for i in range(n_blocks):
-            modules += [MADE(input_size, hidden_size, n_hidden, cond_label_size, activation, input_order, self.input_degrees)]
+            modules += [MADE(input_size, hidden_size, n_hidden, cond_label_size, activation, dropout, input_order, self.input_degrees)]
             self.input_degrees = modules[-1].input_degrees.flip(0)
             modules += batch_norm * [BatchNorm(input_size)]
 
@@ -267,7 +220,7 @@ class MAF(nn.Module):
 
     @property
     def base_dist(self):
-        return D.Normal(self.base_dist_mean, self.base_dist_var)
+        return D.Normal(self.base_dist_mean, self.base_dist_var, validate_args=False)
 
     def forward(self, x, y=None):
         return self.net(x, y)

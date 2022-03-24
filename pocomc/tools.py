@@ -1,3 +1,4 @@
+from unittest.mock import NonCallableMagicMock
 import numpy as np 
 import math
 import torch
@@ -6,14 +7,12 @@ from tqdm import tqdm
 SQRTEPS = math.sqrt(float(np.finfo(np.float64).eps))
 
 
-def get_ESS_CV(logw):
-
+def get_ESS(logw):
     logw_max = np.max(logw)
     logw_normed = logw - logw_max
 
     weights = np.exp(logw_normed) / np.sum(np.exp(logw_normed))
-
-    return 1.0 / np.sum(weights*weights), np.std(weights)/np.mean(weights)
+    return 1.0 / np.sum(weights*weights) / len(weights)
 
 
 def resample_equal(samples, weights, rstate=None):
@@ -76,29 +75,38 @@ def resample_equal(samples, weights, rstate=None):
     return samples[idx]
 
 
-class progress_bar:
+class ProgressBar:
 
     def __init__(self, show=True):
         self.show = show
         if self.show:
             self.progress_bar = tqdm(desc='Iter')
+        
+        self.info = dict(beta=None,
+                         calls=None,
+                         ESS=None,
+                         logZ=None,
+                         accept=None,
+                         N=None,
+                         scale=None,
+                         corr=None,
+                        )
 
-    def update(self, beta, ncall, ESS, CV, logz, extra=None):
+    def update_stats(self, info):
+        self.info['beta'] = info.get('beta', self.info['beta'])
+        self.info['calls'] = info.get('calls', self.info['calls'])
+        self.info['ESS'] = info.get('ESS', self.info['ESS'])
+        self.info['logZ'] = info.get('logZ', self.info['logZ'])
+        self.info['accept'] = info.get('accept', self.info['accept'])
+        self.info['N'] = info.get('N', self.info['N'])
+        self.info['scale'] = info.get('scale', self.info['scale'])
+        self.info['corr'] = info.get('corr', self.info['corr'])
+        if self.show:
+            self.progress_bar.set_postfix(ordered_dict=self.info)
+
+    def update_iter(self):
         if self.show:
             self.progress_bar.update(1)
-            if extra is None:
-                self.progress_bar.set_postfix(ordered_dict={'beta':np.round(beta,8),
-                                                            'ncall':int(ncall),
-                                                            'ESS':int(ESS),
-                                                            'CV':np.round(CV,3),
-                                                            'logz':np.round(logz,4)})
-            else:
-                self.progress_bar.set_postfix(ordered_dict={'beta':np.round(beta,8),
-                                                            'ncall':int(ncall),
-                                                            'ESS':int(ESS),
-                                                            'CV':np.round(CV,3),
-                                                            'logz':np.round(logz,4),
-                                                            'extra':extra})
 
     def close(self):
         if self.show:

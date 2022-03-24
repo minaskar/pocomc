@@ -1,3 +1,5 @@
 examples/
 pocomc.egg-info/
 pocomc/__pycache__/
+pocomc/utils/__pycache__/
+pocomc/sinf/__pycache__/

@@ -1,23 +1,31 @@
-from turtle import forward
+import imp
 from .maf import MAF
 from .train import FlowTrainer
+import torch
 
 def FlowGenerator(ndim, flow_config=None):
 
-    if flow_config is None:
-        flow_config = dict(n_blocks=5,
-                           hidden_size=100,
-                           n_hidden=1,
-                           batch_norm=True)
+    default_flow_config = dict(n_blocks=6,
+                               hidden_size=3*ndim,
+                               n_hidden=1,
+                               batch_norm=True,
+                               activation='relu',
+                               dropout=0.0,
+                               input_order='sequential'
+                               )
 
-    return MAF(n_blocks=flow_config['n_blocks'],
+    if flow_config is None:
+        flow_config = default_flow_config
+
+    return MAF(n_blocks=flow_config.get('n_blocks', default_flow_config['n_blocks']),
                input_size=ndim,
-               hidden_size=flow_config['hidden_size'],
-               n_hidden=flow_config['n_hidden'],
+               hidden_size=flow_config.get('hidden_size', default_flow_config['hidden_size']),
+               n_hidden=flow_config.get('n_hidden', default_flow_config['n_hidden']),
                cond_label_size=None,
-               activation='relu',
-               input_order='sequential',
-               batch_norm=flow_config['batch_norm'])
+               activation=flow_config.get('activation', default_flow_config['activation']),
+               dropout=flow_config.get('dropout', default_flow_config['dropout']),
+               input_order=flow_config.get('input_order', default_flow_config['input_order']),
+               batch_norm=flow_config.get('batch_norm', default_flow_config['batch_norm']))
 
 class Flow:
 
@@ -36,3 +44,7 @@ class Flow:
         
     def inverse(self, u):
         return self.flow.inverse(u)
+
+    def logprob(self, x):
+        u, logdetJ = self.flow.forward(x)
+        return torch.sum(self.flow.base_dist.log_prob(u) + logdetJ, dim=1)
