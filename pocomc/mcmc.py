@@ -27,8 +27,7 @@ def PreconditionedMetropolis(logprob,
                              target=0.234,
                              adapt=True,
                              corr_threshold=0.9,
-                             progress_bar=None,
-                             use_maf=False):
+                             progress_bar=None):
 
     nwalkers, ndim = x.shape
 
@@ -41,15 +40,9 @@ def PreconditionedMetropolis(logprob,
         progress_bar.update_stats(dict(calls=progress_bar.info['calls']+nwalkers))
 
 
-    if use_maf:
-        u, logdetJ = flow.forward(X)
-    else:
-        u, logdetJ = flow.forward_with_logj(X)
-
-    if use_maf:
-        J += -logdetJ.sum(-1)
-    else:
-        J += -logdetJ
+    u, logdetJ = flow.forward(X)
+    
+    J += -logdetJ.sum(-1)
 
     corr = Pearson(torch_to_numpy(X))
 
@@ -57,16 +50,10 @@ def PreconditionedMetropolis(logprob,
     while True:
         
         u_prime = u + sigma * torch.randn(nwalkers, ndim)
-        if use_maf:
-            X_prime, logdetJ_prime = flow.inverse(u_prime)
-        else:
-            X_prime, logdetJ_prime = flow.inverse_with_logj(u_prime)
+        X_prime, logdetJ_prime = flow.inverse(u_prime)
 
         Z_prime, Zl_prime, Zp_prime, J_prime = logprob(torch_to_numpy(X_prime), return_torch=True)
-        if use_maf:
-            J_prime += logdetJ_prime.sum(-1)
-        else:
-            J_prime += logdetJ_prime
+        J_prime += logdetJ_prime.sum(-1)
 
         alpha = torch.minimum(torch.ones(len(X_prime)), torch.exp( Z_prime - Z + J_prime - J ))
         alpha[torch.isnan(alpha)] = 0.0

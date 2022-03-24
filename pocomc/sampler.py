@@ -193,8 +193,7 @@ class Sampler:
                                                self.target_accept,
                                                True,
                                                self.corr_threshold,
-                                               self.pbar,
-                                               self.use_maf)
+                                               self.pbar)
         else:
             results = Metropolis(self._logprob,
                                  x_prev,
@@ -228,17 +227,8 @@ class Sampler:
 
     def _train(self, x):
         if (self.scale < self.threshold * self.ideal_scale and self.t > 1) or self.use_flow:
-            if self.use_flow:
-                if self.use_maf:
-                    self.flow.fit(numpy_to_torch(x))
-                else:
-                    self.flow.train_flow(numpy_to_torch(x), val_frac=0.2, alpha=self.alpha, Whiten=True)
-            else:
-                if self.use_maf:
-                    self.flow.fit(numpy_to_torch(x))
-                else:
-                    self.flow.create_flow(numpy_to_torch(x), val_frac=0.2, alpha=self.alpha, Whiten=True)
-                self.use_flow = True
+            self.flow.fit(numpy_to_torch(x))
+            self.use_flow = True
         else:
             pass
 
