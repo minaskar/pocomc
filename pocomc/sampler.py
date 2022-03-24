@@ -3,8 +3,6 @@ import numpy as np
 from .mcmc import PreconditionedMetropolis, Metropolis
 from .tools import resample_equal, _FunctionWrapper, torch_to_numpy, numpy_to_torch, get_ESS, ProgressBar
 from .scaler import Reparameterise
-
-from pocomc.sinf.base import SINFInterface
 from .flow import Flow
 
 class Sampler:
@@ -28,14 +26,11 @@ class Sampler:
                  pool=None,
                  parallelize_prior=False,
                  # Temp
-                 alpha=(0,0.97),
                  corr_threshold=0.01,
                  target_accept=0.234,
                  # MAF
-                 use_maf=False,
                  flow_config=None,
                  train_config=None,
-                 lazy=False,
                  ):
 
         self.nwalkers = nwalkers
@@ -78,12 +73,8 @@ class Sampler:
         self.parallelize_prior = parallelize_prior
 
         # Flow
-        self.use_maf = use_maf
-        if self.use_maf:
-            self.flow = Flow(self.ndim, flow_config, train_config)
-        else:
-            self.flow = SINFInterface()
-
+        self.flow = Flow(self.ndim, flow_config, train_config)
+        
         # Scaler
         if bounds is None:
             bounds = np.full((self.ndim, 2), np.nan)
@@ -99,7 +90,6 @@ class Sampler:
         self.target_accept = target_accept
 
         # temp 2
-        self.alpha = alpha
         self.corr_threshold = corr_threshold
 
 
