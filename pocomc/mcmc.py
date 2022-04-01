@@ -1,7 +1,7 @@
-import torch
-from .tools import numpy_to_torch, torch_to_numpy
-
 import numpy as np
+import torch
+
+from .tools import numpy_to_torch, torch_to_numpy
 
 
 class Pearson:
@@ -26,7 +26,8 @@ def PreconditionedMetropolis(logprob,
                              sigma,
                              target=0.234,
                              adapt=True,
-                             corr_threshold=0.9,
+                             corr_threshold=0.8,
+                             corr_latent=False,
                              progress_bar=None):
 
     nwalkers, ndim = x.shape
@@ -44,7 +45,10 @@ def PreconditionedMetropolis(logprob,
     
     J += -logdetJ.sum(-1)
 
-    corr = Pearson(torch_to_numpy(X))
+    if corr_latent:
+        corr = Pearson(torch_to_numpy(u))
+    else:
+        corr = Pearson(torch_to_numpy(X))
 
     i = 0
     while True:
@@ -74,7 +78,10 @@ def PreconditionedMetropolis(logprob,
         samples.append(X)
         i += 1
 
-        cc_prime = corr.get(torch_to_numpy(X_prime))
+        if corr_latent:
+            cc_prime = corr.get(torch_to_numpy(u))
+        else:
+            cc_prime = corr.get(torch_to_numpy(X))
 
         if progress_bar is not None:
             progress_bar.update_stats(dict(calls=progress_bar.info['calls']+nwalkers,
@@ -84,7 +91,14 @@ def PreconditionedMetropolis(logprob,
                                            corr=np.mean(cc_prime),
             ))
 
-        if (np.mean(cc_prime) < corr_threshold and i >= nmin) or i>=nmax:
+
+        if corr_threshold is None:
+            if i >= int(nmin * ((2.38/np.sqrt(ndim))/sigma.item())**2):
+                break
+        elif np.mean(cc_prime) < corr_threshold and i >= nmin:
+            break
+
+        if i >= nmax:
             break
 
     return dict(X=torch_to_numpy(X),
@@ -105,7 +119,7 @@ def Metropolis(logprob,
                cov=None,
                target=0.234,
                adapt=True,
-               corr_threshold=0.9,
+               corr_threshold=0.8,
                progress_bar=None):
 
     nwalkers, ndim = x.shape
@@ -147,7 +161,7 @@ def Metropolis(logprob,
         samples.append(X)
         i += 1
 
-        cc_prime = corr.get(X_prime)
+        cc_prime = corr.get(X)
 
         if progress_bar is not None:
             progress_bar.update_stats(dict(calls=progress_bar.info['calls']+len(X),
@@ -158,7 +172,13 @@ def Metropolis(logprob,
 
             ))
 
-        if (np.mean(cc_prime) < corr_threshold and i >= nmin) or i>=nmax:
+        if corr_threshold is None:
+            if i >= int(nmin * ((2.38/np.sqrt(ndim))/sigma)**2):
+                break
+        elif np.mean(cc_prime) < corr_threshold and i >= nmin:
+            break
+
+        if i >= nmax:
             break
 
     return dict(X=X,

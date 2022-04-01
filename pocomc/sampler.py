@@ -25,12 +25,11 @@ class Sampler:
                  vectorize_prior=False,
                  pool=None,
                  parallelize_prior=False,
-                 # Temp
-                 corr_threshold=0.01,
+                 corr_threshold=None,
                  target_accept=0.234,
-                 # MAF
                  flow_config=None,
                  train_config=None,
+                 corr_latent=False,
                  ):
 
         self.nwalkers = nwalkers
@@ -91,12 +90,12 @@ class Sampler:
 
         # temp 2
         self.corr_threshold = corr_threshold
+        self.corr_latent = corr_latent
 
 
-    def run(self, x0, ess=0.95, niter=4, nmin=1, nmax=500, progress=True):
+    def run(self, x0, ess=0.95, nmin=5, nmax=1000, progress=True):
 
         self.ess = ess
-        self.niter = niter
         self.nmin = nmin
         self.nmax = nmax
         self.progress = progress
@@ -109,6 +108,10 @@ class Sampler:
 
         self.scaler.fit(x)
         self.u = self.scaler.forward(x)
+
+        if self.threshold >= 1.0:
+            self.use_flow = True
+            self._train(self.u)
 
         self.saved_samples.append(x)
         self.saved_iter.append(self.t)
@@ -157,7 +160,8 @@ class Sampler:
         self.pbar.close()
 
     
-    def add_samples(self, N=1000, retrain=False):
+    def add_samples(self, N=1000, retrain=False, progress=True):
+        self.progress = progress
 
         self.pbar = ProgressBar(self.progress)
         self.pbar.update_stats(dict(beta=self.beta,
@@ -193,6 +197,7 @@ class Sampler:
                                                self.target_accept,
                                                True,
                                                self.corr_threshold,
+                                               self.corr_latent,
                                                self.pbar)
         else:
             results = Metropolis(self._logprob,

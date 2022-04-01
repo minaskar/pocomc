@@ -6,11 +6,12 @@ import torch.distributions as D
 import math
 import copy
 
-# --------------------
-# Model layers and helpers
-# --------------------
 
-def create_masks(input_size, hidden_size, n_hidden, input_order='sequential', input_degrees=None):
+def create_masks(input_size,
+                 hidden_size,
+                 n_hidden,
+                 input_order='sequential',
+                 input_degrees=None):
     # MADE paper sec 4:
     # degrees of connections between layers -- ensure at most in_degree - 1 connections
     degrees = []
@@ -41,7 +42,10 @@ def create_masks(input_size, hidden_size, n_hidden, input_order='sequential', in
 
 class MaskedLinear(nn.Linear):
     """ MADE building block layer """
-    def __init__(self, input_size, n_outputs, mask, cond_label_size=None):
+    def __init__(self, input_size,
+                       n_outputs,
+                       mask,
+                       cond_label_size=None):
         super().__init__(input_size, n_outputs)
 
         self.register_buffer('mask', mask)
@@ -63,8 +67,10 @@ class MaskedLinear(nn.Linear):
 
 
 class BatchNorm(nn.Module):
-    """ RealNVP BatchNorm layer """
-    def __init__(self, input_size, momentum=0.9, eps=1e-5):
+    """ Batch Normalisation layer """
+    def __init__(self, input_size,
+                       momentum=0.9,
+                       eps=1e-5):
         super().__init__()
         self.momentum = momentum
         self.eps = eps
@@ -117,7 +123,7 @@ class BatchNorm(nn.Module):
 
 
 class FlowSequential(nn.Sequential):
-    """ Container for layers of a normalizing flow """
+    """ Join multiple layers of a normalizing flow """
     def forward(self, x, y):
         sum_log_abs_det_jacobians = 0
         for module in self:
@@ -133,18 +139,22 @@ class FlowSequential(nn.Sequential):
         return u, sum_log_abs_det_jacobians
 
 
-# --------------------
-# Models
-# --------------------
-
 class MADE(nn.Module):
-    def __init__(self, input_size, hidden_size, n_hidden, cond_label_size=None, activation='relu', dropout=0.0, input_order='sequential', input_degrees=None):
+    def __init__(self, input_size,
+                       hidden_size,
+                       n_hidden,
+                       cond_label_size=None,
+                       activation='relu',
+                       dropout=None,
+                       input_order='sequential',
+                       input_degrees=None):
         """
         Args:
             input_size -- scalar; dim of inputs
             hidden_size -- scalar; dim of hidden layers
             n_hidden -- scalar; number of hidden layers
             activation -- str; activation function to use
+            dropout -- scalar; probability value of dropout
             input_order -- str or tensor; variable order for creating the autoregressive masks (sequential|random)
                             or the order flipped from the previous layer in a stack of mades
             conditional -- bool; whether model is conditional
@@ -155,7 +165,11 @@ class MADE(nn.Module):
         self.register_buffer('base_dist_var', torch.ones(input_size))
 
         # create masks
-        masks, self.input_degrees = create_masks(input_size, hidden_size, n_hidden, input_order, input_degrees)
+        masks, self.input_degrees = create_masks(input_size,
+                                                 hidden_size,
+                                                 n_hidden,
+                                                 input_order,
+                                                 input_degrees)
 
         # setup activation
         if activation == 'relu':
@@ -169,8 +183,16 @@ class MADE(nn.Module):
         self.net_input = MaskedLinear(input_size, hidden_size, masks[0], cond_label_size)
         self.net = []
         for m in masks[1:-1]:
-            self.net += [activation_fn, MaskedLinear(hidden_size, hidden_size, m), nn.Dropout(p=dropout)]
-        self.net += [activation_fn, MaskedLinear(hidden_size, 2 * input_size, masks[-1].repeat(2,1)), nn.Dropout(p=dropout)]
+            if dropout is None:
+                self.net += [activation_fn, MaskedLinear(hidden_size, hidden_size, m)]
+            else:
+                self.net += [activation_fn, MaskedLinear(hidden_size, hidden_size, m), nn.Dropout(p=dropout)]
+        if dropout is None:
+            self.net += [activation_fn, MaskedLinear(hidden_size, 2 * input_size, masks[-1].repeat(2,1))]
+        else:
+            #self.net += [activation_fn, MaskedLinear(hidden_size, 2 * input_size, masks[-1].repeat(2,1)), nn.Dropout(p=dropout)]
+            self.net += [activation_fn, MaskedLinear(hidden_size, 2 * input_size, masks[-1].repeat(2,1))]
+
         self.net = nn.Sequential(*self.net)
 
     @property
@@ -202,7 +224,15 @@ class MADE(nn.Module):
 
 
 class MAF(nn.Module):
-    def __init__(self, n_blocks, input_size, hidden_size, n_hidden, cond_label_size=None, activation='relu', dropout=0.0, input_order='sequential', batch_norm=True):
+    def __init__(self, n_blocks,
+                       input_size,
+                       hidden_size,
+                       n_hidden,
+                       cond_label_size=None,
+                       activation='relu',
+                       dropout=None, 
+                       input_order='sequential', 
+                       batch_norm=True):
         super().__init__()
         # base distribution for calculation of log prob under the model
         self.register_buffer('base_dist_mean', torch.zeros(input_size))

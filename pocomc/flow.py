@@ -1,4 +1,3 @@
-import imp
 from .maf import MAF
 from .train import FlowTrainer
 import torch
@@ -10,7 +9,7 @@ def FlowGenerator(ndim, flow_config=None):
                                n_hidden=1,
                                batch_norm=True,
                                activation='relu',
-                               dropout=0.0,
+                               dropout=None,
                                input_order='sequential'
                                )
 
