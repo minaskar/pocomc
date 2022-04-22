@@ -19,6 +19,8 @@ def fit(model,
         lr=1e-3,
         weight_decay=1e-5,
         clip_grad_norm=1.0,
+        l1=None,
+        l2=None,
         device='cpu',
         verbose=2):
     """
@@ -101,16 +103,24 @@ def fit(model,
             if use_context:
                 x = batch[0].to(device)
                 y = batch[1].to(device)
-                loss = -model.log_prob(x, y).mean()
+                loss = -model.log_prob(x, y).sum()
             else:
                 x = batch[0].to(device)
-                loss = -model.log_prob(x).mean()
+                loss = -model.log_prob(x).sum()
+
+            if l1 is not None:
+                loss -= model.log_prior(scale=l1, type='Laplace')
+
+            if l2 is not None:
+                loss -= model.log_prior(scale=l2, type='Gaussian')
+
 
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), clip_grad_norm)
             optimizer.step()
 
-            train_loss += loss.data.item() * x.size(0)
+            #train_loss += loss.data.item() * x.size(0)
+            train_loss += loss.data.item()
             
         train_loss  = train_loss / len(train_dl.dataset)
 
@@ -127,12 +137,19 @@ def fit(model,
                 if use_context:
                     x = batch[0].to(device)
                     y = batch[1].to(device)
-                    loss = -model.log_prob(x, y).mean()
+                    loss = -model.log_prob(x, y).sum()
                 else:
                     x = batch[0].to(device)
-                    loss = -model.log_prob(x).mean()
+                    loss = -model.log_prob(x).sum()
 
-                val_loss += loss.data.item() * x.size(0)
+                if l1 is not None:
+                    loss -= model.log_prior(scale=l1, type='Laplace')
+
+                if l2 is not None:
+                    loss -= model.log_prior(scale=l2, type='Gaussian')
+
+                #val_loss += loss.data.item() * x.size(0)
+                val_loss += loss.data.item()
 
             val_loss = val_loss / len(val_dl.dataset)
 
@@ -180,14 +197,16 @@ def fit(model,
 def FlowTrainer(model, data, train_config=None):
 
     default_train_config = dict(validation_split=0.2,
-                                epochs=500,
+                                epochs=1000,
                                 batch_size=data.shape[0],
-                                patience=10,
+                                patience=30,
                                 monitor='val_loss',
                                 shuffle=True,
-                                lr=[1e-2, 1e-3, 1e-4, 1e-5, 1e-6],
-                                weight_decay=1e-4,
+                                lr=[1e-2, 1e-3, 1e-4, 1e-5],
+                                weight_decay=1e-5,
                                 clip_grad_norm=1.0,
+                                l1=None,
+                                l2=None,
                                 device='cpu',
                                 verbose=0,
                                 )
@@ -210,6 +229,8 @@ def FlowTrainer(model, data, train_config=None):
                       lr=lr,
                       weight_decay=train_config.get('weight_decay', default_train_config['weight_decay']),
                       clip_grad_norm=train_config.get('clip_grad_norm', default_train_config['clip_grad_norm']),
+                      l1=train_config.get('l1', default_train_config['l1']),
+                      l2=train_config.get('l2', default_train_config['l2']),
                       device=train_config.get('device', default_train_config['device']),
                       verbose=train_config.get('verbose', default_train_config['verbose']))
 

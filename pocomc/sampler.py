@@ -232,7 +232,9 @@ class Sampler:
 
     def _train(self, x):
         if (self.scale < self.threshold * self.ideal_scale and self.t > 1) or self.use_flow:
-            self.flow.fit(numpy_to_torch(x))
+            y = np.copy(x)
+            np.random.shuffle(y)
+            self.flow.fit(numpy_to_torch(y))
             self.use_flow = True
         else:
             pass

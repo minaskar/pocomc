@@ -9,7 +9,6 @@ def FlowGenerator(ndim, flow_config=None):
                                n_hidden=1,
                                batch_norm=True,
                                activation='relu',
-                               dropout=None,
                                input_order='sequential'
                                )
 
@@ -22,7 +21,6 @@ def FlowGenerator(ndim, flow_config=None):
                n_hidden=flow_config.get('n_hidden', default_flow_config['n_hidden']),
                cond_label_size=None,
                activation=flow_config.get('activation', default_flow_config['activation']),
-               dropout=flow_config.get('dropout', default_flow_config['dropout']),
                input_order=flow_config.get('input_order', default_flow_config['input_order']),
                batch_norm=flow_config.get('batch_norm', default_flow_config['batch_norm']))
 

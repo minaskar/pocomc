@@ -145,7 +145,6 @@ class MADE(nn.Module):
                        n_hidden,
                        cond_label_size=None,
                        activation='relu',
-                       dropout=None,
                        input_order='sequential',
                        input_degrees=None):
         """
@@ -183,15 +182,8 @@ class MADE(nn.Module):
         self.net_input = MaskedLinear(input_size, hidden_size, masks[0], cond_label_size)
         self.net = []
         for m in masks[1:-1]:
-            if dropout is None:
-                self.net += [activation_fn, MaskedLinear(hidden_size, hidden_size, m)]
-            else:
-                self.net += [activation_fn, MaskedLinear(hidden_size, hidden_size, m), nn.Dropout(p=dropout)]
-        if dropout is None:
-            self.net += [activation_fn, MaskedLinear(hidden_size, 2 * input_size, masks[-1].repeat(2,1))]
-        else:
-            #self.net += [activation_fn, MaskedLinear(hidden_size, 2 * input_size, masks[-1].repeat(2,1)), nn.Dropout(p=dropout)]
-            self.net += [activation_fn, MaskedLinear(hidden_size, 2 * input_size, masks[-1].repeat(2,1))]
+            self.net += [activation_fn, MaskedLinear(hidden_size, hidden_size, m)]
+        self.net += [activation_fn, MaskedLinear(hidden_size, 2 * input_size, masks[-1].repeat(2,1))]
 
         self.net = nn.Sequential(*self.net)
 
@@ -230,7 +222,6 @@ class MAF(nn.Module):
                        n_hidden,
                        cond_label_size=None,
                        activation='relu',
-                       dropout=None, 
                        input_order='sequential', 
                        batch_norm=True):
         super().__init__()
@@ -242,7 +233,7 @@ class MAF(nn.Module):
         modules = []
         self.input_degrees = None
         for i in range(n_blocks):
-            modules += [MADE(input_size, hidden_size, n_hidden, cond_label_size, activation, dropout, input_order, self.input_degrees)]
+            modules += [MADE(input_size, hidden_size, n_hidden, cond_label_size, activation, input_order, self.input_degrees)]
             self.input_degrees = modules[-1].input_degrees.flip(0)
             modules += batch_norm * [BatchNorm(input_size)]
 
@@ -261,3 +252,28 @@ class MAF(nn.Module):
     def log_prob(self, x, y=None):
         u, sum_log_abs_det_jacobians = self.forward(x, y)
         return torch.sum(self.base_dist.log_prob(u) + sum_log_abs_det_jacobians, dim=1)
+
+    def log_prior(self, scale=1.0, type='Laplace'):
+        total = 0.0
+
+        for i, layer in enumerate(self.net):
+    
+            if isinstance(layer, MADE):
+                #print(i, layer)
+                for parameter_name, parameter in layer.net.named_parameters():
+                    if parameter_name.endswith('weight'):
+                        # Regularize weights, but not biases
+                        if type in ['Laplace', 'laplace', 'l1', 'L1']:
+                            total += parameter.abs().sum()  # Laplace prior
+                        elif type in ['Gaussian', 'gaussian', 'l2', 'L2', 'Normal', 'normal']:
+                            total += parameter.square().sum()  # Gaussian prior
+
+                #for parameter_name, parameter in layer.net_input.named_parameters():
+                #    if parameter_name.endswith('weight'):
+                #        # Regularize weights, but not biases
+                #        total += parameter.abs().sum()  # Laplace prior
+
+        if type in ['Laplace', 'laplace', 'l1', 'L1']:
+            return -total / scale
+        elif type in ['Gaussian', 'gaussian', 'l2', 'L2', 'Normal', 'normal']:
+            return -total / (2 * (scale ** 2))
