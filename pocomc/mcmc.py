@@ -18,70 +18,86 @@ class Pearson:
 
 
 @torch.no_grad()
-def PreconditionedMetropolis(logprob,
-                             flow,
-                             x,
-                             nmin,
-                             nmax,
-                             sigma,
-                             target=0.234,
-                             adapt=True,
-                             corr_threshold=0.8,
-                             corr_latent=False,
-                             progress_bar=None):
+def PreconditionedMetropolis(state_dict=None,
+                             function_dict=None,
+                             option_dict=None):
+
+    # Get state variables
+    u = numpy_to_torch(state_dict.get('u'))
+    #x = numpy_to_torch(state_dict.get('x'))
+    #J = numpy_to_torch(state_dict.get('J'))
+    L = numpy_to_torch(state_dict.get('L'))
+    P = numpy_to_torch(state_dict.get('P'))
+    beta = state_dict.get('beta')
+
+    # Get functions
+    loglike = function_dict.get('loglike')
+    logprior = function_dict.get('logprior')
+    scaler = function_dict.get('scaler')
+    flow = function_dict.get('flow')
+    
+    # Get MCMC options
+    nmin = option_dict.get('nmin')
+    nmax = option_dict.get('nmax')
+    sigma = option_dict.get('sigma')
+    corr_threshold = option_dict.get('corr_threshold')
+    progress_bar = option_dict.get('progress_bar')
+
+    x, J = scaler.inverse(torch_to_numpy(u))
+    x = numpy_to_torch(x)
+    J = numpy_to_torch(J)
 
     nwalkers, ndim = x.shape
 
     samples = []
     
-    X = torch.clone(numpy_to_torch(x))
-    Z, Zl, Zp, J = logprob(torch_to_numpy(X), return_torch=True)
 
     if progress_bar is not None:
         progress_bar.update_stats(dict(calls=progress_bar.info['calls']+nwalkers))
 
 
-    u, logdetJ = flow.forward(X)
+    theta, logdetJ = flow.forward(u)
     
     J += -logdetJ.sum(-1)
 
-    if corr_latent:
-        corr = Pearson(torch_to_numpy(u))
-    else:
-        corr = Pearson(torch_to_numpy(X))
+    Z = numpy_to_torch(logprob(torch_to_numpy(L), torch_to_numpy(P), beta))
+
+    corr = Pearson(torch_to_numpy(theta))
 
     i = 0
     while True:
         
-        u_prime = u + sigma * torch.randn(nwalkers, ndim)
-        X_prime, logdetJ_prime = flow.inverse(u_prime)
+        theta_prime = theta + sigma * torch.randn(nwalkers, ndim)
+        u_prime, logdetJ_prime = flow.inverse(theta_prime)
+        x_prime, J_prime = scaler.inverse(torch_to_numpy(u_prime))
+        x_prime = numpy_to_torch(x_prime)
+        J_prime = numpy_to_torch(J_prime)
 
-        Z_prime, Zl_prime, Zp_prime, J_prime = logprob(torch_to_numpy(X_prime), return_torch=True)
+        L_prime = numpy_to_torch(loglike(torch_to_numpy(x_prime)))
+        P_prime = numpy_to_torch(logprior(torch_to_numpy(x_prime)))
+        Z_prime = numpy_to_torch(logprob(torch_to_numpy(L_prime), torch_to_numpy(P_prime), beta))
         J_prime += logdetJ_prime.sum(-1)
 
-        alpha = torch.minimum(torch.ones(len(X_prime)), torch.exp( Z_prime - Z + J_prime - J ))
+        alpha = torch.minimum(torch.ones(len(x_prime)), torch.exp( Z_prime - Z + J_prime - J ))
         alpha[torch.isnan(alpha)] = 0.0
         mask = torch.rand(nwalkers) < alpha
 
+        theta[mask] = theta_prime[mask]
         u[mask] = u_prime[mask]
+        x[mask] = x_prime[mask]
         J[mask] = J_prime[mask]
-        X[mask] = X_prime[mask]
         Z[mask] = Z_prime[mask]
-        Zl[mask] = Zl_prime[mask]
-        Zp[mask] = Zp_prime[mask]
+        L[mask] = L_prime[mask]
+        P[mask] = P_prime[mask]
 
-        if adapt:
-            sigma_prime = sigma + 1/(i+1) * (torch.mean(alpha) - target)
-            if sigma_prime > 1e-4:
-                sigma = sigma_prime
+        sigma_prime = sigma + 1/(i+1) * (torch.mean(alpha) - 0.234)
+        if sigma_prime > 1e-4:
+            sigma = sigma_prime
 
-        samples.append(X)
+        samples.append(x)
         i += 1
 
-        if corr_latent:
-            cc_prime = corr.get(torch_to_numpy(u))
-        else:
-            cc_prime = corr.get(torch_to_numpy(X))
+        cc_prime = corr.get(torch_to_numpy(theta))
 
         if progress_bar is not None:
             progress_bar.update_stats(dict(calls=progress_bar.info['calls']+nwalkers,
@@ -101,70 +117,93 @@ def PreconditionedMetropolis(logprob,
         if i >= nmax:
             break
 
-    return dict(X=torch_to_numpy(X),
+    return dict(u=torch_to_numpy(u),
+                x=torch_to_numpy(x),
+                J=torch_to_numpy(J),
                 Z=torch_to_numpy(Z),
-                Zl=torch_to_numpy(Zl),
-                Zp=torch_to_numpy(Zp),
+                L=torch_to_numpy(L),
+                P=torch_to_numpy(P),
                 scale=sigma.item(),
                 samples=torch_to_numpy(torch.vstack(samples)),
                 accept=torch.mean(alpha).item(),
                 steps=i)
 
 
-def Metropolis(logprob,
-               x,
-               nmin,
-               nmax,
-               sigma,
-               cov=None,
-               target=0.234,
-               adapt=True,
-               corr_threshold=0.8,
-               progress_bar=None):
+def Metropolis(state_dict=None,
+               function_dict=None,
+               option_dict=None):
+
+    # Get state variables
+    u = np.copy(state_dict.get('u'))
+    #x = state_dict.get('x')
+    #J = state_dict.get('J')
+    #L = state_dict.get('L')
+    #P = state_dict.get('P')
+    beta = state_dict.get('beta')
+
+    # Get functions
+    loglike = function_dict.get('loglike')
+    logprior = function_dict.get('logprior')
+    scaler = function_dict.get('scaler')
+    
+    # Get MCMC options
+    nmin = option_dict.get('nmin')
+    nmax = option_dict.get('nmax')
+    sigma = option_dict.get('sigma')
+    corr_threshold = option_dict.get('corr_threshold')
+    progress_bar = option_dict.get('progress_bar')
+
+    x, J = scaler.inverse(u) # TODO: remove these
+    L = loglike(x)
+    P = logprior(x)
 
     nwalkers, ndim = x.shape
 
-    if cov is None:
-        cov = np.identity(ndim)
-    L = np.linalg.cholesky(cov)
+    # Compute proposal sample covariance in u-space
+    cov = np.cov(u.T)
+    L_triangular = np.linalg.cholesky(cov)
 
     samples = []
     
-    X = np.copy(x)
-    Z, Zl, Zp, J = logprob(x, return_torch=False)
-    if progress_bar is not None:
-        progress_bar.update_stats(dict(calls=progress_bar.info['calls']+len(X)))
+    Z = logprob(L, P, beta)
 
-    corr = Pearson(x)
+    if progress_bar is not None:
+        progress_bar.update_stats(dict(calls=progress_bar.info['calls']))
+
+    corr = Pearson(u)
 
     i = 0
     while True:
 
-        X_prime = X + sigma * np.dot(L, np.random.randn(nwalkers, ndim).T).T
-        Z_prime, Zl_prime, Zp_prime, J_prime = logprob(X_prime, return_torch=False)
+        u_prime = u + sigma * np.dot(L_triangular, np.random.randn(nwalkers, ndim).T).T
+        x_prime, J_prime = scaler.inverse(u_prime)
+        L_prime = loglike(x_prime)
+        P_prime = logprior(x_prime)
+        Z_prime = logprob(L, P, beta)
 
-        alpha = np.minimum(np.ones(len(X_prime)), np.exp( Z_prime - Z + J_prime - J))
+        alpha = np.minimum(np.ones(len(u_prime)), np.exp( Z_prime - Z + J_prime - J))
+
         alpha[np.isnan(alpha)] = 0.0
         mask = np.random.rand(nwalkers) < alpha
 
+        u[mask] = u_prime[mask]
+        x[mask] = x_prime[mask]
         J[mask] = J_prime[mask]
-        X[mask] = X_prime[mask]
         Z[mask] = Z_prime[mask]
-        Zl[mask] = Zl_prime[mask]
-        Zp[mask] = Zp_prime[mask]
+        L[mask] = L_prime[mask]
+        P[mask] = P_prime[mask]
 
-        if adapt:
-            sigma_prime = sigma + 1/(i+1) * (np.mean(alpha) - target)
-            if sigma_prime > 1e-4:
-                sigma = sigma_prime
+        sigma_prime = sigma + 1/(i+1) * (np.mean(alpha) - 0.234)
+        if sigma_prime > 1e-4:
+            sigma = sigma_prime
 
-        samples.append(X)
+        samples.append(x)
         i += 1
 
-        cc_prime = corr.get(X)
+        cc_prime = corr.get(u)
 
         if progress_bar is not None:
-            progress_bar.update_stats(dict(calls=progress_bar.info['calls']+len(X),
+            progress_bar.update_stats(dict(calls=progress_bar.info['calls']+len(u),
                                            accept=np.mean(alpha),
                                            N=i,
                                            scale=sigma/(2.38/np.sqrt(ndim)),
@@ -181,11 +220,22 @@ def Metropolis(logprob,
         if i >= nmax:
             break
 
-    return dict(X=X,
+    return dict(u=u,
+                x=x,
+                J=J,
                 Z=Z,
-                Zl=Zl,
-                Zp=Zp,
+                L=L,
+                P=P,
                 scale=sigma,
                 samples=np.vstack(samples),
                 accept=np.mean(alpha),
                 steps=i)
+
+
+def logprob(L, P, beta):
+    L[np.isnan(L)] = -np.inf
+    L[np.isnan(P)] = -np.inf
+    L[~np.isfinite(P)] = -np.inf
+    P[np.isnan(P)] = -np.inf
+
+    return P + beta * L

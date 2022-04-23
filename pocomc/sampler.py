@@ -29,7 +29,6 @@ class Sampler:
                  target_accept=0.234,
                  flow_config=None,
                  train_config=None,
-                 corr_latent=False,
                  ):
 
         self.nwalkers = nwalkers
@@ -61,6 +60,13 @@ class Sampler:
         self.saved_scale = []
         self.saved_steps = []
 
+        # State variables
+        self.u = None
+        self.x = None
+        self.L = None
+        self.P = None
+        self.J = None
+
         # parallelism
         self.pool = pool
         if pool is None:
@@ -90,7 +96,6 @@ class Sampler:
 
         # temp 2
         self.corr_threshold = corr_threshold
-        self.corr_latent = corr_latent
 
 
     def run(self, x0, ess=0.95, nmin=5, nmax=1000, progress=True):
@@ -100,20 +105,23 @@ class Sampler:
         self.nmax = nmax
         self.progress = progress
 
-        x = np.copy(x0)
+        self.x = np.copy(x0)
 
-        self.loglike = self._loglike(x)
-        self.saved_logl.append(self.loglike)
-        self.ncall += len(x)
+        self.L = self._loglike(self.x)
+        self.saved_logl.append(self.L)
+        self.ncall += len(self.x)
 
-        self.scaler.fit(x)
-        self.u = self.scaler.forward(x)
+        self.scaler.fit(self.x)
+        self.u = self.scaler.forward(self.x)
+        self.J = self.scaler.inverse(self.u)[1]
+
+        self.P = self._logprior(self.x)
 
         if self.threshold >= 1.0:
             self.use_flow = True
             self._train(self.u)
 
-        self.saved_samples.append(x)
+        self.saved_samples.append(self.x)
         self.saved_iter.append(self.t)
         self.saved_beta.append(self.beta)
         self.saved_logw.append(np.zeros(self.nwalkers))
@@ -142,20 +150,28 @@ class Sampler:
             self._update_beta()
 
             # Resample x_prev, w
-            self.u = self._resample(self.u)
+            self.u, self.x, self.J, self.L, self.P = self._resample(self.u,
+                                                                    self.x,
+                                                                    self.J,
+                                                                    self.L,
+                                                                    self.P)
 
             # Evolve particles using MCMC
-            self.u = self._mutate(self.u)
+            self.u, self.x, self.J, self.L, self.P = self._mutate(self.u,
+                                                                  self.x,
+                                                                  self.J,
+                                                                  self.L,
+                                                                  self.P)
 
-            if self.rescale:
-                x = self.scaler.inverse(self.u)[0]
-                self.scaler.fit(x)
-                self.u = self.scaler.forward(x)
+            #if self.rescale:
+            #    x = self.scaler.inverse(self.u)[0]
+            #    self.scaler.fit(x)
+            #    self.u = self.scaler.forward(x)
 
             # Train Precondiotoner
             self._train(self.u)
 
-        self.saved_posterior_samples.append(self.scaler.inverse(self.u)[0])
+        self.saved_posterior_samples.append(self.x)
         
         self.pbar.close()
 
@@ -185,40 +201,45 @@ class Sampler:
         #self.u = np.tile(self.u.T, multiply).T
 
     
-    def _mutate(self, x_prev):
+    def _mutate(self, u, x, J, L, P):
+
+        state_dict = dict(u=u,
+                          x=x,
+                          J=J,
+                          L=L,
+                          P=P,
+                          beta=self.beta)
+
+        function_dict = dict(loglike=self._loglike,
+                             logprior=self._logprior,
+                             scaler=self.scaler,
+                             flow=self.flow)
+
+        option_dict = dict(nmin=self.nmin,
+                           nmax=self.nmax,
+                           corr_threshold=self.corr_threshold,
+                           sigma=self.scale,
+                           progress_bar=self.pbar)
 
         if self.use_flow:
-            results = PreconditionedMetropolis(self._logprob,
-                                               self.flow,
-                                               x_prev,
-                                               self.nmin,
-                                               self.nmax,
-                                               self.scale,
-                                               self.target_accept,
-                                               True,
-                                               self.corr_threshold,
-                                               self.corr_latent,
-                                               self.pbar)
+            results = PreconditionedMetropolis(state_dict,
+                                               function_dict, 
+                                               option_dict)
         else:
-            results = Metropolis(self._logprob,
-                                 x_prev,
-                                 self.nmin,
-                                 self.nmax,
-                                 self.scale,
-                                 np.cov(x_prev.T),
-                                 self.target_accept,
-                                 True,
-                                 self.corr_threshold,
-                                 self.pbar)
+            results = Metropolis(state_dict,
+                                 function_dict,
+                                 option_dict)
             
-        x = results.get('X')
-        Zl = results.get('Zl')
+        u = results.get('u')
+        x = results.get('x')
+        J = results.get('J')
+        L = results.get('L')
+        P = results.get('P')
+
         self.scale = results.get('scale')
         self.Nsteps = results.get('steps')
         self.accept = results.get('accept')
         
-        
-        self.loglike = np.copy(Zl)
         self.ncall += self.Nsteps * len(x)
 
         self.saved_ncall.append(self.ncall)
@@ -226,8 +247,7 @@ class Sampler:
         self.saved_scale.append(self.scale/self.ideal_scale)
         self.saved_steps.append(self.Nsteps)
 
-
-        return x
+        return u, x, J, L, P
 
 
     def _train(self, x):
@@ -240,12 +260,14 @@ class Sampler:
             pass
 
 
-    def _resample(self, x_prev):
-        self.saved_samples.append(self.scaler.inverse(x_prev)[0])
-        x_prev = resample_equal(x_prev, np.exp(self.logw-np.max(self.logw))/np.sum(np.exp(self.logw-np.max(self.logw))))
+    def _resample(self, u, x, J, L, P):
+        #self.saved_samples.append(self.scaler.inverse(x_prev)[0])
+        self.saved_samples.append(x)
+        idx = resample_equal(np.arange(len(u)), np.exp(self.logw-np.max(self.logw))/np.sum(np.exp(self.logw-np.max(self.logw))))
+        #x_prev = resample_equal(x_prev, np.exp(self.logw-np.max(self.logw))/np.sum(np.exp(self.logw-np.max(self.logw))))
         self.logw = 0.0
 
-        return x_prev
+        return u[idx], x[idx], J[idx], L[idx], P[idx]
 
     
     def _update_beta(self):
@@ -263,7 +285,7 @@ class Sampler:
         while True:
 
             beta = (beta_max + beta_min) * 0.5
-            self.logw = self.logw_prev + self.loglike * (beta - beta_prev)
+            self.logw = self.logw_prev + self.L * (beta - beta_prev)
             self.ess_est = get_ESS(self.logw)
 
             if len(self.saved_beta) > 1:
@@ -308,23 +330,6 @@ class Sampler:
         else:
             return np.array(list(map(self.loglikelihood, x)))
 
-
-    def _logprob(self, u, return_torch=False):
-        x, J = self.scaler.inverse(u)
-
-        Zp = self._logprior(x)
-        Zl = self._loglike(x)
-
-        Zl[np.isnan(Zl)] = -np.inf
-        Zl[np.isnan(Zp)] = -np.inf
-        Zl[~np.isfinite(Zp)] = -np.inf
-
-        Z = Zp + self.beta * Zl
-        if return_torch:
-            return numpy_to_torch(Z), numpy_to_torch(Zl), numpy_to_torch(Zp), numpy_to_torch(J)
-        else:
-            return Z, Zl, Zp, J
-        
 
     def __getstate__(self):
         """Get state information for pickling."""

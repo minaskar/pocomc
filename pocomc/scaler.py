@@ -31,23 +31,6 @@ class Reparameterise:
             self.Linv = np.linalg.inv(self.L)
             self.logdetL = np.linalg.slogdet(self.L)[1]
 
-    def refit(self, u):
-
-        self.mu = np.mean(u, axis=0)
-        if self.diagonal:
-            self.sigma = np.std(u, axis=0)
-        else:
-            self.cov = np.cov(u.T)
-            self.L = np.linalg.cholesky(self.cov)
-            self.Linv = np.linalg.inv(self.L)
-            self.logdetL = np.linalg.slogdet(self.L)[1]
-
-    def reforward(self, u):
-        if self.scale:
-            u = self._forward_affine(u)
-
-        return u
-
     def forward(self, x):
         
         u = self._forward(x)
@@ -153,6 +136,7 @@ class Reparameterise:
         self.mask_both = np.zeros(self.ndim, dtype=bool)
         self.mask_none = np.zeros(self.ndim, dtype=bool)
 
+        # TODO: Do this more elegantly, it's a shame
         for i in range(self.ndim):
             if np.isnan(self.low[i]) and np.isnan(self.high[i]):
                 self.mask_none[i] = True
