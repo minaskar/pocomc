@@ -100,27 +100,28 @@ class Sampler:
 
     def run(self, x0, ess=0.95, nmin=5, nmax=1000, progress=True):
 
+        # Run parameters
         self.ess = ess
         self.nmin = nmin
         self.nmax = nmax
         self.progress = progress
 
+        # Set state parameters
         self.x = np.copy(x0)
-
+        self.scaler.fit(self.x)
+        self.u = self.scaler.forward(self.x)
+        self.J = self.scaler.inverse(self.u)[1]
+        self.P = self._logprior(self.x)
         self.L = self._loglike(self.x)
         self.saved_logl.append(self.L)
         self.ncall += len(self.x)
 
-        self.scaler.fit(self.x)
-        self.u = self.scaler.forward(self.x)
-        self.J = self.scaler.inverse(self.u)[1]
-
-        self.P = self._logprior(self.x)
-
+        # Pre-train flow if required
         if self.threshold >= 1.0:
             self.use_flow = True
             self._train(self.u)
 
+        # Save state
         self.saved_samples.append(self.x)
         self.saved_iter.append(self.t)
         self.saved_beta.append(self.beta)
@@ -135,15 +136,14 @@ class Sampler:
         # Initialise progress bar
         self.pbar = ProgressBar(self.progress)
         self.pbar.update_stats(dict(beta=self.beta,
-                               calls=self.ncall,
-                               ESS=self.ess,
-                               logZ=self.logz,
-                               accept=0,
-                               N=0,
-                               scale=0,
-                              )
-                         )
+                                    calls=self.ncall,
+                                    ESS=self.ess,
+                                    logZ=self.logz,
+                                    accept=0.234,
+                                    N=0,
+                                    scale=1.0))
         
+        # Run Sequential Monte Carlo
         while 1.0 - self.beta >= 1e-4:
 
             # Choose next beta based on CV of weights

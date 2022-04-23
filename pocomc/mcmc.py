@@ -181,7 +181,7 @@ def Metropolis(state_dict=None,
         P_prime = logprior(x_prime)
         Z_prime = logprob(L, P, beta)
 
-        alpha = np.minimum(np.ones(len(u_prime)), np.exp( Z_prime - Z + J_prime - J))
+        alpha = np.minimum(np.ones(len(u_prime)), np.exp( Z_prime - Z + J_prime - J ))
 
         alpha[np.isnan(alpha)] = 0.0
         mask = np.random.rand(nwalkers) < alpha
