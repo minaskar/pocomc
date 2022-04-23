@@ -63,9 +63,9 @@ class Sampler:
         # State variables
         self.u = None
         self.x = None
+        self.J = None
         self.L = None
         self.P = None
-        self.J = None
 
         # parallelism
         self.pool = pool
@@ -87,8 +87,8 @@ class Sampler:
         self.rescale = rescale
 
         # temp
-        self.ideal_scale = 2.38/np.sqrt(ndim)
-        self.scale = 2.38/np.sqrt(ndim)
+        self.ideal_scale = 2.38 / np.sqrt(ndim)
+        self.scale = 2.38 / np.sqrt(ndim)
         self.threshold = threshold
         self.use_flow = False
         self.accept = target_accept
@@ -115,6 +115,8 @@ class Sampler:
         self.L = self._loglike(self.x)
         self.saved_logl.append(self.L)
         self.ncall += len(self.x)
+
+        assert np.allclose(self.scaler.inverse(self.u)[0], self.x)
 
         # Pre-train flow if required
         if self.threshold >= 1.0:
@@ -181,13 +183,12 @@ class Sampler:
 
         self.pbar = ProgressBar(self.progress)
         self.pbar.update_stats(dict(beta=self.beta,
-                               calls=self.ncall,
-                               ESS=self.ess,
-                               logZ=self.logz,
-                               accept=0,
-                               N=0,
-                               scale=0,
-                              ))
+                                    calls=self.ncall,
+                                    ESS=self.ess,
+                                    logZ=self.logz,
+                                    accept=0,
+                                    N=0,
+                                    scale=0))
 
         iterations = int(np.ceil(N/len(self.u)))
         for _ in range(iterations):
@@ -261,10 +262,8 @@ class Sampler:
 
 
     def _resample(self, u, x, J, L, P):
-        #self.saved_samples.append(self.scaler.inverse(x_prev)[0])
         self.saved_samples.append(x)
         idx = resample_equal(np.arange(len(u)), np.exp(self.logw-np.max(self.logw))/np.sum(np.exp(self.logw-np.max(self.logw))))
-        #x_prev = resample_equal(x_prev, np.exp(self.logw-np.max(self.logw))/np.sum(np.exp(self.logw-np.max(self.logw))))
         self.logw = 0.0
 
         return u[idx], x[idx], J[idx], L[idx], P[idx]
