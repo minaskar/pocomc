@@ -192,10 +192,14 @@ class Sampler:
 
         iterations = int(np.ceil(N/len(self.u)))
         for _ in range(iterations):
-            self.u = self._mutate(self.u)
+            self.u, self.x, self.J, self.L, self.P = self._mutate(self.u,
+                                                                  self.x,
+                                                                  self.J,
+                                                                  self.L,
+                                                                  self.P)
             if retrain:
                 self._train(self.u)
-            self.saved_posterior_samples.append(self.scaler.inverse(self.u)[0])
+            self.saved_posterior_samples.append(self.x)
             self.pbar.update_iter()
 
         self.pbar.close()
