@@ -8,7 +8,7 @@ from .flow import Flow
 class Sampler:
 
     def __init__(self,
-                 nwalkers,
+                 nparticles,
                  ndim,
                  loglikelihood,
                  logprior,
@@ -21,17 +21,16 @@ class Sampler:
                  loglikelihood_kwargs=None,
                  logprior_args=None,
                  logprior_kwargs=None,
-                 vectorize=False,
+                 vectorize_likelihood=False,
                  vectorize_prior=False,
                  pool=None,
                  parallelize_prior=False,
                  corr_threshold=None,
-                 target_accept=0.234,
                  flow_config=None,
                  train_config=None,
                  ):
 
-        self.nwalkers = nwalkers
+        self.nwalkers = nparticles
         self.ndim = ndim
         
         # Distributions
@@ -67,18 +66,20 @@ class Sampler:
         self.L = None
         self.P = None
 
-        # parallelism
+        # Parallelism
         self.pool = pool
         if pool is None:
             self.distribute = map
         else:
             self.distribute = pool.map
-        self.vectorize = vectorize
+        self.vectorize_likelihood = vectorize_likelihood
         self.vectorize_prior = vectorize_prior
         self.parallelize_prior = parallelize_prior
 
         # Flow
         self.flow = Flow(self.ndim, flow_config, train_config)
+        self.threshold = threshold
+        self.use_flow = False
         
         # Scaler
         if bounds is None:
@@ -86,15 +87,11 @@ class Sampler:
         self.scaler = Reparameterise(bounds, scale, diagonal)
         self.rescale = rescale
 
-        # temp
+        # MCMC parameters
         self.ideal_scale = 2.38 / np.sqrt(ndim)
         self.scale = 2.38 / np.sqrt(ndim)
-        self.threshold = threshold
-        self.use_flow = False
-        self.accept = target_accept
-        self.target_accept = target_accept
-
-        # temp 2
+        self.accept = 0.234
+        self.target_accept = 0.234
         self.corr_threshold = corr_threshold
 
 
@@ -113,10 +110,7 @@ class Sampler:
         self.J = self.scaler.inverse(self.u)[1]
         self.P = self._logprior(self.x)
         self.L = self._loglike(self.x)
-        self.saved_logl.append(self.L)
         self.ncall += len(self.x)
-
-        assert np.allclose(self.scaler.inverse(self.u)[0], self.x)
 
         # Pre-train flow if required
         if self.threshold >= 1.0:
@@ -125,6 +119,7 @@ class Sampler:
 
         # Save state
         self.saved_samples.append(self.x)
+        self.saved_logl.append(self.L)
         self.saved_iter.append(self.t)
         self.saved_beta.append(self.beta)
         self.saved_logw.append(np.zeros(self.nwalkers))
@@ -165,10 +160,11 @@ class Sampler:
                                                                   self.L,
                                                                   self.P)
 
-            #if self.rescale:
-            #    x = self.scaler.inverse(self.u)[0]
-            #    self.scaler.fit(x)
-            #    self.u = self.scaler.forward(x)
+            # Rescale parameters
+            if self.rescale:
+                self.scaler.fit(self.x)
+                self.u = self.scaler.forward(self.x)
+                self.J = self.scaler.inverse(self.u)[1]
 
             # Train Precondiotoner
             self._train(self.u)
@@ -255,9 +251,9 @@ class Sampler:
         return u, x, J, L, P
 
 
-    def _train(self, x):
+    def _train(self, u):
         if (self.scale < self.threshold * self.ideal_scale and self.t > 1) or self.use_flow:
-            y = np.copy(x)
+            y = np.copy(u)
             np.random.shuffle(y)
             self.flow.fit(numpy_to_torch(y))
             self.use_flow = True
@@ -326,7 +322,7 @@ class Sampler:
 
 
     def _loglike(self, x):
-        if self.vectorize:
+        if self.vectorize_likelihood:
             return self.loglikelihood(x)
         elif self.pool is not None:
             return np.array(list(self.distribute(self.loglikelihood, x)))
@@ -359,7 +355,7 @@ class Sampler:
             'iter' : np.array(self.saved_iter),
             'samples' : np.array(self.saved_samples),
             'posterior_samples' : np.vstack(self.saved_posterior_samples),
-            'logl' : np.array(self.saved_samples),
+            'logl' : np.array(self.saved_logl),
             'logw' : np.array(self.saved_logw),
             'logz' : np.array(self.saved_logz),
             'ess' : np.array(self.saved_ess),
