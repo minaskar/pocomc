@@ -2,10 +2,11 @@
 API Reference
 =============
 
-**pocoMC** consists mainly of the following parts:
+``pocoMC`` consists mainly of the following parts:
 
-The Sampler
-===========
+.. toctree::
+    :maxdepth: 1
 
-.. autoclass:: pocomc.Sampler
-    :members:
+    api/sampler
+    api/plotting
+

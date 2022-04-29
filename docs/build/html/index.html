@@ -129,9 +129,31 @@
   </ul>
  </li>
  <li class="toctree-l1">
+  <a class="reference internal" href="faq.html">
+   FAQ
+  </a>
+ </li>
+ <li class="toctree-l1 has-children">
   <a class="reference internal" href="api.html">
    API Reference
   </a>
+  <input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/>
+  <label for="toctree-checkbox-2">
+   <i class="fas fa-chevron-down">
+   </i>
+  </label>
+  <ul>
+   <li class="toctree-l2">
+    <a class="reference internal" href="api/sampler.html">
+     Sampler
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="api/plotting.html">
+     Plotting
+    </a>
+   </li>
+  </ul>
  </li>
  <li class="toctree-l1">
   <a class="reference external" href="https://github.com/minaskar/pocomc">
@@ -272,7 +294,7 @@ title="Print to PDF"
         <ul class="visible nav section-nav flex-column">
  <li class="toc-h1 nav-item toc-entry">
   <a class="reference internal nav-link" href="#">
-   Attribution
+   Attribution &amp; Citation
   </a>
  </li>
  <li class="toc-h1 nav-item toc-entry">
@@ -294,7 +316,7 @@ title="Print to PDF"
         <div class="col pl-md-3 pl-lg-5 content-container">
             <!-- Table of contents that is only displayed when printing the page -->
             <div id="jb-print-docs-body" class="onlyprint">
-                <h1>Attribution</h1>
+                <h1>Attribution & Citation</h1>
                 <!-- Table of contents -->
                 <div id="print-main-content">
                     <div id="jb-print-toc">
@@ -306,7 +328,7 @@ title="Print to PDF"
                             <ul class="visible nav section-nav flex-column">
  <li class="toc-h1 nav-item toc-entry">
   <a class="reference internal nav-link" href="#">
-   Attribution
+   Attribution &amp; Citation
   </a>
  </li>
  <li class="toc-h1 nav-item toc-entry">
@@ -332,35 +354,34 @@ title="Print to PDF"
   <figure class="align-center">
 <a class="reference internal image-reference" href="_images/logo.png"><img alt="_images/logo.png" src="_images/logo.png" style="width: 591.3px; height: 141.9px;" /></a>
 </figure>
-<p><strong>pocoMC</strong> is a Python implementation of Preconditioned Monte Carlo (PMC). Using
-<cite>pocoMC</cite> one can perform Bayesian inference, including model comparison, for
-challenging scientific problems. <cite>pocoMC</cite>’s sophisticated normalizing flow
-preconditioning procedures enables sampling from highly correlated posterior
-distributions. <cite>pocoMC</cite> is designed to excel in demanding parameter estimation
+<p><code class="docutils literal notranslate"><span class="pre">pocoMC</span></code> is a Python implementation of <cite>Preconditioned Monte Carlo (PMC)</cite>.
+Using <code class="docutils literal notranslate"><span class="pre">pocoMC</span></code> one can perform Bayesian inference, including model comparison,
+for challenging scientific problems. <code class="docutils literal notranslate"><span class="pre">pocoMC</span></code>’s sophisticated <cite>normalizing flow
+preconditioning</cite> procedures enable efficient sampling from highly correlated posterior
+distributions. <code class="docutils literal notranslate"><span class="pre">pocoMC</span></code> is designed to excel in demanding parameter estimation
 problems that include multimodal and highly non–Gaussian target distributions.</p>
 <div class="tip admonition">
 <p class="admonition-title">Where to start?</p>
-<p>🖥 A good place to get started is with the {ref}`install` and then the
-{ref}`tutorials`.</p>
-<p>📖 For all the details, check out the {ref}`guide`, including the [full API
-documentation](api-ref).</p>
-<p>💡 If you’re running into problems getting <cite>pocoMC</cite> to do what you want, first
-check out the {ref}`troubleshooting` page, for some general tips and tricks.</p>
-<p>🐛 If {ref}`troubleshooting` doesn’t solve your problems, or if you find bugs,
-check out the {ref}`contributing` and then head on over to the [GitHub issues
-page](<a class="reference external" href="https://github.com/minaskar/pocomc/issues">https://github.com/minaskar/pocomc/issues</a>).</p>
+<p>🖥 A good place to get started is with the <a class="reference internal" href="install.html"><span class="doc">Installation</span></a> and then the
+<a class="reference internal" href="pages/quickstart.html"><span class="doc">Quickstart</span></a> guide.</p>
+<p>📖 For more details, check out the <a class="reference internal" href="tutorials.html"><span class="doc">Tutorials</span></a>, including the full <a class="reference internal" href="api.html"><span class="doc">API Reference</span></a>
+documentation.</p>
+<p>💡 If you’re running into problems getting <code class="docutils literal notranslate"><span class="pre">pocoMC</span></code> to do what you want, first
+check out the <a class="reference internal" href="faq.html"><span class="doc">FAQ</span></a> page, for some general tips and tricks.</p>
+<p>🐛 If <a class="reference internal" href="faq.html"><span class="doc">FAQ</span></a> doesn’t solve your problems, or if you find bugs,
+then head on over to the <a class="reference external" href="https://github.com/minaskar/pocomc/issues">GitHub issues page</a>.</p>
 <p>👈 Check out the sidebar to find the full table of contents.</p>
 </div>
 <div class="toctree-wrapper compound">
 </div>
-<section id="attribution">
-<h1>Attribution<a class="headerlink" href="#attribution" title="Permalink to this headline">#</a></h1>
+<section id="attribution-citation">
+<h1>Attribution &amp; Citation<a class="headerlink" href="#attribution-citation" title="Permalink to this headline">#</a></h1>
 <p>Please cite the following if you find this code useful in your
 research. The BibTeX entry for the paper is:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nd">@article</span><span class="p">{</span><span class="n">x</span><span class="p">,</span>
     <span class="n">title</span><span class="o">=</span><span class="p">{</span><span class="n">x</span><span class="p">},</span>
     <span class="n">author</span><span class="o">=</span><span class="p">{</span><span class="n">x</span><span class="p">},</span>
-    <span class="n">year</span><span class="o">=</span><span class="p">{</span><span class="n">x</span><span class="p">},</span>
+    <span class="n">year</span><span class="o">=</span><span class="p">{</span><span class="mi">2022</span><span class="p">},</span>
     <span class="n">note</span><span class="o">=</span><span class="p">{</span><span class="ow">in</span> <span class="n">prep</span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
