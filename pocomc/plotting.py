@@ -1,11 +1,11 @@
 import numpy as np
 
-def traceplot(results,
-              labels=None,
-              figure_width=10.0,
-              figure_height=3.0,
-              kde_bins=200,
-              ):
+def trace(results,
+          labels=None,
+          figure_width=10.0,
+          figure_height=3.0,
+          kde_bins=200,
+         ):
 
     # import plt and scipy
     import matplotlib.pyplot as plt
@@ -52,7 +52,7 @@ def traceplot(results,
 
         # Right column -- trace plots
         plt.subplot(n_dim, 2, 2 * i + 2)
-        plt.plot(x, kde(x), c='C0', lw=2.0)
+        plt.fill_between(x, kde(x), alpha=0.8)
         plt.xlabel(labels[i], fontsize=14)
         plt.ylabel('')
         plt.xticks(fontsize=12)
@@ -62,11 +62,45 @@ def traceplot(results,
     return fig
 
 
-def cornerplot(results):
+def corner(results,
+           labels=None,
+           color='C0',
+           bins=20,
+           range=None,
+           smooth=None,
+           smooth1d=None,
+           titles=None,
+           show_titles=True,
+           title_quantiles=None,
+           ):
 
+    # import corner
     import corner
-    
-    #return corner.corner(results.poster)
 
-def runplot(results):
+    # Get posterior samples
+    posterior_samples = results.get("posterior_samples")
+
+    # Number of  particles and parameters/dimensions
+    n_particles, n_dim = np.shape(posterior_samples)
+
+    # Set labels if None is provided
+    if labels is None:
+        labels = [r"$x_{%s}$"%i for i in range(n_dim)]
+    
+    return corner.corner(data=posterior_samples,
+                         labels=labels,
+                         color=color,
+                         bins=bins,
+                         range=range,
+                         smooth=smooth,
+                         smooth1d=smooth1d,
+                         titles=titles,
+                         show_titles=show_titles,
+                         title_quantiles=title_quantiles,
+
+
+                        )
+
+
+def run(results):
     pass

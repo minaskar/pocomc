@@ -6,6 +6,26 @@ from .scaler import Reparameterise
 from .flow import Flow
 
 class Sampler:
+    r"""Main Precondioned Monte Carlo sampler class.
+
+    Parameters
+    ----------
+    nparticles : int
+        The total number of particles/walkers to use.
+    ndim : int
+        The total number of parameters/dimensions.
+    loglikelihood : callable
+        Function returning the log likelihood of a set
+        of parameters.
+    logprior : callable
+        Function returning the log prior of a set
+        of parameters.
+    bounds : `np.ndarray` or None
+        Array of shape `(ndim, 2)` holding the boundaries
+        of parameters (default is `bounds=None`). If a
+        parameter is unbounded from below, above or both
+        please provide `None` for the respective boundary.
+    """
 
     def __init__(self,
                  nparticles,
@@ -96,6 +116,23 @@ class Sampler:
 
 
     def run(self, x0, ess=0.95, nmin=5, nmax=1000, progress=True):
+        r"""Method that runs Preconditioned Monte Carlo.
+
+        Parameters
+        ----------
+        x0 : `np.ndarray`
+            Array holding the initial positions of the particles. The initial
+            positions must be sampled from the prior distribution.
+        ess : float
+            The effective sample size maintained during the run (default is
+            `ess=0.95`).
+        nmin : int
+            The minimum number of MCMC steps per iteration (default is `nmin=5`).
+        nmax : int
+            The maximum number of MCMC steps per iteration  (default is `nmin=1000`).
+        progress : bool
+            Whether or not to print progress bar (default is `progress=True`).        
+        """
 
         # Run parameters
         self.ess = ess
@@ -175,6 +212,18 @@ class Sampler:
 
     
     def add_samples(self, N=1000, retrain=False, progress=True):
+        r"""Method that generates additional samples at the end of the run
+
+        Parameters
+        ----------
+        N : int
+            The number of additional samples (default is `N=1000`).
+        retrain : bool
+            Whether or not to retrain the normalising flow preconditioner
+            between iterations (default is `retrain=False`).
+        progress : bool
+            Whether or not to print progress bar (default is `progress=True`).
+        """
         self.progress = progress
 
         self.pbar = ProgressBar(self.progress)

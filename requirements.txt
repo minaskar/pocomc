@@ -3,3 +3,4 @@ torch
 tqdm
 matplotlib
 scipy
+corner
