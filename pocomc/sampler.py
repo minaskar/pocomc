@@ -25,6 +25,18 @@ class Sampler:
         of parameters (default is `bounds=None`). If a
         parameter is unbounded from below, above or both
         please provide `None` for the respective boundary.
+    threshold : float
+        The threshold value for the (normalised) proposal
+        scale parameter below which normalising flow
+        preconditioning (NFP) is enabled (default is
+        `threshold=1.0`, meaning that NFP is used all the
+        time).
+    
+    Attributes
+    ----------
+    results : dict
+        Dictionary holding results. Includes the following
+        properties...
     """
 
     def __init__(self,

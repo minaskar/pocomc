@@ -2,10 +2,27 @@ import numpy as np
 
 def trace(results,
           labels=None,
-          figure_width=10.0,
-          figure_height=3.0,
+          width=10.0,
+          height=3.0,
           kde_bins=200,
          ):
+    r"""Trace plot.
+
+    Parameters
+    ----------
+    results : dict
+        Result dictionary produced using ``pocoMC``.
+    labels : list or None
+        List of parameter names to include in the figure. If ``labels=None``
+        (default) the labels are set automatically.
+    width : float
+        width of figure (default is ``width=10.0``).
+    height : float
+        Height of each subplot (default is ``height=3.0``).
+    kde_bins : int
+        Number of bins to use for KDE (default is ``kde_bins=200``).
+    
+    """
 
     # import plt and scipy
     import matplotlib.pyplot as plt
@@ -28,7 +45,7 @@ def trace(results,
         labels = [r"$x_{%s}$"%i for i in range(n_dim)]
 
     # Initialise figure
-    fig = plt.figure(figsize=(figure_width, n_dim * figure_height))
+    fig = plt.figure(figsize=(width, n_dim * height))
 
     # Loop over parameters/dimensions
     for i in range(n_dim):
