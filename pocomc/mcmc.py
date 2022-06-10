@@ -227,6 +227,107 @@ def Metropolis(state_dict=None,
                 steps=i)
 
 
+@torch.no_grad()
+def PreconditionedIndependentMetropolis(state_dict=None,
+                                        function_dict=None,
+                                        option_dict=None):
+
+    # Clone state variables
+    u = torch.clone(numpy_to_torch(state_dict.get('u')))
+    x = torch.clone(numpy_to_torch(state_dict.get('x')))
+    J = torch.clone(numpy_to_torch(state_dict.get('J')))
+    L = torch.clone(numpy_to_torch(state_dict.get('L')))
+    P = torch.clone(numpy_to_torch(state_dict.get('P')))
+    beta = state_dict.get('beta')
+    Z = numpy_to_torch(logprob(torch_to_numpy(L), torch_to_numpy(P), beta))
+
+    # Get functions
+    loglike = function_dict.get('loglike')
+    logprior = function_dict.get('logprior')
+    scaler = function_dict.get('scaler')
+    flow = function_dict.get('flow')
+    
+    # Get MCMC options
+    nmin = option_dict.get('nmin')
+    nmax = option_dict.get('nmax')
+    sigma = option_dict.get('sigma')
+    paccept = option_dict.get('paccept')
+    progress_bar = option_dict.get('progress_bar')
+
+    # Get number of particles and parameters/dimensions
+    nwalkers, ndim = x.shape    
+
+    # Transform u to theta
+    theta, logdetJ = flow.forward(u)
+    J_flow = -logdetJ.sum(-1)
+
+    i = 0
+    while True:
+        i += 1
+
+        # Propose new points in theta space
+        #theta_prime = theta + sigma * torch.randn(nwalkers, ndim)
+        theta_prime = torch.randn(nwalkers, ndim)
+
+        # Transform to u space
+        u_prime, logdetJ_prime = flow.inverse(theta_prime)
+        J_flow_prime = logdetJ_prime.sum(-1)
+
+        # Transform to x space
+        x_prime, J_prime = scaler.inverse(torch_to_numpy(u_prime))
+        x_prime = numpy_to_torch(x_prime)
+        J_prime = numpy_to_torch(J_prime)
+
+        # Compute log-likelihood, log-prior, and log-posterior
+        L_prime = numpy_to_torch(loglike(torch_to_numpy(x_prime)))
+        P_prime = numpy_to_torch(logprior(torch_to_numpy(x_prime)))
+        Z_prime = numpy_to_torch(logprob(torch_to_numpy(L_prime), torch_to_numpy(P_prime), beta))
+        
+        # Compute Metropolis factors
+        alpha = torch.minimum(torch.ones(nwalkers),
+                              torch.exp( Z_prime - Z + J_prime - J + J_flow_prime - J_flow))
+        alpha[torch.isnan(alpha)] = 0.0
+
+        # Metropolis criterion
+        mask = torch.rand(nwalkers) < alpha
+
+        # Accept new points
+        theta[mask] = theta_prime[mask]
+        u[mask] = u_prime[mask]
+        x[mask] = x_prime[mask]
+        J[mask] = J_prime[mask]
+        J_flow[mask] = J_flow_prime[mask]
+        Z[mask] = Z_prime[mask]
+        L[mask] = L_prime[mask]
+        P[mask] = P_prime[mask]
+
+
+        # Update progress bar if available
+        if progress_bar is not None:
+            progress_bar.update_stats(dict(calls=progress_bar.info['calls']+nwalkers,
+                                           accept=torch.mean(alpha).item(),
+                                           N=i,
+                                           scale=None,
+                                           corr=None))
+
+        # Loop termination criteria:
+        if i >= int(np.log(1.0-paccept) / np.log(1.0-torch.mean(alpha).item())) + 1:
+            break
+        #elif i >= nmin:
+        #    break
+        elif i >= nmax:
+            break
+
+    return dict(u=torch_to_numpy(u),
+                x=torch_to_numpy(x),
+                J=torch_to_numpy(J),
+                L=torch_to_numpy(L),
+                P=torch_to_numpy(P),
+                scale=sigma,
+                accept=torch.mean(alpha).item(),
+                steps=i)
+
+
 def logprob(L, P, beta):
     L[np.isnan(L)] = -np.inf
     L[np.isnan(P)] = -np.inf

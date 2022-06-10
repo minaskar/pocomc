@@ -1,6 +1,6 @@
 import numpy as np
 
-from .mcmc import PreconditionedMetropolis, Metropolis
+from .mcmc import PreconditionedMetropolis, Metropolis, PreconditionedIndependentMetropolis
 from .tools import resample_equal, _FunctionWrapper, torch_to_numpy, numpy_to_torch, get_ESS, ProgressBar
 from .scaler import Reparameterise
 from .flow import Flow
@@ -20,23 +20,66 @@ class Sampler:
     logprior : callable
         Function returning the log prior of a set
         of parameters.
-    bounds : `np.ndarray` or None
-        Array of shape `(ndim, 2)` holding the boundaries
-        of parameters (default is `bounds=None`). If a
+    bounds : ``np.ndarray`` or None
+        Array of shape ``(ndim, 2)`` holding the boundaries
+        of parameters (default is ``bounds=None``). If a
         parameter is unbounded from below, above or both
-        please provide `None` for the respective boundary.
+        please provide ``None`` for the respective boundary.
     threshold : float
         The threshold value for the (normalised) proposal
         scale parameter below which normalising flow
         preconditioning (NFP) is enabled (default is
-        `threshold=1.0`, meaning that NFP is used all the
-        time).
+        ``threshold=1.0``, meaning that NFP is used all
+        the time).
+    scale : bool
+        Scale
+    rescale : bool
+        Rescale
+    diagonal : bool
+        Diagonal
+    loglikelihood_args : list
+        Extra arguments to be passed into the loglikelihood
+        (default is ``loglikelihood_args=None``).
+    loglikelihood_kwargs : list
+        Extra arguments to be passed into the loglikelihood
+        (default is ``loglikelihood_kwargs=None``).
+    logprior_args : list
+        Extra arguments to be passed into the logprior
+        (default is ``logprior_args=None``).
+    logprior_kwargs : list
+        Extra arguments to be passed into the logprior
+        (default is ``logprior_kwargs=None``).
+    vectorize_likelihood : bool
+        Whether or not to vectorize the ``loglikelihood``
+        calculation (default is ``vectorize_likelihood=False``).
+    vectorize_logprior : bool
+        Whether or not to vectorize the ``logprior``
+        calculation (default is ``vectorize_prior=False``).
+    pool : pool
+        Provided ``MPI`` or ``multiprocessing`` pool for
+        parallelisation (default is ``pool=None``).
+    parallelize_prior : bool
+        Whether or not to use the ``pool`` (if provided)
+        for the ``logprior`` as well (default is 
+        ``parallelize_prior=False``).
+    corr_threshold : float
+        Threshold for the correlation coefficient that is
+        used to adaptively determine the number of MCMC
+        steps (default is ``corr_threshold=0.75``).
+    flow_config : dict or ``None``
+        Configuration of the normalizing flow (default is
+        ``flow_config=None``).
+    train_config : dict or ``None``
+        Configuration for training the normalizing flow
+        (default is ``train_config=None``).
     
     Attributes
     ----------
     results : dict
         Dictionary holding results. Includes the following
-        properties...
+        properties: ``iter``, ``samples``, ``posterior_samples``,
+        ``logw``, ``logl``, ``logz``, ``ess``, ``ncall``, 
+        ``beta``, ``accept``, ``scale``, and ``steps``.
     """
 
     def __init__(self,
@@ -45,7 +88,7 @@ class Sampler:
                  loglikelihood,
                  logprior,
                  bounds=None,
-                 threshold=0.75,
+                 threshold=1.0,
                  scale=True,
                  rescale=False,
                  diagonal=True,
@@ -57,7 +100,10 @@ class Sampler:
                  vectorize_prior=False,
                  pool=None,
                  parallelize_prior=False,
-                 corr_threshold=None,
+                 corr_threshold=0.75,
+                 ind_threshold=0.1, # Acceptance threshold below which preconditioning is prefered
+                 ind_accept=0.9, # Adjust the number of independent Metropolis iteration to achiieve this probability of acceptance
+                 use_independent=False, # Use independent Metropolis
                  flow_config=None,
                  train_config=None,
                  ):
@@ -66,8 +112,12 @@ class Sampler:
         self.ndim = ndim
         
         # Distributions
-        self.loglikelihood = _FunctionWrapper(loglikelihood, loglikelihood_args, loglikelihood_kwargs)
-        self.logprior = _FunctionWrapper(logprior, logprior_args, logprior_kwargs)
+        self.loglikelihood = _FunctionWrapper(loglikelihood,
+                                              loglikelihood_args, 
+                                              loglikelihood_kwargs)
+        self.logprior = _FunctionWrapper(logprior, 
+                                         logprior_args, 
+                                         logprior_kwargs)
 
         # Sampling
         self.ncall = 0
@@ -81,7 +131,10 @@ class Sampler:
         self.saved_iter = []
         self.saved_samples = []
         self.saved_posterior_samples = []
+        self.saved_posterior_logl = []
+        self.saved_posterior_logp = []
         self.saved_logl = []
+        self.saved_logp = []
         self.saved_logw = []
         self.saved_logz = []
         self.saved_ess = []
@@ -125,9 +178,18 @@ class Sampler:
         self.accept = 0.234
         self.target_accept = 0.234
         self.corr_threshold = corr_threshold
+        self.ind_threshold = ind_threshold
+        self.paccept = ind_accept
+        self.use_independent = use_independent
 
 
-    def run(self, x0, ess=0.95, nmin=5, nmax=1000, progress=True):
+    def run(self,
+            x0,
+            ess=0.95,
+            nmin=5,
+            nmax=1000,
+            progress=True
+            ):
         r"""Method that runs Preconditioned Monte Carlo.
 
         Parameters
@@ -169,6 +231,7 @@ class Sampler:
         # Save state
         self.saved_samples.append(self.x)
         self.saved_logl.append(self.L)
+        self.saved_logp.append(self.P)
         self.saved_iter.append(self.t)
         self.saved_beta.append(self.beta)
         self.saved_logw.append(np.zeros(self.nwalkers))
@@ -218,12 +281,18 @@ class Sampler:
             # Train Precondiotoner
             self._train(self.u)
 
-        self.saved_posterior_samples.append(self.x)
+        self.saved_posterior_samples.append(self.x.copy())
+        self.saved_posterior_logl.append(self.L.copy())
+        self.saved_posterior_logp.append(self.P.copy())
         
         self.pbar.close()
 
     
-    def add_samples(self, N=1000, retrain=False, progress=True):
+    def add_samples(self,
+                    N=1000,
+                    retrain=False, 
+                    progress=True
+                    ):
         r"""Method that generates additional samples at the end of the run
 
         Parameters
@@ -257,6 +326,8 @@ class Sampler:
             if retrain:
                 self._train(self.u)
             self.saved_posterior_samples.append(self.x)
+            self.saved_posterior_logl.append(self.L)
+            self.saved_posterior_logp.append(self.P)
             self.pbar.update_iter()
 
         self.pbar.close()
@@ -265,11 +336,11 @@ class Sampler:
     
     def _mutate(self, u, x, J, L, P):
 
-        state_dict = dict(u=u,
-                          x=x,
-                          J=J,
-                          L=L,
-                          P=P,
+        state_dict = dict(u=u.copy(),
+                          x=x.copy(),
+                          J=J.copy(),
+                          L=L.copy(),
+                          P=P.copy(),
                           beta=self.beta)
 
         function_dict = dict(loglike=self._loglike,
@@ -280,23 +351,29 @@ class Sampler:
         option_dict = dict(nmin=self.nmin,
                            nmax=self.nmax,
                            corr_threshold=self.corr_threshold,
+                           paccept=self.paccept,
                            sigma=self.scale,
                            progress_bar=self.pbar)
 
         if self.use_flow:
-            results = PreconditionedMetropolis(state_dict,
-                                               function_dict, 
-                                               option_dict)
+            if self.use_independent:
+                results = PreconditionedIndependentMetropolis(state_dict,
+                                                              function_dict, 
+                                                              option_dict)
+            else:
+                results = PreconditionedMetropolis(state_dict,
+                                                   function_dict, 
+                                                   option_dict)
         else:
             results = Metropolis(state_dict,
                                  function_dict,
                                  option_dict)
             
-        u = results.get('u')
-        x = results.get('x')
-        J = results.get('J')
-        L = results.get('L')
-        P = results.get('P')
+        u = results.get('u').copy()
+        x = results.get('x').copy()
+        J = results.get('J').copy()
+        L = results.get('L').copy()
+        P = results.get('P').copy()
 
         self.scale = results.get('scale')
         self.Nsteps = results.get('steps')
@@ -308,6 +385,9 @@ class Sampler:
         self.saved_accept.append(self.accept)
         self.saved_scale.append(self.scale/self.ideal_scale)
         self.saved_steps.append(self.Nsteps)
+
+        if self.accept < self.ind_threshold:
+            self.use_independent = False
 
         return u, x, J, L, P
 
@@ -324,6 +404,8 @@ class Sampler:
 
     def _resample(self, u, x, J, L, P):
         self.saved_samples.append(x)
+        self.saved_logl.append(L)
+        self.saved_logp.append(P)
         idx = resample_equal(np.arange(len(u)), np.exp(self.logw-np.max(self.logw))/np.sum(np.exp(self.logw-np.max(self.logw))))
         self.logw = 0.0
 
@@ -414,8 +496,10 @@ class Sampler:
         
         results = {
             'iter' : np.array(self.saved_iter),
-            'samples' : np.array(self.saved_samples),
             'posterior_samples' : np.vstack(self.saved_posterior_samples),
+            'posterior_logl' : np.hstack(self.saved_posterior_logl),
+            'posterior_logp' : np.hstack(self.saved_posterior_logp),
+            'samples' : np.array(self.saved_samples),
             'logl' : np.array(self.saved_logl),
             'logw' : np.array(self.saved_logw),
             'logz' : np.array(self.saved_logz),
@@ -428,3 +512,49 @@ class Sampler:
         }
 
         return results
+
+    def bridge_sampling(self, tolerance=1e-10, maxiter=1000, thin=1):
+
+        x = self.results.get("posterior_samples")[::thin]
+        l = self.results.get("posterior_logl")[::thin]
+        p = self.results.get("posterior_logp")[::thin]
+        
+        N1 = len(x)
+        N2 = len(x)
+
+        s1 = N1 / (N1+N2)
+        s2 = N2 / (N1+N2)
+
+        import torch
+
+        u_prop, logg_i = self.flow.sample(size=N2)
+        x_prop, J_prop = self.scaler.inverse(torch_to_numpy(u_prop))
+        u_prop = torch_to_numpy(u_prop)
+        logg_i = torch_to_numpy(logg_i) + J_prop
+
+        u = self.scaler.forward(x)
+        x, J = self.scaler.inverse(u)
+        logg_j = torch_to_numpy(self.flow.logprob(numpy_to_torch(u))) - J
+
+        logp_i = self._loglike(x_prop) + self._logprior(x_prop) - J_prop
+        logp_j = p + l
+
+        logl1j = logp_j - logg_j
+        logl2i = logp_i - logg_i
+
+        lstar = max(np.max(logl1j), np.max(logl2i))
+
+        l1j = np.exp(logl1j - lstar)
+        l2i = np.exp(logl2i - lstar)
+
+        r = 1.0
+        r0 = 0.0
+        cnt = 1
+        while np.abs(r-r0) > tolerance or cnt <= maxiter:
+            r0 = r
+            A = np.mean(l2i / (s1 * l2i + s2 * r0))
+            B = np.mean(1.0 / (s1 * l1j + s2 * r0))
+            r = A / B
+            cnt += 1
+
+        return np.log(r) + lstar

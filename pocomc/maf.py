@@ -277,3 +277,107 @@ class MAF(nn.Module):
             return -total / scale
         elif type in ['Gaussian', 'gaussian', 'l2', 'L2', 'Normal', 'normal']:
             return -total / (2 * (scale ** 2))
+
+
+class LinearMaskedCoupling(nn.Module):
+    """ Modified RealNVP Coupling Layers per the MAF paper """
+    def __init__(self, input_size, hidden_size, n_hidden, mask, cond_label_size=None):
+        super().__init__()
+
+        self.register_buffer('mask', mask)
+
+        # scale function
+        s_net = [nn.Linear(input_size + (cond_label_size if cond_label_size is not None else 0), hidden_size)]
+        for _ in range(n_hidden):
+            s_net += [nn.Tanh(), nn.Linear(hidden_size, hidden_size)]
+        s_net += [nn.Tanh(), nn.Linear(hidden_size, input_size)]
+        self.s_net = nn.Sequential(*s_net)
+
+        # translation function
+        self.t_net = copy.deepcopy(self.s_net)
+        # replace Tanh with ReLU's per MAF paper
+        for i in range(len(self.t_net)):
+            if not isinstance(self.t_net[i], nn.Linear): self.t_net[i] = nn.ReLU()
+
+    def forward(self, x, y=None):
+        # apply mask
+        mx = x * self.mask
+
+        # run through model
+        s = self.s_net(mx if y is None else torch.cat([y, mx], dim=1))
+        t = self.t_net(mx if y is None else torch.cat([y, mx], dim=1))
+        u = mx + (1 - self.mask) * (x - t) * torch.exp(-s)  # cf RealNVP eq 8 where u corresponds to x (here we're modeling u)
+
+        log_abs_det_jacobian = - (1 - self.mask) * s  # log det du/dx; cf RealNVP 8 and 6; note, sum over input_size done at model log_prob
+
+        return u, log_abs_det_jacobian
+
+    def inverse(self, u, y=None):
+        # apply mask
+        mu = u * self.mask
+
+        # run through model
+        s = self.s_net(mu if y is None else torch.cat([y, mu], dim=1))
+        t = self.t_net(mu if y is None else torch.cat([y, mu], dim=1))
+        x = mu + (1 - self.mask) * (u * s.exp() + t)  # cf RealNVP eq 7
+
+        log_abs_det_jacobian = (1 - self.mask) * s  # log det dx/du
+
+        return x, log_abs_det_jacobian
+
+class RealNVP(nn.Module):
+    def __init__(self, n_blocks, input_size, hidden_size, n_hidden, cond_label_size=None, batch_norm=True):
+        super().__init__()
+
+        # base distribution for calculation of log prob under the model
+        self.register_buffer('base_dist_mean', torch.zeros(input_size))
+        self.register_buffer('base_dist_var', torch.ones(input_size))
+
+        # construct model
+        modules = []
+        mask = torch.arange(input_size).float() % 2
+        for i in range(n_blocks):
+            modules += [LinearMaskedCoupling(input_size, hidden_size, n_hidden, mask, cond_label_size)]
+            mask = 1 - mask
+            modules += batch_norm * [BatchNorm(input_size)]
+
+        self.net = FlowSequential(*modules)
+
+    @property
+    def base_dist(self):
+        return D.Normal(self.base_dist_mean, self.base_dist_var)
+
+    def forward(self, x, y=None):
+        return self.net(x, y)
+
+    def inverse(self, u, y=None):
+        return self.net.inverse(u, y)
+
+    def log_prob(self, x, y=None):
+        u, sum_log_abs_det_jacobians = self.forward(x, y)
+        return torch.sum(self.base_dist.log_prob(u) + sum_log_abs_det_jacobians, dim=1)
+
+    def log_prior(self, scale=1.0, type='Laplace'):
+        total = 0.0
+
+        for i, layer in enumerate(self.net):
+    
+            if isinstance(layer, MADE):
+                #print(i, layer)
+                for parameter_name, parameter in layer.net.named_parameters():
+                    if parameter_name.endswith('weight'):
+                        # Regularize weights, but not biases
+                        if type in ['Laplace', 'laplace', 'l1', 'L1']:
+                            total += parameter.abs().sum()  # Laplace prior
+                        elif type in ['Gaussian', 'gaussian', 'l2', 'L2', 'Normal', 'normal']:
+                            total += parameter.square().sum()  # Gaussian prior
+
+                #for parameter_name, parameter in layer.net_input.named_parameters():
+                #    if parameter_name.endswith('weight'):
+                #        # Regularize weights, but not biases
+                #        total += parameter.abs().sum()  # Laplace prior
+
+        if type in ['Laplace', 'laplace', 'l1', 'L1']:
+            return -total / scale
+        elif type in ['Gaussian', 'gaussian', 'l2', 'L2', 'Normal', 'normal']:
+            return -total / (2 * (scale ** 2))

@@ -90,7 +90,13 @@ def corner(results,
            show_titles=True,
            title_quantiles=None,
            ):
+    r"""Corner plot.
 
+    Parameters
+    ----------
+    results : dict
+        Result dictionary produced using ``pocoMC``.
+    """
     # import corner
     import corner
 
@@ -120,4 +126,11 @@ def corner(results,
 
 
 def run(results):
+    r"""Run plot.
+
+    Parameters
+    ----------
+    results : dict
+        Result dictionary produced using ``pocoMC``.
+    """
     pass

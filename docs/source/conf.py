@@ -38,6 +38,8 @@ extensions = ["sphinx.ext.autodoc",
 
 master_doc = "index"
 
+myst_enable_extensions = ["dollarmath", "colon_fence"]
+
 source_suffix = {
     ".rst": "restructuredtext",
     ".ipynb": "myst-nb",
@@ -67,6 +69,8 @@ html_theme_options = {
     'collapse_navigation': True, 
     'navigation_depth': 4
 }
+
+nb_execution_mode = "off"
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
