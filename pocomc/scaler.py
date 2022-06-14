@@ -28,7 +28,7 @@ class Reparameterise:
 
         if self.periodic is not None:
             x = x.copy()
-            for i in range(self.periodic):
+            for i in self.periodic:
                 for j in range(len(x)):
                     while x[j,i] > self.high[i]:
                         x[j,i] = self.low[i] + x[j,i] - self.high[i]
