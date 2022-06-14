@@ -409,6 +409,12 @@ class Sampler:
         self.saved_logp.append(P)
         w = np.exp(self.logw-np.max(self.logw))
         w /= np.sum(w)
+
+        assert np.any(~np.isnan(self.logw))
+        assert np.any(np.isfinite(self.logw))
+        assert np.any(~np.isnan(w))
+        assert np.any(np.isfinite(w))
+
         try:
             idx = resample_equal(np.arange(len(u)), w)
         except:
