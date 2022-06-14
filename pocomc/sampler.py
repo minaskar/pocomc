@@ -407,7 +407,12 @@ class Sampler:
         self.saved_samples.append(x)
         self.saved_logl.append(L)
         self.saved_logp.append(P)
-        idx = resample_equal(np.arange(len(u)), np.exp(self.logw-np.max(self.logw))/np.sum(np.exp(self.logw-np.max(self.logw))))
+        w = np.exp(self.logw-np.max(self.logw))
+        w /= np.sum(w)
+        try:
+            idx = resample_equal(np.arange(len(u)), w)
+        except:
+            idx = np.random.choice(np.arange(len(u)), p=w, size=len(w))
         self.logw = 0.0
 
         return u[idx], x[idx], J[idx], L[idx], P[idx]
