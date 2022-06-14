@@ -66,6 +66,7 @@ def PreconditionedMetropolis(state_dict=None,
 
         # Transform to x space
         x_prime, J_prime = scaler.inverse(torch_to_numpy(u_prime))
+        x_prime = scaler.apply_boundary_conditions(x_prime)
         x_prime = numpy_to_torch(x_prime)
         J_prime = numpy_to_torch(J_prime)
 
@@ -170,6 +171,7 @@ def Metropolis(state_dict=None,
 
         # Transform to x space
         x_prime, J_prime = scaler.inverse(u_prime)
+        x_prime = scaler.apply_boundary_conditions(x_prime)
 
         # Compute log-likelihood, log-prior, and log-posterior
         L_prime = loglike(x_prime)
@@ -275,6 +277,7 @@ def PreconditionedIndependentMetropolis(state_dict=None,
 
         # Transform to x space
         x_prime, J_prime = scaler.inverse(torch_to_numpy(u_prime))
+        x_prime = scaler.apply_boundary_conditions(x_prime)
         x_prime = numpy_to_torch(x_prime)
         J_prime = numpy_to_torch(J_prime)
 

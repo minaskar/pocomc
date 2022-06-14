@@ -88,6 +88,7 @@ class Sampler:
                  loglikelihood,
                  logprior,
                  bounds=None,
+                 periodic=None,
                  threshold=1.0,
                  scale=True,
                  rescale=False,
@@ -169,7 +170,7 @@ class Sampler:
         # Scaler
         if bounds is None:
             bounds = np.full((self.ndim, 2), np.nan)
-        self.scaler = Reparameterise(bounds, scale, diagonal)
+        self.scaler = Reparameterise(bounds, periodic, scale, diagonal)
         self.rescale = rescale
 
         # MCMC parameters
