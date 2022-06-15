@@ -89,6 +89,7 @@ def corner(results,
            titles=None,
            show_titles=True,
            title_quantiles=None,
+           **kwargs,
            ):
     r"""Corner plot.
 
@@ -120,8 +121,7 @@ def corner(results,
                          titles=titles,
                          show_titles=show_titles,
                          title_quantiles=title_quantiles,
-
-
+                         **kwargs
                         )
 
 
