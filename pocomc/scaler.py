@@ -3,12 +3,13 @@ import numpy as np
 
 class Reparameterise:
 
-    def __init__(self, bounds, periodic=None, scale=True, diagonal=True):
+    def __init__(self, bounds, periodic=None, reflective=None, scale=True, diagonal=True):
         self.low = bounds.T[0]
         self.high = bounds.T[1]
         self.ndim = len(self.low)
 
         self.periodic = periodic
+        self.reflective = reflective
 
         self.mu = None
         self.sigma = None
@@ -37,6 +38,16 @@ class Reparameterise:
         return x
 
     def _apply_reflective_boundary_conditions(self, x):
+
+        if self.reflective is not None:
+            x = x.copy()
+            for i in self.reflective:
+                for j in range(len(x)):
+                    while x[j,i] > self.high[i]:
+                        x[j,i] = self.high[i] - x[j,i] + self.high[i]
+                    while x[j,i] < self.low[i]:
+                        x[j,i] = self.low[i] + self.low[i] - self.x[j,i]
+
         return x
 
     def fit(self, x):

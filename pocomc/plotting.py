@@ -16,7 +16,7 @@ def trace(results,
         List of parameter names to include in the figure. If ``labels=None``
         (default) the labels are set automatically.
     width : float
-        width of figure (default is ``width=10.0``).
+        Width of figure (default is ``width=10.0``).
     height : float
         Height of each subplot (default is ``height=3.0``).
     kde_bins : int
@@ -125,12 +125,70 @@ def corner(results,
                         )
 
 
-def run(results):
+def run(results,
+        full_run=True,
+        width=10.0,
+        height=2.5):
     r"""Run plot.
 
     Parameters
     ----------
     results : dict
         Result dictionary produced using ``pocoMC``.
+    full_run : bool
+        Whether or not to include run diagnostics beyond the basic run.
+        (Default is ``True``)
+    width : float
+        Width of figure (default is ``width=10.0``).
+    height : float
+        Height of each subplot (default is ``height=2.5``).
+    
     """
-    pass
+    beta = results.get("beta")
+    steps = results.get("steps")
+    scale = results.get("scale")
+    logz = results.get("logz")
+
+    if full_run:
+        if len(steps) > len(beta):
+            beta = np.hstack((beta, beta[-1]*np.ones(len(steps)-len(beta))))
+
+        if len(steps) > len(logz):
+            logz = np.hstack((logz, logz[-1]*np.ones(len(steps)-len(logz))))
+    else:
+        steps = steps[:len(beta)]
+        scale = scale[:len(beta)]
+    
+    import matplotlib.pyplot as plt
+    
+    # Initialise figure
+    fig = plt.figure(figsize=(width, 4 * height))
+
+    plt.subplot(4,1,1)
+    plt.plot(beta, 'o-', lw=2.5)
+    plt.ylabel(r"$\beta$", fontsize=16)
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
+
+    plt.subplot(4,1,2)
+    plt.plot(steps, 'o-', lw=2.5)
+    plt.ylabel("steps", fontsize=16)
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
+
+    plt.subplot(4,1,3)
+    plt.plot(scale, 'o-', lw=2.5)
+    plt.ylabel("scale", fontsize=16)
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
+
+    plt.subplot(4,1,4)
+    plt.plot(logz, 'o-', lw=2.5)
+    plt.ylabel(r"$\log \mathcal{Z}$", fontsize=16)
+    plt.xlabel("Iterations", fontsize=16)
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
+
+    plt.tight_layout()
+
+    return fig
