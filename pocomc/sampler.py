@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 
 from .mcmc import PreconditionedMetropolis, Metropolis, PreconditionedIndependentMetropolis
 from .tools import resample_equal, _FunctionWrapper, torch_to_numpy, numpy_to_torch, get_ESS, ProgressBar
@@ -108,7 +109,11 @@ class Sampler:
                  use_independent=False, # Use independent Metropolis
                  flow_config=None,
                  train_config=None,
+                 random_state: int = None
                  ):
+        if random_state is not None:
+            np.random.seed(random_state)
+            torch.manual_seed(random_state)
 
         self.nwalkers = nparticles
         self.ndim = ndim
