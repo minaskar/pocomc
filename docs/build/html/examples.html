@@ -6,7 +6,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
 
-    <title>examples &#8212; pocoMC</title>
+    <title>Examples &#8212; pocoMC</title>
     
   <!-- Loaded before other Sphinx assets -->
   <link href="_static/styles/theme.css?digest=1999514e3f237ded88cf" rel="stylesheet">
@@ -40,8 +40,8 @@
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Example 1" href="examples/example1.html" />
-    <link rel="prev" title="Quickstart" href="pages/quickstart.html" />
+    <link rel="next" title="FAQ" href="faq.html" />
+    <link rel="prev" title="Evidence estimation" href="tutorials/bridge_sampling.html" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="docsearch:language" content="None">
     
@@ -107,32 +107,59 @@
    Quickstart
   </a>
  </li>
- <li class="toctree-l1 current active has-children">
-  <a class="current reference internal" href="#">
-   examples
+ <li class="toctree-l1 has-children">
+  <a class="reference internal" href="tutorials.html">
+   Tutorials
   </a>
-  <input checked="" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/>
+  <input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/>
   <label for="toctree-checkbox-1">
    <i class="fas fa-chevron-down">
    </i>
   </label>
   <ul>
    <li class="toctree-l2">
-    <a class="reference internal" href="examples/example1.html">
-     Example 1
+    <a class="reference internal" href="tutorials/advanced_example.html">
+     Advanced example
     </a>
    </li>
    <li class="toctree-l2">
-    <a class="reference internal" href="examples/example2.html">
-     Example 2
+    <a class="reference internal" href="tutorials/bridge_sampling.html">
+     Evidence estimation
     </a>
    </li>
   </ul>
  </li>
+ <li class="toctree-l1 current active">
+  <a class="current reference internal" href="#">
+   Examples
+  </a>
+ </li>
  <li class="toctree-l1">
+  <a class="reference internal" href="faq.html">
+   FAQ
+  </a>
+ </li>
+ <li class="toctree-l1 has-children">
   <a class="reference internal" href="api.html">
    API Reference
   </a>
+  <input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/>
+  <label for="toctree-checkbox-2">
+   <i class="fas fa-chevron-down">
+   </i>
+  </label>
+  <ul>
+   <li class="toctree-l2">
+    <a class="reference internal" href="api/sampler.html">
+     Sampler
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="api/plotting.html">
+     Plotting
+    </a>
+   </li>
+  </ul>
  </li>
  <li class="toctree-l1">
   <a class="reference external" href="https://github.com/minaskar/pocomc">
@@ -249,23 +276,90 @@ title="Print to PDF"
     </ul>
   </div>
 </div>
+<label for="__page-toc"
+  class="headerbtn headerbtn-page-toc"
+  
+>
+  
+
+<span class="headerbtn__icon-container">
+  <i class="fas fa-list"></i>
+  </span>
+
+</label>
 
     </div>
 </div>
 
 <!-- Table of contents -->
 <div class="col-md-3 bd-toc show noprint">
+    <div class="tocsection onthispage pt-5 pb-3">
+        <i class="fas fa-list"></i> Contents
+    </div>
+    <nav id="bd-toc-nav" aria-label="Page">
+        <ul class="visible nav section-nav flex-column">
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#gaussian-shells">
+   Gaussian Shells
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#double-gaussian">
+   Double Gaussian
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#rosenbrock">
+   Rosenbrock
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#funnel">
+   Funnel
+  </a>
+ </li>
+</ul>
+
+    </nav>
 </div>
     </div>
     <div class="article row">
         <div class="col pl-md-3 pl-lg-5 content-container">
             <!-- Table of contents that is only displayed when printing the page -->
             <div id="jb-print-docs-body" class="onlyprint">
-                <h1>examples</h1>
+                <h1>Examples</h1>
                 <!-- Table of contents -->
                 <div id="print-main-content">
                     <div id="jb-print-toc">
                         
+                        <div>
+                            <h2> Contents </h2>
+                        </div>
+                        <nav aria-label="Page">
+                            <ul class="visible nav section-nav flex-column">
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#gaussian-shells">
+   Gaussian Shells
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#double-gaussian">
+   Double Gaussian
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#rosenbrock">
+   Rosenbrock
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#funnel">
+   Funnel
+  </a>
+ </li>
+</ul>
+
+                        </nav>
                     </div>
                 </div>
             </div>
@@ -274,13 +368,23 @@ title="Print to PDF"
               <div>
                 
   <section id="examples">
-<h1>examples<a class="headerlink" href="#examples" title="Permalink to this headline">#</a></h1>
-<div class="toctree-wrapper compound">
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="examples/example1.html">Example 1</a></li>
-<li class="toctree-l1"><a class="reference internal" href="examples/example2.html">Example 2</a></li>
-</ul>
-</div>
+<h1>Examples<a class="headerlink" href="#examples" title="Permalink to this headline">#</a></h1>
+<p>This page highlights several examples on how <code class="docutils literal notranslate"><span class="pre">pocomc</span></code>
+can be used in practice, illustrating both simple and more advanced
+aspects of the code. Jupyter notebooks containing more details are available
+<a class="reference external" href="https://github.com/minaskar/pocomc/tree/examples">on Github</a>.</p>
+<section id="gaussian-shells">
+<h2>Gaussian Shells<a class="headerlink" href="#gaussian-shells" title="Permalink to this headline">#</a></h2>
+</section>
+<section id="double-gaussian">
+<h2>Double Gaussian<a class="headerlink" href="#double-gaussian" title="Permalink to this headline">#</a></h2>
+</section>
+<section id="rosenbrock">
+<h2>Rosenbrock<a class="headerlink" href="#rosenbrock" title="Permalink to this headline">#</a></h2>
+</section>
+<section id="funnel">
+<h2>Funnel<a class="headerlink" href="#funnel" title="Permalink to this headline">#</a></h2>
+</section>
 </section>
 
 
@@ -291,17 +395,17 @@ title="Print to PDF"
                 
     <!-- Previous / next buttons -->
 <div class='prev-next-area'>
-    <a class='left-prev' id="prev-link" href="pages/quickstart.html" title="previous page">
+    <a class='left-prev' id="prev-link" href="tutorials/bridge_sampling.html" title="previous page">
         <i class="fas fa-angle-left"></i>
         <div class="prev-next-info">
             <p class="prev-next-subtitle">previous</p>
-            <p class="prev-next-title">Quickstart</p>
+            <p class="prev-next-title">Evidence estimation</p>
         </div>
     </a>
-    <a class='right-next' id="next-link" href="examples/example1.html" title="next page">
+    <a class='right-next' id="next-link" href="faq.html" title="next page">
     <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Example 1</p>
+        <p class="prev-next-title">FAQ</p>
     </div>
     <i class="fas fa-angle-right"></i>
     </a>

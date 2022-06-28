@@ -22,8 +22,8 @@ problems that include multimodal and highly non--Gaussian target distributions.
     🖥 A good place to get started is with the :doc:`install` and then the
     :doc:`pages/quickstart` guide.
 
-    📖 For more details, check out the :doc:`tutorials`, including the full :doc:`api`
-    documentation.
+    📖 For more details, check out the :doc:`tutorials` and :docs:`examples`,
+    including the full :doc:`api` documentation.
 
     💡 If you're running into problems getting ``pocoMC`` to do what you want, first
     check out the :doc:`faq` page, for some general tips and tricks.
@@ -43,6 +43,7 @@ problems that include multimodal and highly non--Gaussian target distributions.
    install
    pages/quickstart.ipynb
    tutorials
+   examples
    faq
    api
    GitHub Repository <https://github.com/minaskar/pocomc>
@@ -55,12 +56,12 @@ Attribution & Citation
 Please cite the following if you find this code useful in your
 research. The BibTeX entry for the paper is::
 
-    @article{x,
-        title={x},
-        author={x},
-        year={2022},
-        note={in prep}
-    }
+    @article{karamanis2022pocomc,
+             title={Accelerating astronomical and cosmological inference with Preconditioned Monte Carlo},
+             author={Karamanis, Minas and Beutler, Florian and Peacock, John A and Nabergoj, David, and Seljak, Uro\v{s}},
+             journal={in prep},
+             year={2022}
+            }
 
 
 Authors & License
