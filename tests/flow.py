@@ -143,7 +143,18 @@ class FlowTestCase(unittest.TestCase):
     def test_logprob_backward(self):
         # Test backpropagation on the negative log likelihood
         torch.manual_seed(0)
-        pass
+
+        x = self.make_data()
+        flow = Flow(ndim=x.shape[1])
+        log_prob = flow.logprob(x)
+        nll = -torch.mean(log_prob)
+        nll.backward()
+
+        for param in flow.flow.parameters():
+            if param.requires_grad:
+                self.assertIsNotNone(param.grad)
+            else:
+                self.assertIsNone(param.grad)
 
 
 if __name__ == '__main__':
