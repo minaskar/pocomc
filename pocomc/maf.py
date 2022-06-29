@@ -91,7 +91,10 @@ class BatchNorm(nn.Module):
     def forward(self, x, cond_y=None):
         if self.training:
             self.batch_mean = x.mean(0)
-            self.batch_var = x.var(0)  # note MAF paper uses biased variance estimate; ie x.var(0, unbiased=False)
+
+            # note MAF paper uses biased variance estimate; ie x.var(0, unbiased=False)
+            # If x has a single example, we set the variance to 1.
+            self.batch_var = x.var(0) if len(x) > 1 else torch.ones_like(self.batch_mean)
 
             # update running mean
             self.running_mean.mul_(self.momentum).add_(self.batch_mean.data * (1 - self.momentum))

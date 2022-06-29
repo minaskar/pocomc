@@ -152,7 +152,7 @@ def numpy_to_torch(x):
 
 def torch_double_to_float(x, warn=True):
     if x.dtype == torch.float64 and warn:
-        warnings.warn(f"Float64 data is currently unsupported, casting to Float32.")
+        warnings.warn(f"Float64 data is currently unsupported, casting to Float32. Output will also have type Float32.")
         return x.float()
     elif x.dtype == torch.float32:
         return x
