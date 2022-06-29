@@ -22,7 +22,8 @@ def create_masks(input_size,
         degrees += [torch.arange(input_size)] if input_degrees is None else [input_degrees]
         for _ in range(n_hidden + 1):
             degrees += [torch.arange(hidden_size) % (input_size - 1)]
-        degrees += [torch.arange(input_size) % input_size - 1] if input_degrees is None else [input_degrees % input_size - 1]
+        degrees += [torch.arange(input_size) % input_size - 1] if input_degrees is None else [
+            input_degrees % input_size - 1]
 
     elif input_order == 'random':
         degrees += [torch.randperm(input_size)] if input_degrees is None else [input_degrees]
@@ -30,7 +31,8 @@ def create_masks(input_size,
             min_prev_degree = min(degrees[-1].min().item(), input_size - 1)
             degrees += [torch.randint(min_prev_degree, input_size, (hidden_size,))]
         min_prev_degree = min(degrees[-1].min().item(), input_size - 1)
-        degrees += [torch.randint(min_prev_degree, input_size, (input_size,)) - 1] if input_degrees is None else [input_degrees - 1]
+        degrees += [torch.randint(min_prev_degree, input_size, (input_size,)) - 1] if input_degrees is None else [
+            input_degrees - 1]
 
     # construct masks
     masks = []
@@ -42,10 +44,11 @@ def create_masks(input_size,
 
 class MaskedLinear(nn.Linear):
     """ MADE building block layer """
+
     def __init__(self, input_size,
-                       n_outputs,
-                       mask,
-                       cond_label_size=None):
+                 n_outputs,
+                 mask,
+                 cond_label_size=None):
         super().__init__(input_size, n_outputs)
 
         self.register_buffer('mask', mask)
@@ -68,9 +71,10 @@ class MaskedLinear(nn.Linear):
 
 class BatchNorm(nn.Module):
     """ Batch Normalisation layer """
+
     def __init__(self, input_size,
-                       momentum=0.9,
-                       eps=1e-5):
+                 momentum=0.9,
+                 eps=1e-5):
         super().__init__()
         self.momentum = momentum
         self.eps = eps
@@ -84,7 +88,7 @@ class BatchNorm(nn.Module):
     def forward(self, x, cond_y=None):
         if self.training:
             self.batch_mean = x.mean(0)
-            self.batch_var = x.var(0) # note MAF paper uses biased variance estimate; ie x.var(0, unbiased=False)
+            self.batch_var = x.var(0)  # note MAF paper uses biased variance estimate; ie x.var(0, unbiased=False)
 
             # update running mean
             self.running_mean.mul_(self.momentum).add_(self.batch_mean.data * (1 - self.momentum))
@@ -102,8 +106,8 @@ class BatchNorm(nn.Module):
 
         # compute log_abs_det_jacobian (cf RealNVP paper)
         log_abs_det_jacobian = self.log_gamma - 0.5 * torch.log(var + self.eps)
-#        print('in sum log var {:6.3f} ; out sum log var {:6.3f}; sum log det {:8.3f}; mean log_gamma {:5.3f}; mean beta {:5.3f}'.format(
-#            (var + self.eps).log().sum().data.numpy(), y.var(0).log().sum().data.numpy(), log_abs_det_jacobian.mean(0).item(), self.log_gamma.mean(), self.beta.mean()))
+        #        print('in sum log var {:6.3f} ; out sum log var {:6.3f}; sum log det {:8.3f}; mean log_gamma {:5.3f}; mean beta {:5.3f}'.format(
+        #            (var + self.eps).log().sum().data.numpy(), y.var(0).log().sum().data.numpy(), log_abs_det_jacobian.mean(0).item(), self.log_gamma.mean(), self.beta.mean()))
         return y, log_abs_det_jacobian.expand_as(x)
 
     def inverse(self, y, cond_y=None):
@@ -124,6 +128,7 @@ class BatchNorm(nn.Module):
 
 class FlowSequential(nn.Sequential):
     """ Join multiple layers of a normalizing flow """
+
     def forward(self, x, y):
         sum_log_abs_det_jacobians = 0
         for module in self:
@@ -141,12 +146,12 @@ class FlowSequential(nn.Sequential):
 
 class MADE(nn.Module):
     def __init__(self, input_size,
-                       hidden_size,
-                       n_hidden,
-                       cond_label_size=None,
-                       activation='relu',
-                       input_order='sequential',
-                       input_degrees=None):
+                 hidden_size,
+                 n_hidden,
+                 cond_label_size=None,
+                 activation='relu',
+                 input_order='sequential',
+                 input_degrees=None):
         """
         Args:
             input_size -- scalar; dim of inputs
@@ -183,7 +188,7 @@ class MADE(nn.Module):
         self.net = []
         for m in masks[1:-1]:
             self.net += [activation_fn, MaskedLinear(hidden_size, hidden_size, m)]
-        self.net += [activation_fn, MaskedLinear(hidden_size, 2 * input_size, masks[-1].repeat(2,1))]
+        self.net += [activation_fn, MaskedLinear(hidden_size, 2 * input_size, masks[-1].repeat(2, 1))]
 
         self.net = nn.Sequential(*self.net)
 
@@ -197,7 +202,7 @@ class MADE(nn.Module):
         u = (x - m) * torch.exp(-loga)
         # MAF eq 5
         log_abs_det_jacobian = - loga
-        return u, log_abs_det_jacobian 
+        return u, log_abs_det_jacobian
 
     def inverse(self, u, y=None, sum_log_abs_det_jacobians=None):
         # MAF eq 3
@@ -206,7 +211,7 @@ class MADE(nn.Module):
         # run through reverse model
         for i in self.input_degrees:
             m, loga = self.net(self.net_input(x, y)).chunk(chunks=2, dim=1)
-            x[:,i] = u[:,i] * torch.exp(loga[:,i]) + m[:,i]
+            x[:, i] = u[:, i] * torch.exp(loga[:, i]) + m[:, i]
         log_abs_det_jacobian = loga
         return x, log_abs_det_jacobian
 
@@ -216,14 +221,17 @@ class MADE(nn.Module):
 
 
 class MAF(nn.Module):
-    def __init__(self, n_blocks,
-                       input_size,
-                       hidden_size,
-                       n_hidden,
-                       cond_label_size=None,
-                       activation='relu',
-                       input_order='sequential', 
-                       batch_norm=True):
+    def __init__(self,
+                 n_blocks,
+                 input_size,
+                 hidden_size,
+                 n_hidden,
+                 cond_label_size=None,
+                 activation='relu',
+                 input_order='sequential',
+                 batch_norm=True,
+                 **kwargs
+                 ):
         super().__init__()
         # base distribution for calculation of log prob under the model
         self.register_buffer('base_dist_mean', torch.zeros(input_size))
@@ -233,7 +241,8 @@ class MAF(nn.Module):
         modules = []
         self.input_degrees = None
         for i in range(n_blocks):
-            modules += [MADE(input_size, hidden_size, n_hidden, cond_label_size, activation, input_order, self.input_degrees)]
+            modules += [
+                MADE(input_size, hidden_size, n_hidden, cond_label_size, activation, input_order, self.input_degrees)]
             self.input_degrees = modules[-1].input_degrees.flip(0)
             modules += batch_norm * [BatchNorm(input_size)]
 
@@ -257,9 +266,9 @@ class MAF(nn.Module):
         total = 0.0
 
         for i, layer in enumerate(self.net):
-    
+
             if isinstance(layer, MADE):
-                #print(i, layer)
+                # print(i, layer)
                 for parameter_name, parameter in layer.net.named_parameters():
                     if parameter_name.endswith('weight'):
                         # Regularize weights, but not biases
@@ -268,7 +277,7 @@ class MAF(nn.Module):
                         elif type in ['Gaussian', 'gaussian', 'l2', 'L2', 'Normal', 'normal']:
                             total += parameter.square().sum()  # Gaussian prior
 
-                #for parameter_name, parameter in layer.net_input.named_parameters():
+                # for parameter_name, parameter in layer.net_input.named_parameters():
                 #    if parameter_name.endswith('weight'):
                 #        # Regularize weights, but not biases
                 #        total += parameter.abs().sum()  # Laplace prior
@@ -281,6 +290,7 @@ class MAF(nn.Module):
 
 class LinearMaskedCoupling(nn.Module):
     """ Modified RealNVP Coupling Layers per the MAF paper """
+
     def __init__(self, input_size, hidden_size, n_hidden, mask, cond_label_size=None):
         super().__init__()
 
@@ -306,9 +316,11 @@ class LinearMaskedCoupling(nn.Module):
         # run through model
         s = self.s_net(mx if y is None else torch.cat([y, mx], dim=1))
         t = self.t_net(mx if y is None else torch.cat([y, mx], dim=1))
-        u = mx + (1 - self.mask) * (x - t) * torch.exp(-s)  # cf RealNVP eq 8 where u corresponds to x (here we're modeling u)
+        u = mx + (1 - self.mask) * (x - t) * torch.exp(
+            -s)  # cf RealNVP eq 8 where u corresponds to x (here we're modeling u)
 
-        log_abs_det_jacobian = - (1 - self.mask) * s  # log det du/dx; cf RealNVP 8 and 6; note, sum over input_size done at model log_prob
+        log_abs_det_jacobian = - (
+                    1 - self.mask) * s  # log det du/dx; cf RealNVP 8 and 6; note, sum over input_size done at model log_prob
 
         return u, log_abs_det_jacobian
 
@@ -325,8 +337,16 @@ class LinearMaskedCoupling(nn.Module):
 
         return x, log_abs_det_jacobian
 
+
 class RealNVP(nn.Module):
-    def __init__(self, n_blocks, input_size, hidden_size, n_hidden, cond_label_size=None, batch_norm=True):
+    def __init__(self,
+                 n_blocks,
+                 input_size,
+                 hidden_size,
+                 n_hidden,
+                 cond_label_size=None,
+                 batch_norm=True,
+                 **kwargs):
         super().__init__()
 
         # base distribution for calculation of log prob under the model
@@ -361,9 +381,9 @@ class RealNVP(nn.Module):
         total = 0.0
 
         for i, layer in enumerate(self.net):
-    
+
             if isinstance(layer, MADE):
-                #print(i, layer)
+                # print(i, layer)
                 for parameter_name, parameter in layer.net.named_parameters():
                     if parameter_name.endswith('weight'):
                         # Regularize weights, but not biases
@@ -372,7 +392,7 @@ class RealNVP(nn.Module):
                         elif type in ['Gaussian', 'gaussian', 'l2', 'L2', 'Normal', 'normal']:
                             total += parameter.square().sum()  # Gaussian prior
 
-                #for parameter_name, parameter in layer.net_input.named_parameters():
+                # for parameter_name, parameter in layer.net_input.named_parameters():
                 #    if parameter_name.endswith('weight'):
                 #        # Regularize weights, but not biases
                 #        total += parameter.abs().sum()  # Laplace prior

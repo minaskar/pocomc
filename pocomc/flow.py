@@ -45,6 +45,8 @@ class Flow:
         -------
         A MAF or RealNVP object with the desired configuration.
         """
+        if config is None:
+            config = dict()
         self.validate_config(config)
         config = {**self.default_config, **config}  # Overwrite keys in default_config and add new ones
 
