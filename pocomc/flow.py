@@ -3,46 +3,57 @@ from .train import FlowTrainer
 import torch
 
 
-def FlowGenerator(ndim, flow_config=None):
-    default_flow_config = dict(n_blocks=6,
-                               hidden_size=3 * ndim,
-                               n_hidden=1,
-                               batch_norm=True,
-                               activation='relu',
-                               input_order='sequential',
-                               flow_type='maf',
-                               )
-
-    if flow_config is None:
-        flow_config = default_flow_config
-
-    if default_flow_config.get("flow_type") in ['maf', 'MAF']:
-        return MAF(n_blocks=flow_config.get('n_blocks', default_flow_config['n_blocks']),
-                   input_size=ndim,
-                   hidden_size=flow_config.get('hidden_size', default_flow_config['hidden_size']),
-                   n_hidden=flow_config.get('n_hidden', default_flow_config['n_hidden']),
-                   cond_label_size=None,
-                   activation=flow_config.get('activation', default_flow_config['activation']),
-                   input_order=flow_config.get('input_order', default_flow_config['input_order']),
-                   batch_norm=flow_config.get('batch_norm', default_flow_config['batch_norm']))
-    elif default_flow_config.get("flow_type") in ['RealNVP', 'realNVP', 'realnvp']:
-        return RealNVP(n_blocks=flow_config.get('n_blocks', default_flow_config['n_blocks']),
-                       input_size=ndim,
-                       hidden_size=flow_config.get('hidden_size', default_flow_config['hidden_size']),
-                       n_hidden=flow_config.get('n_hidden', default_flow_config['n_hidden']),
-                       cond_label_size=None,
-                       activation=flow_config.get('activation', default_flow_config['activation']),
-                       input_order=flow_config.get('input_order', default_flow_config['input_order']),
-                       batch_norm=flow_config.get('batch_norm', default_flow_config['batch_norm']))
-
-
 class Flow:
-    def __init__(self, ndim, flow_config=None, train_config=None):
+    def __init__(self, ndim: int, flow_config: dict = None, train_config: dict = None):
         self.ndim = ndim
-        self.flow_config = flow_config
+        self.flow_config = flow_config  # TODO do we have to store this?
         self.train_config = train_config
 
-        self.flow = FlowGenerator(ndim, flow_config)
+        self.default_config = dict(
+            n_blocks=6,
+            hidden_size=3 * self.ndim,
+            n_hidden=1,
+            batch_norm=True,
+            activation='relu',
+            input_order='sequential',
+            flow_type='maf'
+        )
+        self.flow = self.create(flow_config)
+
+    def validate_config(self, config: dict):
+        """
+        Raise a ValueError if the flow config dictionary contains invalid inputs.
+
+        Parameters
+        ----------
+        config: dictionary with key-value pairs to be passed onto constructors of MAF or RealNVP.
+        """
+        allowed_keys = list(self.default_config.keys())
+        for k in config.keys():
+            if k not in allowed_keys:
+                raise ValueError(f"Unrecognized config key: {k}. Allowed keys are: {allowed_keys}")
+
+    def create(self, config: dict = None):
+        """
+        Create a normalizing flow based on the desired flow configuration.
+
+        Parameters
+        ----------
+        config: dictionary with key-value pairs to be passed onto constructors of MAF or RealNVP.
+
+        Returns
+        -------
+        A MAF or RealNVP object with the desired configuration.
+        """
+        self.validate_config(config)
+        config = {**self.default_config, **config}  # Overwrite keys in default_config and add new ones
+
+        if config['flow_type'].lower() == 'maf':
+            return MAF(input_size=self.ndim, cond_label_size=None, **config)
+        elif config['flow_type'].lower() == 'realnvp':
+            return RealNVP(input_size=self.ndim, cond_label_size=None, **config)
+        else:
+            raise ValueError(f"Unsupported flow type: {config['flow_type']}. Please use one of ['maf', 'realnvp'].")
 
     def fit(self, x):
         return FlowTrainer(self.flow, x, self.train_config)
