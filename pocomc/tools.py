@@ -1,8 +1,9 @@
 from unittest.mock import NonCallableMagicMock
-import numpy as np 
+import numpy as np
 import math
 import torch
 from tqdm import tqdm
+import warnings
 
 SQRTEPS = math.sqrt(float(np.finfo(np.float64).eps))
 
@@ -12,7 +13,7 @@ def get_ESS(logw):
     logw_normed = logw - logw_max
 
     weights = np.exp(logw_normed) / np.sum(np.exp(logw_normed))
-    return 1.0 / np.sum(weights*weights) / len(weights)
+    return 1.0 / np.sum(weights * weights) / len(weights)
 
 
 def resample_equal(samples, weights, rstate=None):
@@ -54,7 +55,7 @@ def resample_equal(samples, weights, rstate=None):
 
     if abs(np.sum(weights) - 1.) > SQRTEPS:  # same tol as in np.random.choice.
         # Guarantee that the weights will sum to 1.
-        #warnings.warn("Weights do not sum to 1 and have been renormalized.")
+        # warnings.warn("Weights do not sum to 1 and have been renormalized.")
         weights = np.array(weights) / np.sum(weights)
 
     # Make N subdivisions and choose positions with a consistent random offset.
@@ -81,7 +82,7 @@ class ProgressBar:
         self.show = show
         if self.show:
             self.progress_bar = tqdm(desc='Iter')
-        
+
         self.info = dict(beta=None,
                          calls=None,
                          ESS=None,
@@ -90,7 +91,7 @@ class ProgressBar:
                          N=None,
                          scale=None,
                          corr=None,
-                        )
+                         )
 
     def update_stats(self, info):
         self.info['beta'] = info.get('beta', self.info['beta'])
@@ -114,16 +115,21 @@ class ProgressBar:
 
 
 class _FunctionWrapper(object):
-    """
-    This is a hack to make the likelihood function pickleable when ``args``
-    or ``kwargs`` are also included.
+    r"""
+        This is a hack to make the likelihood function pickleable when ``args``
+        or ``kwargs`` are also included.
 
-    Args:
-        f (callable) : Log Probability function.
-        args (list): Extra arguments to be passed into the logprob.
-        kwargs (dict): Extra arguments to be passed into the logprob.
+    Parameters
+    ----------
+    f : (callable)
+        Log Probability function.
+    args : list
+        Extra arguments to be passed into the logprob.
+    kwargs : dict
+        Extra arguments to be passed into the logprob.
 
-    Returns:
+    Returns
+    -------
         Log Probability function.
     """
 
@@ -142,3 +148,13 @@ def torch_to_numpy(x):
 
 def numpy_to_torch(x):
     return torch.tensor(x, dtype=torch.float32)
+
+
+def torch_double_to_float(x, warn=True):
+    if x.dtype == torch.float64 and warn:
+        warnings.warn(f"Float64 data is currently unsupported, casting to Float32. Output will also have type Float32.")
+        return x.float()
+    elif x.dtype == torch.float32:
+        return x
+    else:
+        raise ValueError(f"Unsupported datatype for input data: {x.dtype}")

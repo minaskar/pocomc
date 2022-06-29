@@ -1,5 +1,6 @@
-examples/
+examples/.ipynb_checkpoints
 pocomc.egg-info/
 pocomc/__pycache__/
 pocomc/utils/__pycache__/
 pocomc/sinf/__pycache__/
+docs/build/
