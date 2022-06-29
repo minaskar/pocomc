@@ -26,6 +26,7 @@ class FlowTestCase(unittest.TestCase):
         self.assertFalse(torch.any(torch.isnan(z)))
         self.assertFalse(torch.any(torch.isinf(z)))
         self.assertEqual(x.shape, z.shape)
+        self.assertEqual(x.dtype, z.dtype)
 
     @torch.no_grad()
     def test_inverse(self):
@@ -39,6 +40,7 @@ class FlowTestCase(unittest.TestCase):
         self.assertFalse(torch.any(torch.isnan(x)))
         self.assertFalse(torch.any(torch.isinf(x)))
         self.assertEqual(x.shape, z.shape)
+        self.assertEqual(x.dtype, z.dtype)
 
     @torch.no_grad()
     def test_logprob(self):
@@ -51,55 +53,94 @@ class FlowTestCase(unittest.TestCase):
 
         self.assertFalse(torch.any(torch.isnan(log_prob)))
         self.assertFalse(torch.any(torch.isinf(log_prob)))
-        self.assertEqual(log_prob.shape, (x.shape[0], ))
+        self.assertEqual(log_prob.shape, (x.shape[0],))
+        self.assertEqual(x.dtype, log_prob.dtype)
 
     @torch.no_grad()
     def test_sample(self):
         # Test that sample works without raising an error
         torch.manual_seed(0)
-        pass
+
+        x_tmp = self.make_data()
+        flow = Flow(ndim=x_tmp.shape[1])
+        x = flow.sample(x_tmp.shape[0])
+
+        self.assertFalse(torch.any(torch.isnan(x)))
+        self.assertFalse(torch.any(torch.isinf(x)))
+        self.assertEqual(x.shape, x_tmp.shape)
+        self.assertEqual(x.dtype, x_tmp.dtype)
 
     @torch.no_grad()
     def test_reconstruction(self):
         # Test that latent points are reconstructed to be close enough to data points
         torch.manual_seed(0)
-        pass
+
+        x = self.make_data()
+        flow = Flow(ndim=x.shape[1])
+        z, _ = flow.forward(x)
+        x_reconstructed, _ = flow.inverse(z)
+
+        self.assertFalse(torch.any(torch.isnan(x_reconstructed)))
+        self.assertFalse(torch.any(torch.isinf(x_reconstructed)))
+        self.assertEqual(x_reconstructed.shape, x.shape)
+        self.assertEqual(x_reconstructed.dtype, x.dtype)
+        self.assertTrue(torch.allclose(x, x_reconstructed, atol=1e-5))
 
     @torch.no_grad()
     def test_logprob_float32(self):
         # Test logprob when input is torch.float
         torch.manual_seed(0)
-        pass
+
+        x = self.make_data()
+        x = x.float()
+        flow = Flow(ndim=x.shape[1])
+        log_prob = flow.logprob(x)
+
+        self.assertFalse(torch.any(torch.isnan(log_prob)))
+        self.assertFalse(torch.any(torch.isinf(log_prob)))
+        self.assertEqual(log_prob.shape, (x.shape[0],))
+        self.assertEqual(x.dtype, log_prob.dtype)
 
     @torch.no_grad()
     def test_logprob_float64(self):
         # Test logprob when input is torch.double
         torch.manual_seed(0)
-        pass
 
-    @torch.no_grad()
-    def test_logprob_float(self):
-        # Test logprob when input is float (basic python datatype)
-        torch.manual_seed(0)
-        pass
+        x = self.make_data()
+        x = x.double()
+        flow = Flow(ndim=x.shape[1])
+        log_prob = flow.logprob(x)
+
+        self.assertFalse(torch.any(torch.isnan(log_prob)))
+        self.assertFalse(torch.any(torch.isinf(log_prob)))
+        self.assertEqual(log_prob.shape, (x.shape[0],))
+        self.assertEqual(x.dtype, log_prob.dtype)
 
     @torch.no_grad()
     def test_logprob_1d(self):
-        # Test logprob when input is one dimensional
+        # When input is one dimensional, logprob should raise an error
         torch.manual_seed(0)
-        pass
+
+        x = self.make_data()
+        x = x[:, 0].reshape(-1, 1)
+        flow = Flow(ndim=x.shape[1])
+
+        self.assertRaises(ValueError, lambda: flow.logprob(x))
 
     @torch.no_grad()
     def test_logprob_single_example(self):
         # Test logprob when input is a single data point
         torch.manual_seed(0)
-        pass
 
-    @torch.no_grad()
-    def test_logprob_single_example_1d(self):
-        # Test logprob when input is a single data point in 1D
-        torch.manual_seed(0)
-        pass
+        x = self.make_data()
+        x = x[0].reshape(1, -1)
+        flow = Flow(ndim=x.shape[1])
+        log_prob = flow.logprob(x)
+
+        self.assertFalse(torch.any(torch.isnan(log_prob)))
+        self.assertFalse(torch.any(torch.isinf(log_prob)))
+        self.assertEqual(log_prob.shape, (x.shape[0],))
+        self.assertEqual(x.dtype, log_prob.dtype)
 
     def test_logprob_backward(self):
         # Test backpropagation on the negative log likelihood
