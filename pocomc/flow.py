@@ -304,6 +304,8 @@ class Flow:
             device='cpu',
             verbose=0
         )
+        if self.train_config is None:
+            self.train_config = dict()
         train_config = {**default_train_config, **self.train_config}
 
         history = None

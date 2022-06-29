@@ -185,6 +185,32 @@ class FlowTestCase(unittest.TestCase):
         self.assertEqual(log_prob.shape, (x.shape[0],))
         self.assertEqual(x.dtype, log_prob.dtype)
 
+    def test_fit(self):
+        # Test that fit works without errors and check some basic functions afterwards
+        torch.manual_seed(0)
+
+        x = self.make_data()
+        flow = Flow(ndim=x.shape[1], train_config={'epochs': 5})
+        flow.fit(x)
+
+        z, _ = flow.forward(x)
+        log_prob = flow.logprob(x)
+        x_samples, _ = flow.sample(x.shape[0])
+
+        self.assertFalse(torch.any(torch.isnan(log_prob)))
+        self.assertFalse(torch.any(torch.isinf(log_prob)))
+        self.assertEqual(log_prob.shape, (x.shape[0],))
+        self.assertEqual(x.dtype, log_prob.dtype)
+
+        self.assertFalse(torch.any(torch.isnan(z)))
+        self.assertFalse(torch.any(torch.isinf(z)))
+        self.assertEqual(x.shape, z.shape)
+        self.assertEqual(x.dtype, z.dtype)
+
+        self.assertFalse(torch.any(torch.isnan(x_samples)))
+        self.assertFalse(torch.any(torch.isinf(x_samples)))
+        self.assertEqual(x.shape, x_samples.shape)
+        self.assertEqual(x.dtype, x_samples.dtype)
 
 if __name__ == '__main__':
     unittest.main()
