@@ -1,6 +1,7 @@
 from .maf import MAF, RealNVP
 from .train import FlowTrainer
 import torch
+from .tools import torch_double_to_float
 
 
 class Flow:
@@ -61,15 +62,19 @@ class Flow:
             raise ValueError(f"Unsupported flow type: {config['flow_type']}. Please use one of ['maf', 'realnvp'].")
 
     def fit(self, x):
+        x = torch_double_to_float(x)
         return FlowTrainer(self.flow, x, self.train_config)
 
     def forward(self, x):
+        x = torch_double_to_float(x)
         return self.flow.forward(x)
 
     def inverse(self, u):
+        u = torch_double_to_float(u)
         return self.flow.inverse(u)
 
     def logprob(self, x):
+        x = torch_double_to_float(x)
         u, logdetJ = self.flow.forward(x)
         return torch.sum(self.flow.base_dist.log_prob(u) + logdetJ, dim=1)
 

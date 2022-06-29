@@ -114,7 +114,7 @@ class FlowTestCase(unittest.TestCase):
         self.assertFalse(torch.any(torch.isnan(log_prob)))
         self.assertFalse(torch.any(torch.isinf(log_prob)))
         self.assertEqual(log_prob.shape, (x.shape[0],))
-        self.assertEqual(x.dtype, log_prob.dtype)
+        self.assertEqual(log_prob.dtype, torch.float32)
 
     @torch.no_grad()
     def test_logprob_1d(self):
