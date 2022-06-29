@@ -63,7 +63,7 @@ class FlowTestCase(unittest.TestCase):
 
         x_tmp = self.make_data()
         flow = Flow(ndim=x_tmp.shape[1])
-        x = flow.sample(x_tmp.shape[0])
+        x, _ = flow.sample(x_tmp.shape[0])
 
         self.assertFalse(torch.any(torch.isnan(x)))
         self.assertFalse(torch.any(torch.isinf(x)))
@@ -123,9 +123,7 @@ class FlowTestCase(unittest.TestCase):
 
         x = self.make_data()
         x = x[:, 0].reshape(-1, 1)
-        flow = Flow(ndim=x.shape[1])
-
-        self.assertRaises(ValueError, lambda: flow.logprob(x))
+        self.assertRaises(ValueError, lambda: Flow(ndim=x.shape[1]))
 
     @torch.no_grad()
     def test_logprob_single_example(self):

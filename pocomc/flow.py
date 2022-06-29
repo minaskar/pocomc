@@ -5,6 +5,9 @@ import torch
 
 class Flow:
     def __init__(self, ndim: int, flow_config: dict = None, train_config: dict = None):
+        if ndim == 1:
+            raise ValueError(f"1D data is not supported. Please provide data with ndim >= 2.")
+
         self.ndim = ndim
         self.flow_config = flow_config  # TODO do we have to store this?
         self.train_config = train_config
