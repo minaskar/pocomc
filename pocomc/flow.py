@@ -2,10 +2,10 @@ from .maf import MAF, RealNVP
 from .train import FlowTrainer
 import torch
 
-def FlowGenerator(ndim, flow_config=None):
 
+def FlowGenerator(ndim, flow_config=None):
     default_flow_config = dict(n_blocks=6,
-                               hidden_size=3*ndim,
+                               hidden_size=3 * ndim,
                                n_hidden=1,
                                batch_norm=True,
                                activation='relu',
@@ -35,12 +35,12 @@ def FlowGenerator(ndim, flow_config=None):
                        input_order=flow_config.get('input_order', default_flow_config['input_order']),
                        batch_norm=flow_config.get('batch_norm', default_flow_config['batch_norm']))
 
-class Flow:
 
+class Flow:
     def __init__(self, ndim, flow_config=None, train_config=None):
-        self.ndim = ndim 
-        self.flow_config=flow_config
-        self.train_config=train_config
+        self.ndim = ndim
+        self.flow_config = flow_config
+        self.train_config = train_config
 
         self.flow = FlowGenerator(ndim, flow_config)
 
@@ -49,7 +49,7 @@ class Flow:
 
     def forward(self, x):
         return self.flow.forward(x)
-        
+
     def inverse(self, u):
         return self.flow.inverse(u)
 
@@ -57,25 +57,7 @@ class Flow:
         u, logdetJ = self.flow.forward(x)
         return torch.sum(self.flow.base_dist.log_prob(u) + logdetJ, dim=1)
 
-    def logprob2(self, x):
-        u, logdetJ = self.flow.forward(x)
-        return torch.sum(self.flow.base_dist.log_prob(u) - logdetJ, dim=1)
-
-    def logprob_zero(self, x):
-        u, logdetJ = self.flow.forward(x)
-        return torch.sum(self.flow.base_dist.log_prob(u), dim=1)
-        
     def sample(self, size=1):
         u = torch.randn(size, self.ndim)
         x, logdetJ = self.flow.inverse(u)
         return x, torch.sum(self.flow.base_dist.log_prob(u) + logdetJ, dim=1)
-
-    def sample2(self, size=1):
-        u = torch.randn(size, self.ndim)
-        x, logdetJ = self.flow.inverse(u)
-        return x, torch.sum(self.flow.base_dist.log_prob(u) - logdetJ, dim=1)
-
-    def sample_zero(self, size=1):
-        u = torch.randn(size, self.ndim)
-        x, logdetJ = self.flow.inverse(u)
-        return x, torch.sum(self.flow.base_dist.log_prob(u), dim=1)
