@@ -114,16 +114,21 @@ class ProgressBar:
 
 
 class _FunctionWrapper(object):
-    """
-    This is a hack to make the likelihood function pickleable when ``args``
-    or ``kwargs`` are also included.
+    r"""
+        This is a hack to make the likelihood function pickleable when ``args``
+        or ``kwargs`` are also included.
 
-    Args:
-        f (callable) : Log Probability function.
-        args (list): Extra arguments to be passed into the logprob.
-        kwargs (dict): Extra arguments to be passed into the logprob.
+    Parameters
+    ----------
+    f : (callable)
+        Log Probability function.
+    args : list
+        Extra arguments to be passed into the logprob.
+    kwargs : dict
+        Extra arguments to be passed into the logprob.
 
-    Returns:
+    Returns
+    -------
         Log Probability function.
     """
 
