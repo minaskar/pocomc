@@ -1,7 +1,7 @@
 import unittest
 import torch
 
-from pocomc import Flow
+from pocomc.flow import Flow
 
 
 class FlowTestCase(unittest.TestCase):
@@ -155,6 +155,20 @@ class FlowTestCase(unittest.TestCase):
                 self.assertIsNotNone(param.grad)
             else:
                 self.assertIsNone(param.grad)
+
+    @torch.no_grad()
+    def test_logprob_realnvp(self):
+        # Test that logprob works with RealNVP
+        torch.manual_seed(0)
+
+        x = self.make_data()
+        flow = Flow(ndim=x.shape[1], flow_config={'flow_type': 'realnvp'})
+        log_prob = flow.logprob(x)
+
+        self.assertFalse(torch.any(torch.isnan(log_prob)))
+        self.assertFalse(torch.any(torch.isinf(log_prob)))
+        self.assertEqual(log_prob.shape, (x.shape[0],))
+        self.assertEqual(x.dtype, log_prob.dtype)
 
 
 if __name__ == '__main__':
