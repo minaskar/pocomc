@@ -157,6 +157,21 @@ class FlowTestCase(unittest.TestCase):
                 self.assertIsNone(param.grad)
 
     @torch.no_grad()
+    def test_logprob_inverse(self):
+        # Test that the inverse logprob is the negative of the forward logprob
+        torch.manual_seed(0)
+
+        x = self.make_data()
+
+        flow = Flow(ndim=x.shape[1])
+        z, logprob_forward = flow.forward(x)
+        _, logprob_inverse = flow.inverse(z)
+
+        self.assertTrue(torch.allclose(logprob_forward, -logprob_inverse))
+        self.assertEqual(logprob_forward.shape, logprob_inverse.shape)
+        self.assertEqual(logprob_forward.dtype, logprob_inverse.dtype)
+
+    @torch.no_grad()
     def test_logprob_realnvp(self):
         # Test that logprob works with RealNVP
         torch.manual_seed(0)
