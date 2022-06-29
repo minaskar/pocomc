@@ -12,13 +12,8 @@ import numpy as np
 
 ndim = 10  # Number of dimensions
 
-lower = np.full(ndim, -10.) # lower bound of the prior
-upper = np.full(ndim, 10.) # upper bound of the prior
-bounds = np.c_[lower, upper]
-const = np.sum(np.log(upper - lower))  # log of the Uniform density
-
 def log_prior(x):
-    if np.any((x < lower) | (x > upper)):  # If any dimension is out of bounds, the log prior is -infinity
+    if np.any((x < -10.0) | (x > 10.0)):  # If any dimension is out of bounds, the log prior is -infinity
         return -np.inf 
     else:
         return -const
@@ -36,7 +31,7 @@ sampler = pc.Sampler(nwalkers,
                      log_likelihood,
                      log_prior,
                      vectorize_likelihood=True,
-                     bounds=bounds
+                     bounds=(-10.0, 10.0)
                     )
 sampler.run(prior_samples)
 
