@@ -17,15 +17,57 @@ def fit(model,
         monitor='val_loss',
         shuffle=True,
         lr=1e-3,
-        weight_decay=1e-5,
+        weight_decay=1e-8,
         clip_grad_norm=1.0,
         l1=None,
         l2=None,
         device='cpu',
         verbose=2):
-    """
+    r"""
         Method to fit the normalising flow.
-        
+
+    Parameters
+    ----------
+    data : ``np.ndarray``
+        Samples used for training the flow.
+    context : ``np.ndarray`` or None
+        Additional samples corresponding to conditional  arguments.
+    validation_data : ``np.ndarray`` or None
+        Samples used for validating the flow.
+    validation_context : ``np.ndarray`` or None
+        Addiitional samples correspondingg to conditioonal arguments,
+        used for validation.
+    validation_split : float
+        Percentage of ``data`` to be used for validation.
+    epochs : int
+        Number of training epochs.
+    batch_size : int
+        Batch size used for training.
+    patience : int
+        Number of epochs to wait with no improvement until termination.
+    monitor : str
+        Which loss to monitor for early stopping (e.g. ``val_loss``, ``loss``),
+        default is ``val_loss``.
+    shuffle : bool
+        Shuffle data before training.
+    lr : float
+        Learning rate.
+    weight_decay : float
+        Weight decay parameter.
+    clip_grad_norm : float
+        Clip large gradients (default is ``0``).
+    l1 : float or None
+        Laplace prior scale for regularisation.
+    l2 : float or None
+        Gaussian prior scale for regularisation.
+    device : str
+        Device to use for training, default is ``cpu``.
+    verbose : int
+        Whether to print all (``2``), some (``1``), or no messages (``0``).
+
+    Returns
+    -------
+    Training history dictionary.
     """
         
 
@@ -195,6 +237,22 @@ def fit(model,
 
 
 def FlowTrainer(model, data, train_config=None):
+    r"""
+        Helper function for training preconditioning flows.
+    
+    Parameters
+    ----------
+    model : ``Flow`` instance
+        The normalising flow to train.
+    data : ``np.ndarray``
+        The data that the flow will be trained on.
+    train_config : dict or None
+        Dictionary with training configuration.
+
+    Returns
+    -------
+    Training history dictionary.
+    """
 
     default_train_config = dict(validation_split=0.2,
                                 epochs=1000,
