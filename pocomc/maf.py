@@ -79,6 +79,9 @@ class BatchNorm(nn.Module):
         self.momentum = momentum
         self.eps = eps
 
+        self.batch_mean = None
+        self.batch_var = None
+
         self.log_gamma = nn.Parameter(torch.zeros(input_size))
         self.beta = nn.Parameter(torch.zeros(input_size))
 
@@ -112,8 +115,8 @@ class BatchNorm(nn.Module):
 
     def inverse(self, y, cond_y=None):
         if self.training:
-            mean = self.batch_mean
-            var = self.batch_var
+            mean = self.batch_mean if self.batch_mean is not None else torch.tensor(0.0)
+            var = self.batch_var if self.batch_var is not None else torch.tensor(1.0)
         else:
             mean = self.running_mean
             var = self.running_var
