@@ -3,10 +3,23 @@ import numpy as np
 
 class Reparameterise:
 
-    def __init__(self, bounds, periodic=None, reflective=None, scale=True, diagonal=True):
+    def __init__(self,
+                 ndim,
+                 bounds=None,
+                 periodic=None,
+                 reflective=None,
+                 scale=True,
+                 diagonal=True
+                 ):
+                          
+        self.ndim = ndim 
+
+        if bounds is None:
+            bounds = np.full((self.ndim, 2), np.nan)
+        elif len(bounds) == 2 and not np.shape(bounds) == (2,2):
+            bounds = np.tile(np.array(bounds).reshape(2,1), self.ndim).T
         self.low = bounds.T[0]
         self.high = bounds.T[1]
-        self.ndim = len(self.low)
 
         self.periodic = periodic
         self.reflective = reflective

@@ -174,9 +174,7 @@ class Sampler:
         self.use_flow = False
         
         # Scaler
-        if bounds is None:
-            bounds = np.full((self.ndim, 2), np.nan)
-        self.scaler = Reparameterise(bounds, periodic, reflective, scale, diagonal)
+        self.scaler = Reparameterise(self.ndim, bounds, periodic, reflective, scale, diagonal)
         self.rescale = rescale
 
         # MCMC parameters
