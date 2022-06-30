@@ -22,7 +22,7 @@ problems that include multimodal and highly non--Gaussian target distributions.
     🖥 A good place to get started is with the :doc:`install` and then the
     :doc:`pages/quickstart` guide.
 
-    📖 For more details, check out the :doc:`tutorials` and :docs:`examples`,
+    📖 For more details, check out the :doc:`tutorials` and :doc:`examples`,
     including the full :doc:`api` documentation.
 
     💡 If you're running into problems getting ``pocoMC`` to do what you want, first
@@ -42,6 +42,7 @@ problems that include multimodal and highly non--Gaussian target distributions.
 
    install
    pages/quickstart.ipynb
+   background
    tutorials
    examples
    faq
