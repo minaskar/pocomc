@@ -42,7 +42,7 @@
     <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Tutorials" href="../tutorials.html" />
+    <link rel="next" title="Background" href="../background.html" />
     <link rel="prev" title="Installation" href="../install.html" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="docsearch:language" content="None">
@@ -109,6 +109,11 @@
    Quickstart
   </a>
  </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="../background.html">
+   Background
+  </a>
+ </li>
  <li class="toctree-l1 has-children">
   <a class="reference internal" href="../tutorials.html">
    Tutorials
@@ -120,16 +125,21 @@
   </label>
   <ul>
    <li class="toctree-l2">
-    <a class="reference internal" href="../tutorials/example1.html">
-     Example 1
+    <a class="reference internal" href="../tutorials/advanced_example.html">
+     Advanced example
     </a>
    </li>
    <li class="toctree-l2">
-    <a class="reference internal" href="../tutorials/example2.html">
-     Example 2
+    <a class="reference internal" href="../tutorials/bridge_sampling.html">
+     Evidence estimation
     </a>
    </li>
   </ul>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="../examples.html">
+   Examples
+  </a>
  </li>
  <li class="toctree-l1">
   <a class="reference internal" href="../faq.html">
@@ -366,9 +376,10 @@ title="Print to PDF"
                 
   <section class="tex2jax_ignore mathjax_ignore" id="quickstart">
 <h1>Quickstart<a class="headerlink" href="#quickstart" title="Permalink to this headline">#</a></h1>
+<p>The following is a simple example of using <code class="docutils literal notranslate"><span class="pre">pocoMC</span></code> to get started. We will sample the infamous Rosenbrock distribution in 10D.</p>
 <section id="likelihood-function-and-prior-distribution">
 <h2>Likelihood function and prior distribution<a class="headerlink" href="#likelihood-function-and-prior-distribution" title="Permalink to this headline">#</a></h2>
-<p>The first step in any analysis is to define the <em>prior distribution</em> and <em>likelihood function</em>. More precisely, for computational reasons, we require the <em>logarithm</em> of the prior probability density function <span class="math notranslate nohighlight">\(\log p(\theta)\)</span> and the <em>logarithm</em> of the likelihood function <span class="math notranslate nohighlight">\(\log \mathcal{L}(\theta)=P(d\vert \theta)\)</span>.</p>
+<p>The first step in any analysis is to define the <em>prior distribution</em> and <em>likelihood function</em>. More precisely, for computational reasons, we require the <em>logarithm</em> of the prior probability density function <span class="math notranslate nohighlight">\(\log\pi(\theta)\equiv \log p(\theta)\)</span> and the <em>logarithm</em> of the likelihood function <span class="math notranslate nohighlight">\(\log \mathcal{L}(\theta)\equiv\log P(d\vert \theta)\)</span>.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
@@ -376,14 +387,10 @@ title="Print to PDF"
 <span class="c1"># Define the dimensionality of our problem.</span>
 <span class="n">ndim</span> <span class="o">=</span> <span class="mi">10</span>
 
-<span class="c1"># Define our 10-D correlated multivariate normal log-likelihood.</span>
-<span class="n">C</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">identity</span><span class="p">(</span><span class="n">ndim</span><span class="p">)</span>
-<span class="n">C</span><span class="p">[</span><span class="n">C</span><span class="o">==</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.95</span>
-<span class="n">Cinv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">C</span><span class="p">)</span>
-<span class="n">lnorm</span> <span class="o">=</span> <span class="o">-</span><span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">*</span> <span class="n">ndim</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">det</span><span class="p">(</span><span class="n">C</span><span class="p">)))</span>
-
-<span class="k">def</span> <span class="nf">loglike</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
-    <span class="k">return</span> <span class="o">-</span><span class="mf">0.5</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">Cinv</span><span class="p">,</span> <span class="n">x</span><span class="p">))</span> <span class="o">+</span> <span class="n">lnorm</span>
+<span class="c1"># Define our 10-D Rosenbrock log-likelihood.</span>
+<span class="k">def</span> <span class="nf">log_likelihood</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+    <span class="k">return</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="mf">10.0</span><span class="o">*</span><span class="p">(</span><span class="n">x</span><span class="p">[:,::</span><span class="mi">2</span><span class="p">]</span><span class="o">**</span><span class="mf">2.0</span> <span class="o">-</span> <span class="n">x</span><span class="p">[:,</span><span class="mi">1</span><span class="p">::</span><span class="mi">2</span><span class="p">])</span><span class="o">**</span><span class="mf">2.0</span> \
+            <span class="o">+</span> <span class="p">(</span><span class="n">x</span><span class="p">[:,::</span><span class="mi">2</span><span class="p">]</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">)</span><span class="o">**</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 
 <span class="c1"># Define our uniform prior.</span>
 <span class="k">def</span> <span class="nf">logprior</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
@@ -410,15 +417,10 @@ title="Print to PDF"
 <span class="c1"># Initialise sampler</span>
 <span class="n">sampler</span> <span class="o">=</span> <span class="n">pc</span><span class="o">.</span><span class="n">Sampler</span><span class="p">(</span><span class="n">nparticles</span><span class="p">,</span>
                      <span class="n">ndim</span><span class="p">,</span>
-                     <span class="n">loglikelihood</span><span class="o">=</span><span class="n">loglike</span><span class="p">,</span>
+                     <span class="n">loglikelihood</span><span class="o">=</span><span class="n">log_likelihood</span><span class="p">,</span>
                      <span class="n">logprior</span><span class="o">=</span><span class="n">logprior</span><span class="p">,</span>
-                     <span class="n">bounds</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
-</pre></div>
-</div>
-</div>
-<div class="cell_output docutils container">
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>/Users/minas/opt/anaconda3/envs/dev-env/lib/python3.9/site-packages/tqdm/auto.py:22: TqdmWarning: IProgress not found. Please update jupyter and ipywidgets. See https://ipywidgets.readthedocs.io/en/stable/user_install.html
-  from .autonotebook import tqdm as notebook_tqdm
+                     <span class="n">vectorize_likelihood</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                     <span class="n">bounds</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mf">10.0</span><span class="p">,</span> <span class="mf">10.0</span><span class="p">))</span>
 </pre></div>
 </div>
 </div>
@@ -427,7 +429,7 @@ title="Print to PDF"
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Initialise particles&#39; positions using samples from the prior (this is very important, other initialisation will not work).</span>
-<span class="n">prior_samples</span> <span class="o">=</span> <span class="o">-</span><span class="mf">10.0</span> <span class="o">+</span> <span class="mf">20.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">nparticles</span><span class="p">,</span> <span class="n">ndim</span><span class="p">)</span>
+<span class="n">prior_samples</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">low</span><span class="o">=-</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">high</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">nparticles</span><span class="p">,</span> <span class="n">ndim</span><span class="p">))</span>
 
 <span class="c1"># Start sampling</span>
 <span class="n">sampler</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">prior_samples</span><span class="p">)</span>
@@ -441,8 +443,10 @@ title="Print to PDF"
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Iter: 59it [02:46,  2.82s/it, beta=1, calls=318000, ESS=0.971, logZ=-30.9, accept=0.237, N=5, scale=1.05, corr=0.729]       
-Iter: 1it [00:00,  3.90it/s, beta=1, calls=323000, ESS=0.95, logZ=-30.9, accept=0.224, N=5, scale=1.07, corr=0.727]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Iter: 35it [02:25,  4.22s/it, beta=0.012, calls=264000, ESS=0.951, logZ=-13.6, accept=0.231, N=16, scale=0.587, corr=0.746]  /Users/minas/opt/anaconda3/envs/dev-env/lib/python3.9/site-packages/numpy/linalg/linalg.py:2086: RuntimeWarning: invalid value encountered in slogdet
+  sign, logdet = _umath_linalg.slogdet(a, signature=signature)
+Iter: 66it [05:25,  4.93s/it, beta=1, calls=504000, ESS=1, logZ=-30.2, accept=0.226, N=5, scale=1.05, corr=0.746]           
+Iter: 1it [00:00,  3.69it/s, beta=1, calls=509000, ESS=0.95, logZ=-30.2, accept=0.235, N=5, scale=1.07, corr=0.748]
 </pre></div>
 </div>
 </div>
@@ -450,7 +454,7 @@ Iter: 1it [00:00,  3.90it/s, beta=1, calls=323000, ESS=0.95, logZ=-30.9, accept=
 </section>
 <section id="plot-results">
 <h2>Plot results<a class="headerlink" href="#plot-results" title="Permalink to this headline">#</a></h2>
-<p>You can then produce a trace plot and a corner plot of the results.</p>
+<p>You can then produce a trace plot and a corner plot of the results, as well as a run plot of the sampling progress.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
@@ -462,7 +466,7 @@ Iter: 1it [00:00,  3.90it/s, beta=1, calls=323000, ESS=0.95, logZ=-30.9, accept=
 </div>
 </div>
 <div class="cell_output docutils container">
-<img alt="../_images/7099c3decdb31e7402f5e64fd0d4269d818dc830711fd58fe6fdde53702a1099.png" src="../_images/7099c3decdb31e7402f5e64fd0d4269d818dc830711fd58fe6fdde53702a1099.png" />
+<img alt="../_images/a532598b1ce92842faab56e95535449f5e217bf9979b44b3ee468917eb8682e0.png" src="../_images/a532598b1ce92842faab56e95535449f5e217bf9979b44b3ee468917eb8682e0.png" />
 </div>
 </div>
 <div class="cell docutils container">
@@ -474,7 +478,19 @@ Iter: 1it [00:00,  3.90it/s, beta=1, calls=323000, ESS=0.95, logZ=-30.9, accept=
 </div>
 </div>
 <div class="cell_output docutils container">
-<img alt="../_images/8499c4f4c29dcc969015286ca735d33af0a4db682321b700fc1d9a4bf07850c0.png" src="../_images/8499c4f4c29dcc969015286ca735d33af0a4db682321b700fc1d9a4bf07850c0.png" />
+<img alt="../_images/6c6fc2ddf490fc3a752dda6a43f30e3b7c9cc1f888f2a380e0d58965475bd377.png" src="../_images/6c6fc2ddf490fc3a752dda6a43f30e3b7c9cc1f888f2a380e0d58965475bd377.png" />
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Run plot</span>
+<span class="n">pc</span><span class="o">.</span><span class="n">plotting</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<img alt="../_images/380b88addec3e26df51948d9a27e0774ef67d548a99ee602ca46a8ca189f9117.png" src="../_images/380b88addec3e26df51948d9a27e0774ef67d548a99ee602ca46a8ca189f9117.png" />
 </div>
 </div>
 </section>
@@ -488,7 +504,7 @@ Iter: 1it [00:00,  3.90it/s, beta=1, calls=323000, ESS=0.95, logZ=-30.9, accept=
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>dict_keys([&#39;iter&#39;, &#39;samples&#39;, &#39;posterior_samples&#39;, &#39;logl&#39;, &#39;logw&#39;, &#39;logz&#39;, &#39;ess&#39;, &#39;ncall&#39;, &#39;beta&#39;, &#39;accept&#39;, &#39;scale&#39;, &#39;steps&#39;])
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>dict_keys([&#39;iter&#39;, &#39;posterior_samples&#39;, &#39;posterior_logl&#39;, &#39;posterior_logp&#39;, &#39;samples&#39;, &#39;logl&#39;, &#39;logw&#39;, &#39;logz&#39;, &#39;ess&#39;, &#39;ncall&#39;, &#39;beta&#39;, &#39;accept&#39;, &#39;scale&#39;, &#39;steps&#39;])
 </pre></div>
 </div>
 </div>
@@ -511,10 +527,10 @@ Iter: 1it [00:00,  3.90it/s, beta=1, calls=323000, ESS=0.95, logZ=-30.9, accept=
             <p class="prev-next-title">Installation</p>
         </div>
     </a>
-    <a class='right-next' id="next-link" href="../tutorials.html" title="next page">
+    <a class='right-next' id="next-link" href="../background.html" title="next page">
     <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Tutorials</p>
+        <p class="prev-next-title">Background</p>
     </div>
     <i class="fas fa-angle-right"></i>
     </a>
