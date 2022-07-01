@@ -126,7 +126,45 @@ The next step is to import `pocoMC` and initialise the `Sampler` class::
                          bounds = bounds,
                         )
 
+The sampler also accepts other arguments, for a full list see :doc:`api`. Those include:
 
+- A very important parameter that determine the sampling performance is the *correlation coefficient threshold*
+  ``corr_threshold`` (with default value of :math:`75\%`). 
+- Additional arguments passed to the log-likelihood using the arguments ``loglikelihood_args`` and ``loglikelihood_kwargs``,
+  or to the log-prior using the arguments ``logprior_args`` and ``logprior_kwargs``.
+- The arguments ``vectorize_likelihood`` and ``vectorize_prior`` which accept boolean values allow the user to use vectorized
+  log-likelihood and log-prior functions.
+- The ``periodic`` and  ``reflective`` arguments that accept a list of indeces corresponding to parameters of the model that
+  have *periodic* or *reflective* boundary conditions. The first kind include *phase* parameters that might be periodic e.g. 
+  on a range :math:`[0,2\pi]`. The latter can arise in cases where parameters are ratios where :math:`a/b` and :math:`b/a`
+  are equivalent.
+- The Sampler class also accepts a dictionary ``flow_config`` with various options for the configuration of the normalising
+  flow. An example showing some of the default values and what each parameter means is shown below::
+
+    flow_config = dict(n_blocks = 6, # Number of blocks
+                       hidden_size = 3 * ndim, # Number of neurons per layer
+                       n_hidden = 1, # Number of layers per block
+                       flow_type = 'maf' # Type of normalising flow. Options include 'maf' and 'realnvp'
+                      )
+
+- Apart from the ``flow_config``, the sampler accepts the ``train_config`` dictionary which includes arguments related to
+  the training procedure of the normalising flow. An example showing some of the default values and what each parameter
+  means is shown below::
+
+    train_config = dict(validation_split = 0.2, # Percentage of particles to use for validation
+                        epochs = 1000, # Maximum number of epochs
+                        batch_size = nparticles, # Batch size used for training
+                        patience = 30, # Number of iterations to wait with no improvement in the (monitor) loss until stopping.
+                        monitor = 'val_loss', # Which loss to monitor for early stopping. Options are 'val_loss' and 'loss'.
+                        shuffle = True, # Shuffle the particles
+                        lr = [1e-2, 1e-3, 1e-4, 1e-5], # Learning rates. If more than one is provided then they are used as an annealing schedule.
+                        weight_decay = 1e-8, # Weight decay parameter.
+                        clip_grad_norm = 1.0, # Clip huge gradients to avoid training issues.
+                        l1 = 0.2, # Scale of the Laplace prior put on the weights.
+                        l2 = None, # Scale of the Gaussian prior put on the weights.
+                        device = 'cpu', # Device to use for training. Currently only 'cpu' is supported.
+                       )
+  
 
 Running the sampler
 -------------------
