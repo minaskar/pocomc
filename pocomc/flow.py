@@ -230,6 +230,23 @@ def fit(model,
 
 
 class Flow:
+    r"""
+    
+        Normalising Flow object.
+
+    Parameters
+    ----------
+    ndim : int
+        Number of parameters or dimensions
+    flow_config : dict or None
+        Configuration of the flow. If ``None`` the default configuration is used ``dict(n_blocks=6,
+        hidden_size= 3 * ndim, n_hidden=1, batch_norm=True, activation='relu', input_order='sequential',
+        flow_type='maf')``
+    train_config : dict or None
+        Training confiiguration for the flow. If ``None`` the default configuration is used ``validation_split=0.2,
+        epochs=1000, batch_size=nparticles, patience=30, monitor='val_loss', shuffle=True, lr=[1e-2, 1e-3, 1e-4, 1e-5],
+        weight_decay=1e-8, clip_grad_norm=1.0, l1=0.2, l2=None, device='cpu', verbose=0``
+    """
     def __init__(self, ndim: int, flow_config: dict = None, train_config: dict = None):
         if ndim == 1:
             raise ValueError(f"1D data is not supported. Please provide data with ndim >= 2.")
@@ -287,6 +304,18 @@ class Flow:
             raise ValueError(f"Unsupported flow type: {config['flow_type']}. Please use one of ['maf', 'realnvp'].")
 
     def fit(self, x: torch.Tensor):
+        """
+        Train the normalising flow on the provided data.
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            Training data.
+        
+        Returns
+        -------
+        Training history.
+        """
         x = torch_double_to_float(x)
 
         default_train_config = dict(
@@ -317,19 +346,63 @@ class Flow:
         return history
 
     def forward(self, x: torch.Tensor):
+        """
+        Forward transformation.
+        
+        Parameters
+        ----------
+        x : torch.Tensor
+            Samples to transform.
+        Returns
+        -------
+        Tranformed samples.
+        """
         x = torch_double_to_float(x)
         return self.flow.forward(x)
 
     def inverse(self, u: torch.Tensor):
+        """
+        Inverse transformation.
+        
+        Parameters
+        ----------
+        u : torch.Tensor
+            Samples to transform.
+        Returns
+        -------
+        Tranformed samples.
+        """
         u = torch_double_to_float(u)
         return self.flow.inverse(u)
 
     def logprob(self, x: torch.Tensor):
+        """
+        Log-probability of samples.
+        
+        Parameters
+        ----------
+        x : torch.Tensor
+            Input samples
+        Returns
+        -------
+        Log-probability of samples.
+        """
         x = torch_double_to_float(x)
         u, logdetJ = self.flow.forward(x)
         return torch.sum(self.flow.base_dist.log_prob(u) + logdetJ, dim=1)
 
     def sample(self, size: int = 1):
+        """
+        Method that generates random samples.
+
+        Parameters
+        ----------
+        size : int
+            Number of samples to generate.
+        Returns
+        -------
+        samples and respective log-probability values. 
+        """
         u = torch.randn(size, self.ndim)
         x, logdetJ = self.flow.inverse(u)
         return x, torch.sum(self.flow.base_dist.log_prob(u) + logdetJ, dim=1)
