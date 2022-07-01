@@ -43,6 +43,7 @@ problems that include multimodal and highly non--Gaussian target distributions.
    install
    pages/quickstart.ipynb
    background
+   advanced
    tutorials
    examples
    faq
