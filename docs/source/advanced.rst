@@ -166,20 +166,20 @@ Once the run is complete and we have optionally added extra samples, it is time 
 
 This is a dictionary which includes the following arrays:
 
-1. `results['iter']`
-2. `results['posterior_samples']`
-3. `results['posterior_logl']`
-4. `results['posterior_logp']`
-5. `results['samples']`
-6. `results['logl']`
-7. `results['logw']`
-8. `results['logz']`
-9. `results['ess']`
-10. `results['ncall']`
-11. `results['beta']`
-12. `results['accept']`
-13. `results['scale']`
-14. `results['steps']`
+1. **results['iter']** - Array with number iteration indeces (e.g. `np.array([0, 1, 2, ...])`)
+2. **results['posterior_samples']** - Array with the **samples drawn from posterior**. This is usually what you need for parameter inference.
+3. **results['posterior_logl']** - Array with the **values of the log-likelihood** for the posterior samples given by `results['posterior_samples']`.
+4. **results['posterior_logp']** - Array with the **values of the log-prior** for the posterior samples given by `results['posterior_samples']`.
+5. **results['samples']** - Array with the final samples from all the intermediate distributions.
+6. **results['logl']** - Array with the values of the log-likelihood for the samples from all the intermediate distributions.
+7. **results['logw']** - Array with the values of the log-weights for the samples from all the intermediate distributions.
+8. **results['logz']** - Array with the evolution of the estimate of the **logarithm of the model evidence** :math:`\log\mathcal{Z}`. This is usually what you need for model comparison.
+9. **results['ess']** - Array with the evolution of the ESS during the run.
+10. **results['ncall']** - Array with the evolution of the number of log-likelihood calls during the run.
+11. **results['beta']** - Array with the values of beta.
+12. **results['accept']** - Array with the Metropolis-Hastings acceptance rates during the run.
+13. **results['scale']** - Array with the evolution of the scale factor during the run.
+14. **results['steps']** - Array with the number of MCMC steps per iteration during the run.
 
 
 Visualising the results
