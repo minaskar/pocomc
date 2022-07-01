@@ -43,8 +43,21 @@ def create_masks(input_size,
 
 
 class MaskedLinear(nn.Linear):
-    """ MADE building block layer """
+    """ 
+        MADE building block layer
 
+    Parameters
+    ----------
+    input_size : int
+        Dimensionality of input data.
+    n_outputs : int
+        Number of outputs
+    mask : int
+        Mask used to hide connections.
+    cond_label_siize : int
+        Number of conditional arguments.
+        
+    """
     def __init__(self, input_size,
                  n_outputs,
                  mask,
@@ -58,6 +71,19 @@ class MaskedLinear(nn.Linear):
             self.cond_weight = nn.Parameter(torch.rand(n_outputs, cond_label_size) / math.sqrt(cond_label_size))
 
     def forward(self, x, y=None):
+        """
+        Forward transformation.
+        Parameters
+        ----------
+        x : torch.Tensor
+            Input data.
+        y : torch.Tensor
+            Conditional input data.
+        Returns
+        -------
+        out : torch.Tensor
+            Transformed data.
+        """
         out = F.linear(x, self.weight * self.mask, self.bias)
         if y is not None:
             out = out + F.linear(y, self.cond_weight)
@@ -70,7 +96,18 @@ class MaskedLinear(nn.Linear):
 
 
 class BatchNorm(nn.Module):
-    """ Batch Normalisation layer """
+    """ 
+        Batch Normalisation layer
+
+    Parameters
+    ----------
+    input_size : int
+        Dimensionality of input data
+    momemntum : float
+        Value of momentum variable (Default is ``0.9``)
+    eps : float
+        Value of epsilon parameter (Default is ``1e-5``)
+    """
 
     def __init__(self, input_size,
                  momentum=0.9,
@@ -89,6 +126,21 @@ class BatchNorm(nn.Module):
         self.register_buffer('running_var', torch.ones(input_size))
 
     def forward(self, x, cond_y=None):
+        """
+        Forward transformation.
+        Parameters
+        ----------
+        x : torch.Tensor
+            Input data.
+        cond_y : torch.Tensor
+            Conditional input data.
+        Returns
+        -------
+        y : torch.Tensor
+            Transformed data.
+        log_abs_det_jacobian : torch.Tensor
+            Log(Abs(Det(Jacobian)))
+        """
         if self.training:
             self.batch_mean = x.mean(0)
 
@@ -117,6 +169,21 @@ class BatchNorm(nn.Module):
         return y, log_abs_det_jacobian.expand_as(x)
 
     def inverse(self, y, cond_y=None):
+        """
+        Inverse transformation.
+        Parameters
+        ----------
+        y : torch.Tensor
+            Input data.
+        cond_y : torch.Tensor
+            Conditional input data.
+        Returns
+        -------
+        x : torch.Tensor
+            Transformed data.
+        log_abs_det_jacobian : torch.Tensor
+            Log(Abs(Det(Jacobian)))
+        """
         if self.training:
             mean = self.batch_mean if self.batch_mean is not None else torch.tensor(0.0)
             var = self.batch_var if self.batch_var is not None else torch.tensor(1.0)
@@ -136,6 +203,21 @@ class FlowSequential(nn.Sequential):
     """ Join multiple layers of a normalizing flow """
 
     def forward(self, x, y):
+        """
+        Forward transformation.
+        Parameters
+        ----------
+        x : torch.Tensor
+            Input data.
+        y : torch.Tensor
+            Conditional input data.
+        Returns
+        -------
+        u : torch.Tensor
+            Transformed data.
+        log_abs_det_jacobian : torch.Tensor
+            Log(Abs(Det(Jacobian)))
+        """
         sum_log_abs_det_jacobians = 0
         for module in self:
             x, log_abs_det_jacobian = module(x, y)
@@ -143,6 +225,21 @@ class FlowSequential(nn.Sequential):
         return x, sum_log_abs_det_jacobians
 
     def inverse(self, u, y):
+        """
+        Inverse transformation.
+        Parameters
+        ----------
+        u : torch.Tensor
+            Input data.
+        y : torch.Tensor
+            Conditional input data.
+        Returns
+        -------
+        x : torch.Tensor
+            Transformed data.
+        log_abs_det_jacobian : torch.Tensor
+            Log(Abs(Det(Jacobian)))
+        """
         sum_log_abs_det_jacobians = 0
         for module in reversed(self):
             u, log_abs_det_jacobian = module.inverse(u, y)
