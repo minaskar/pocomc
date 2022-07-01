@@ -104,8 +104,8 @@ For instance, in the case of the half-uniform/half-normal prior that we discusse
     nparticles = 1000
 
     prior_samples = np.empty((nparticles, ndim))
-    prior_samples[:, :5] = np.random.uniform(low=-10.0, high=10.0, size=(particles, 5))
-    prior_samples[:, 5:] = np.random.normal(loc=0.0, scale=3.0, size=(particles, 5))
+    prior_samples[:, :5] = np.random.uniform(low=-10.0, high=10.0, size=(nparticles, 5))
+    prior_samples[:, 5:] = np.random.normal(loc=0.0, scale=3.0, size=(nparticles, 5))
 
 Here we chose to use `nparticles = 1000` as the total number of particles. In real applications, we recommend to use at least this
 many particles and possibly more if you expect your distribution to be particularly nasty (e.g. high dimensional :math:`D>10`, 
@@ -134,7 +134,11 @@ Running the sampler
 Running the actual sampling procedure that will produce, among other things, a collection of samples from the posterior as well as 
 an unbiased estimate of the model evidence, can be done by providing the `prior_samples` to the `run` method of the sampler::
 
-    sampler.run(prior_samples)  
+    sampler.run(prior_samples)
+
+Running the above also produces a progress bar similar to the one shown below::
+
+    Iter: 6it [00:17,  3.18s/it, beta=0.00239, calls=35000, ESS=0.95, logZ=-3.52, accept=0.232, N=6, scale=0.964, corr=0.728] 
 
 We can also use the `run` method to specify the desired *effective sample size (ESS)*, as well as the minimum and maximum number
 of MCMC steps per iteration (the actual number is determined adaptively)::
@@ -184,6 +188,38 @@ This is a dictionary which includes the following arrays:
 
 Visualising the results
 -----------------------
+
+First of all, we can plot the *run-plot* that shows us various metrics calculated during the run using the command::
+
+    import matplotliib.pyplot as plt
+
+    pc.plotting.run(results)
+    plt.show()
+
+.. image:: ./images/advanced_run.png
+    :align: center
+
+We can also plot a *trace-plot* of the parameters, showing the marginal distribution for each parameter, as well as
+its evolution during the run, by running::
+
+    pc.plotting.trace(results, dims = [0, 5])
+    plt.show()
+
+where `dims = [0, 5]` selects only the 0th and 5th parameter to plot.
+
+.. image:: ./images/advanced_trace.png
+    :align: center
+
+Finally, we can also produce a corner plot e.g. for parameters `dims = [0, 3, 5, 8]`, by running::
+
+    pc.plotting.corner(results, dims = [0, 3, 5, 8])
+    plt.show()
+
+.. image:: ./images/advanced_corner.png
+    :align: center
+
+All of the plotting methods presented above accept additional arguments that allow the user to customise them. You 
+can find more about these in the :doc:`api`.
 
 
 Parallelisation

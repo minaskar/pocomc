@@ -111,6 +111,11 @@
    Background
   </a>
  </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="../advanced.html">
+   Advanced Guide
+  </a>
+ </li>
  <li class="toctree-l1 has-children">
   <a class="reference internal" href="../tutorials.html">
    Tutorials
@@ -307,8 +312,25 @@ title="Print to PDF"
   <section id="plotting">
 <h1>Plotting<a class="headerlink" href="#plotting" title="Permalink to this headline">#</a></h1>
 <dl class="py function">
+<dt class="sig sig-object py" id="pocomc.plotting.run">
+<span class="sig-prename descclassname"><span class="pre">pocomc.plotting.</span></span><span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">full_run</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">width</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">height</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2.5</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pocomc.plotting.run" title="Permalink to this definition">#</a></dt>
+<dd><p>Run plot.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>results</strong> (<em>dict</em>) – Result dictionary produced using <code class="docutils literal notranslate"><span class="pre">pocoMC</span></code>.</p></li>
+<li><p><strong>full_run</strong> (<em>bool</em>) – Whether or not to include run diagnostics beyond the basic run.
+(Default is <code class="docutils literal notranslate"><span class="pre">True</span></code>)</p></li>
+<li><p><strong>width</strong> (<em>float</em>) – Width of figure (default is <code class="docutils literal notranslate"><span class="pre">width=10.0</span></code>).</p></li>
+<li><p><strong>height</strong> (<em>float</em>) – Height of each subplot (default is <code class="docutils literal notranslate"><span class="pre">height=2.5</span></code>).</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="pocomc.plotting.trace">
-<span class="sig-prename descclassname"><span class="pre">pocomc.plotting.</span></span><span class="sig-name descname"><span class="pre">trace</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">labels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">width</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">height</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kde_bins</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">200</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pocomc.plotting.trace" title="Permalink to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">pocomc.plotting.</span></span><span class="sig-name descname"><span class="pre">trace</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">labels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dims</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">width</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">height</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kde_bins</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">200</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pocomc.plotting.trace" title="Permalink to this definition">#</a></dt>
 <dd><p>Trace plot.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -316,6 +338,7 @@ title="Print to PDF"
 <li><p><strong>results</strong> (<em>dict</em>) – Result dictionary produced using <code class="docutils literal notranslate"><span class="pre">pocoMC</span></code>.</p></li>
 <li><p><strong>labels</strong> (<em>list</em><em> or </em><em>None</em>) – List of parameter names to include in the figure. If <code class="docutils literal notranslate"><span class="pre">labels=None</span></code>
 (default) the labels are set automatically.</p></li>
+<li><p><strong>dims</strong> (list or <cite>np.ndarray</cite> or None) – The subset of dimensions that should be plotted. If not provided, all dimensions will be shown.</p></li>
 <li><p><strong>width</strong> (<em>float</em>) – Width of figure (default is <code class="docutils literal notranslate"><span class="pre">width=10.0</span></code>).</p></li>
 <li><p><strong>height</strong> (<em>float</em>) – Height of each subplot (default is <code class="docutils literal notranslate"><span class="pre">height=3.0</span></code>).</p></li>
 <li><p><strong>kde_bins</strong> (<em>int</em>) – Number of bins to use for KDE (default is <code class="docutils literal notranslate"><span class="pre">kde_bins=200</span></code>).</p></li>
@@ -326,11 +349,18 @@ title="Print to PDF"
 
 <dl class="py function">
 <dt class="sig sig-object py" id="pocomc.plotting.corner">
-<span class="sig-prename descclassname"><span class="pre">pocomc.plotting.</span></span><span class="sig-name descname"><span class="pre">corner</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">labels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">color</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'C0'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bins</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">range_</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">smooth</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">smooth1d</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">titles</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_titles</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">title_quantiles</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pocomc.plotting.corner" title="Permalink to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">pocomc.plotting.</span></span><span class="sig-name descname"><span class="pre">corner</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">labels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dims</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">color</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bins</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">range_</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">smooth</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">smooth1d</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">titles</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_titles</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">title_quantiles</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pocomc.plotting.corner" title="Permalink to this definition">#</a></dt>
 <dd><p>Corner plot.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>results</strong> (<em>dict</em>) – Result dictionary produced using <code class="docutils literal notranslate"><span class="pre">pocoMC</span></code>.</p>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>results</strong> (<em>dict</em>) – Result dictionary produced using <code class="docutils literal notranslate"><span class="pre">pocoMC</span></code>.</p></li>
+<li><p><strong>labels</strong> (<em>list</em><em> or </em><em>None</em>) – List of parameter names to include in the figure. If <code class="docutils literal notranslate"><span class="pre">labels=None</span></code>
+(default) the labels are set automatically.</p></li>
+<li><p><strong>dims</strong> (list or <cite>np.ndarray</cite> or None) – The subset of dimensions that should be plotted. If not provided, all dimensions will be shown.</p></li>
+<li><p><strong>color</strong> (<em>str</em><em> or </em><em>None</em>) – Color to use for contours.</p></li>
+<li><p><strong>bins</strong> (<em>int</em>) – Number of KDE bins to use (default is 20).</p></li>
+</ul>
 </dd>
 </dl>
 </dd></dl>

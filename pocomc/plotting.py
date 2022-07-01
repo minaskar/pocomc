@@ -1,7 +1,9 @@
+from shutil import _ntuple_diskusage
 import numpy as np
 
 def trace(results,
           labels=None,
+          dims=None,
           width=10.0,
           height=3.0,
           kde_bins=200,
@@ -15,6 +17,8 @@ def trace(results,
     labels : list or None
         List of parameter names to include in the figure. If ``labels=None``
         (default) the labels are set automatically.
+    dims : list or `np.ndarray` or None
+        The subset of dimensions that should be plotted. If not provided, all dimensions will be shown.
     width : float
         Width of figure (default is ``width=10.0``).
     height : float
@@ -42,18 +46,27 @@ def trace(results,
 
     # Set labels if None is provided
     if labels is None:
-        labels = [r"$x_{%s}$"%i for i in range(n_dim)]
+        if dims is None:
+            labels = [r"$x_{%s}$"%i for i in range(n_dim)]
+        else:
+            labels = [r"$x_{%s}$"%i for i in dims]
+
+    if dims is None:
+        parameters = np.arange(n_dim)
+    else:
+        parameters = dims 
+        n_dim = len(dims)
 
     # Initialise figure
     fig = plt.figure(figsize=(width, n_dim * height))
 
     # Loop over parameters/dimensions
-    for i in range(n_dim):
+    for i, p in enumerate(parameters):
         # Left column -- beta plots
         plt.subplot(n_dim, 2, 2 * i + 1)
         for j in range(n_beta):
             plt.scatter(np.full(n_particles, beta[j]),
-                        samples[j,:,i],
+                        samples[j,:,p],
                         s=5,
                         c='C0',
                         alpha=0.1*weights[j]/np.max(weights[j]))
@@ -64,8 +77,8 @@ def trace(results,
         plt.yticks(fontsize=12)
 
         # Compute 1D KDE for parameter for beta = 1.0
-        kde = gaussian_kde(samples[-1,:,i], weights=weights[-1])
-        x = np.linspace(np.min(samples[-1,:,i]), np.max(samples[-1,:,i]), kde_bins)
+        kde = gaussian_kde(samples[-1,:,p], weights=weights[-1])
+        x = np.linspace(np.min(samples[-1,:,p]), np.max(samples[-1,:,p]), kde_bins)
 
         # Right column -- trace plots
         plt.subplot(n_dim, 2, 2 * i + 2)
@@ -81,7 +94,8 @@ def trace(results,
 
 def corner(results,
            labels=None,
-           color='C0',
+           dims=None,
+           color=None,
            bins=20,
            range_=None,
            smooth=None,
@@ -97,9 +111,21 @@ def corner(results,
     ----------
     results : dict
         Result dictionary produced using ``pocoMC``.
+    labels : list or None
+        List of parameter names to include in the figure. If ``labels=None``
+        (default) the labels are set automatically.
+    dims : list or `np.ndarray` or None
+        The subset of dimensions that should be plotted. If not provided, all dimensions will be shown.
+    color : str or None
+        Color to use for contours.
+    bins : int
+        Number of KDE bins to use (default is 20).
     """
     # import corner
     import corner
+
+    if color is None:
+        color = 'C0'
 
     # Get posterior samples
     posterior_samples = results.get("posterior_samples")
@@ -109,7 +135,14 @@ def corner(results,
 
     # Set labels if None is provided
     if labels is None:
-        labels = [r"$x_{%s}$"%i for i in range(n_dim)]
+        if dims is None:
+            labels = [r"$x_{%s}$"%i for i in range(n_dim)]
+        else:
+            labels = [r"$x_{%s}$"%i for i in dims]
+
+    if dims is not None:
+        posterior_samples = posterior_samples[:,dims]
+
     
     return corner.corner(data=posterior_samples,
                          labels=labels,
