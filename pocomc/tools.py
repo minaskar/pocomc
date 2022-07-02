@@ -18,11 +18,12 @@ def get_ESS(logw):
 
 def resample_equal(samples, weights, rstate=None):
     """
-    Resample a new set of points from the weighted set of inputs
-    such that they all have equal weight.
-    Each input sample appears in the output array either
-    `floor(weights[i] * nsamples)` or `ceil(weights[i] * nsamples)` times,
-    with `floor` or `ceil` randomly selected (weighted by proximity).
+        Resample a new set of points from the weighted set of inputs
+        such that they all have equal weight.
+        Each input sample appears in the output array either
+        `floor(weights[i] * nsamples)` or `ceil(weights[i] * nsamples)` times,
+        with `floor` or `ceil` randomly selected (weighted by proximity).
+
     Parameters
     ----------
     samples : `~numpy.ndarray` with shape (nsamples,)
@@ -31,10 +32,12 @@ def resample_equal(samples, weights, rstate=None):
         Corresponding weight of each sample.
     rstate : `~numpy.random.RandomState`, optional
         `~numpy.random.RandomState` instance.
+
     Returns
     -------
     equal_weight_samples : `~numpy.ndarray` with shape (nsamples,)
         New set of samples with equal weights.
+    
     Examples
     --------
     >>> x = np.array([[1., 1.], [2., 2.], [3., 3.], [4., 4.]])
@@ -44,6 +47,7 @@ def resample_equal(samples, weights, rstate=None):
            [ 1.,  1.],
            [ 1.,  1.],
            [ 3.,  3.]])
+    
     Notes
     -----
     Implements the systematic resampling method described in `Hol, Schon, and

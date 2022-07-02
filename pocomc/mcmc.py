@@ -4,12 +4,31 @@ import torch
 from .tools import numpy_to_torch, torch_to_numpy
 
 class Pearson:
+    """
+        Pearson correlation coefficient.
+
+    Parameters
+    ----------
+    a : array of shape (nparticles, ndim)
+        Initial positions of particles
+    """
     def __init__(self, a):
         self.l = a.shape[0]
         self.am = a - np.sum(a, axis=0) / self.l
         self.aa = np.sum(self.am**2, axis=0) ** 0.5
 
     def get(self, b):
+        """
+            Method that computes the correlation coefficients between current positions and initial.
+
+        Parameters
+        ----------
+        b : array of shape (nparticles, ndim)
+            Current positions of particles
+        Returns
+        -------
+        correlation coefficients
+        """
         bm = b - np.sum(b, axis=0) / self.l
         bb = np.sum(bm**2, axis=0) ** 0.5
         ab = np.sum(self.am * bm, axis=0)
@@ -20,6 +39,22 @@ class Pearson:
 def PreconditionedMetropolis(state_dict=None,
                              function_dict=None,
                              option_dict=None):
+    """
+        Preconditioned Metropolis
+    
+    Parameters
+    ----------
+    state_dict : dict
+        Dictionary of current state
+    function_dict : dict
+        Dictionary of functions.
+    option_dict : dict
+        Dictionary of options.
+    
+    Returns
+    -------
+    Results dictionary
+    """
 
     # Clone state variables
     u = torch.clone(numpy_to_torch(state_dict.get('u')))
@@ -130,6 +165,22 @@ def PreconditionedMetropolis(state_dict=None,
 def Metropolis(state_dict=None,
                function_dict=None,
                option_dict=None):
+    """
+        Random-walk Metropolis
+    
+    Parameters
+    ----------
+    state_dict : dict
+        Dictionary of current state
+    function_dict : dict
+        Dictionary of functions.
+    option_dict : dict
+        Dictionary of options.
+    
+    Returns
+    -------
+    Results dictionary
+    """
 
     # Clone state variables
     u = state_dict.get('u').copy()
@@ -230,6 +281,23 @@ def Metropolis(state_dict=None,
 
 
 def logprob(L, P, beta):
+    """
+        Helper function that computes tempered log posterior.
+    
+    Parameters
+    ----------
+    L : array
+        Log-likelihood array
+    P : array
+        Log-prior array
+    beta : float
+        Beta value
+    
+    Returns
+    -------
+    Log-posterior array
+    """
+
     L[np.isnan(L)] = -np.inf
     L[np.isnan(P)] = -np.inf
     L[~np.isfinite(P)] = -np.inf
