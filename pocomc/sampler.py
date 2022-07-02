@@ -63,10 +63,6 @@ class Sampler:
         Whether or not to use the ``pool`` (if provided)
         for the ``logprior`` as well (default is 
         ``parallelize_prior=False``).
-    corr_threshold : float
-        Threshold for the correlation coefficient that is
-        used to adaptively determine the number of MCMC
-        steps (default is ``corr_threshold=0.75``).
     flow_config : dict or ``None``
         Configuration of the normalizing flow (default is
         ``flow_config=None``).
@@ -103,7 +99,6 @@ class Sampler:
                  vectorize_prior=False,
                  pool=None,
                  parallelize_prior=False,
-                 corr_threshold=0.75,
                  flow_config=None,
                  train_config=None,
                  random_state: int = None
@@ -179,13 +174,13 @@ class Sampler:
         self.scale = 2.38 / np.sqrt(ndim)
         self.accept = 0.234
         self.target_accept = 0.234
-        self.corr_threshold = corr_threshold
 
     def run(self,
             x0,
-            ess=0.95,
-            nmin=5,
-            nmax=1000,
+            ess = 0.95,
+            gamma = 0.75,
+            nmin = None,
+            nmax = None,
             progress=True
             ):
         r"""Method that runs Preconditioned Monte Carlo.
@@ -198,18 +193,29 @@ class Sampler:
         ess : float
             The effective sample size maintained during the run (default is
             `ess=0.95`).
-        nmin : int
-            The minimum number of MCMC steps per iteration (default is `nmin=5`).
-        nmax : int
-            The maximum number of MCMC steps per iteration  (default is `nmin=1000`).
+        gamma : float
+            Threshold for the correlation coefficient that is
+            used to adaptively determine the number of MCMC
+            steps (default is ``gamma=0.75``).
+        nmin : int or None
+            The minimum number of MCMC steps per iteration (default is `nmin = ndim // 2`).
+        nmax : int or None
+            The maximum number of MCMC steps per iteration  (default is `nmin = int(10 * ndim)`).
         progress : bool
             Whether or not to print progress bar (default is `progress=True`).        
         """
 
         # Run parameters
         self.ess = ess
-        self.nmin = nmin
-        self.nmax = nmax
+        self.gamma = gamma
+        if nmin is None:
+            self.nmin = self.ndim // 2
+        else:
+            self.nmin = int(nmin)
+        if nmax is None:
+            self.nmax = int(10 * self.ndim)
+        else:
+            self.nmax = int(nmax)
         self.progress = progress
 
         # Set state parameters
@@ -348,7 +354,7 @@ class Sampler:
 
         option_dict = dict(nmin=self.nmin,
                            nmax=self.nmax,
-                           corr_threshold=self.corr_threshold,
+                           corr_threshold=self.gamma,
                            sigma=self.scale,
                            progress_bar=self.pbar)
 
