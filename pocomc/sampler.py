@@ -187,7 +187,7 @@ class Sampler:
 
         Parameters
         ----------
-        x0 : `np.ndarray`
+        x0 : ``np.ndarray``
             Array holding the initial positions of the particles. The initial
             positions must be sampled from the prior distribution.
         ess : float
@@ -198,11 +198,11 @@ class Sampler:
             used to adaptively determine the number of MCMC
             steps (default is ``gamma=0.75``).
         nmin : int or None
-            The minimum number of MCMC steps per iteration (default is `nmin = ndim // 2`).
+            The minimum number of MCMC steps per iteration (default is ``nmin = ndim // 2``).
         nmax : int or None
-            The maximum number of MCMC steps per iteration  (default is `nmin = int(10 * ndim)`).
+            The maximum number of MCMC steps per iteration  (default is ``nmin = int(10 * ndim)``).
         progress : bool
-            Whether or not to print progress bar (default is `progress=True`).        
+            Whether or not to print progress bar (default is ``progress=True``).        
         """
 
         # Run parameters
@@ -302,12 +302,12 @@ class Sampler:
         Parameters
         ----------
         N : int
-            The number of additional samples (default is `N=1000`).
+            The number of additional samples (default is ``N=1000``).
         retrain : bool
             Whether or not to retrain the normalising flow preconditioner
-            between iterations (default is `retrain=False`).
+            between iterations (default is ``retrain=False``).
         progress : bool
-            Whether or not to print progress bar (default is `progress=True`).
+            Whether or not to print progress bar (default is ``progress=True``).
         """
         self.progress = progress
 

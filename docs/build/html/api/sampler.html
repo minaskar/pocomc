@@ -40,7 +40,7 @@
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Plotting" href="plotting.html" />
+    <link rel="next" title="Flow" href="flow.html" />
     <link rel="prev" title="API Reference" href="../api.html" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="docsearch:language" content="None">
@@ -112,6 +112,11 @@
    Background
   </a>
  </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="../advanced.html">
+   Advanced Guide
+  </a>
+ </li>
  <li class="toctree-l1 has-children">
   <a class="reference internal" href="../tutorials.html">
    Tutorials
@@ -160,8 +165,28 @@
     </a>
    </li>
    <li class="toctree-l2">
+    <a class="reference internal" href="flow.html">
+     Flow
+    </a>
+   </li>
+   <li class="toctree-l2">
     <a class="reference internal" href="plotting.html">
      Plotting
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="tools.html">
+     Tools
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="mcmc.html">
+     MCMC
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="scaler.html">
+     Scaler
     </a>
    </li>
   </ul>
@@ -309,7 +334,7 @@ title="Print to PDF"
 <h1>Sampler<a class="headerlink" href="#sampler" title="Permalink to this headline">#</a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="pocomc.Sampler">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pocomc.</span></span><span class="sig-name descname"><span class="pre">Sampler</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nparticles</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ndim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loglikelihood</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">logprior</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bounds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">periodic</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reflective</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rescale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">diagonal</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loglikelihood_args</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loglikelihood_kwargs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">logprior_args</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">logprior_kwargs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vectorize_likelihood</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vectorize_prior</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pool</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parallelize_prior</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">corr_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.75</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ind_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ind_accept</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.9</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_independent</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">flow_config</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">train_config</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">random_state</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pocomc.Sampler" title="Permalink to this definition">#</a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pocomc.</span></span><span class="sig-name descname"><span class="pre">Sampler</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nparticles</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ndim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loglikelihood</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">logprior</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bounds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">periodic</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reflective</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rescale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">diagonal</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loglikelihood_args</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loglikelihood_kwargs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">logprior_args</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">logprior_kwargs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vectorize_likelihood</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vectorize_prior</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pool</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parallelize_prior</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">flow_config</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">train_config</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">random_state</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pocomc.Sampler" title="Permalink to this definition">#</a></dt>
 <dd><p>Main Precondioned Monte Carlo sampler class.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -349,9 +374,6 @@ parallelisation (default is <code class="docutils literal notranslate"><span cla
 <li><p><strong>parallelize_prior</strong> (<em>bool</em>) – Whether or not to use the <code class="docutils literal notranslate"><span class="pre">pool</span></code> (if provided)
 for the <code class="docutils literal notranslate"><span class="pre">logprior</span></code> as well (default is
 <code class="docutils literal notranslate"><span class="pre">parallelize_prior=False</span></code>).</p></li>
-<li><p><strong>corr_threshold</strong> (<em>float</em>) – Threshold for the correlation coefficient that is
-used to adaptively determine the number of MCMC
-steps (default is <code class="docutils literal notranslate"><span class="pre">corr_threshold=0.75</span></code>).</p></li>
 <li><p><strong>flow_config</strong> (dict or <code class="docutils literal notranslate"><span class="pre">None</span></code>) – Configuration of the normalizing flow (default is
 <code class="docutils literal notranslate"><span class="pre">flow_config=None</span></code>).</p></li>
 <li><p><strong>train_config</strong> (dict or <code class="docutils literal notranslate"><span class="pre">None</span></code>) – Configuration for training the normalizing flow
@@ -380,10 +402,10 @@ properties: <code class="docutils literal notranslate"><span class="pre">iter</s
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>N</strong> (<em>int</em>) – The number of additional samples (default is <cite>N=1000</cite>).</p></li>
+<li><p><strong>N</strong> (<em>int</em>) – The number of additional samples (default is <code class="docutils literal notranslate"><span class="pre">N=1000</span></code>).</p></li>
 <li><p><strong>retrain</strong> (<em>bool</em>) – Whether or not to retrain the normalising flow preconditioner
-between iterations (default is <cite>retrain=False</cite>).</p></li>
-<li><p><strong>progress</strong> (<em>bool</em>) – Whether or not to print progress bar (default is <cite>progress=True</cite>).</p></li>
+between iterations (default is <code class="docutils literal notranslate"><span class="pre">retrain=False</span></code>).</p></li>
+<li><p><strong>progress</strong> (<em>bool</em>) – Whether or not to print progress bar (default is <code class="docutils literal notranslate"><span class="pre">progress=True</span></code>).</p></li>
 </ul>
 </dd>
 </dl>
@@ -391,18 +413,21 @@ between iterations (default is <cite>retrain=False</cite>).</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="pocomc.Sampler.run">
-<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ess</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.95</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nmin</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nmax</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">progress</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pocomc.Sampler.run" title="Permalink to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ess</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.95</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gamma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.75</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nmin</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nmax</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">progress</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pocomc.Sampler.run" title="Permalink to this definition">#</a></dt>
 <dd><p>Method that runs Preconditioned Monte Carlo.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>x0</strong> (<cite>np.ndarray</cite>) – Array holding the initial positions of the particles. The initial
+<li><p><strong>x0</strong> (<code class="docutils literal notranslate"><span class="pre">np.ndarray</span></code>) – Array holding the initial positions of the particles. The initial
 positions must be sampled from the prior distribution.</p></li>
 <li><p><strong>ess</strong> (<em>float</em>) – The effective sample size maintained during the run (default is
 <cite>ess=0.95</cite>).</p></li>
-<li><p><strong>nmin</strong> (<em>int</em>) – The minimum number of MCMC steps per iteration (default is <cite>nmin=5</cite>).</p></li>
-<li><p><strong>nmax</strong> (<em>int</em>) – The maximum number of MCMC steps per iteration  (default is <cite>nmin=1000</cite>).</p></li>
-<li><p><strong>progress</strong> (<em>bool</em>) – Whether or not to print progress bar (default is <cite>progress=True</cite>).</p></li>
+<li><p><strong>gamma</strong> (<em>float</em>) – Threshold for the correlation coefficient that is
+used to adaptively determine the number of MCMC
+steps (default is <code class="docutils literal notranslate"><span class="pre">gamma=0.75</span></code>).</p></li>
+<li><p><strong>nmin</strong> (<em>int</em><em> or </em><em>None</em>) – The minimum number of MCMC steps per iteration (default is <code class="docutils literal notranslate"><span class="pre">nmin</span> <span class="pre">=</span> <span class="pre">ndim</span> <span class="pre">//</span> <span class="pre">2</span></code>).</p></li>
+<li><p><strong>nmax</strong> (<em>int</em><em> or </em><em>None</em>) – The maximum number of MCMC steps per iteration  (default is <code class="docutils literal notranslate"><span class="pre">nmin</span> <span class="pre">=</span> <span class="pre">int(10</span> <span class="pre">*</span> <span class="pre">ndim)</span></code>).</p></li>
+<li><p><strong>progress</strong> (<em>bool</em>) – Whether or not to print progress bar (default is <code class="docutils literal notranslate"><span class="pre">progress=True</span></code>).</p></li>
 </ul>
 </dd>
 </dl>
@@ -427,10 +452,10 @@ positions must be sampled from the prior distribution.</p></li>
             <p class="prev-next-title">API Reference</p>
         </div>
     </a>
-    <a class='right-next' id="next-link" href="plotting.html" title="next page">
+    <a class='right-next' id="next-link" href="flow.html" title="next page">
     <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Plotting</p>
+        <p class="prev-next-title">Flow</p>
     </div>
     <i class="fas fa-angle-right"></i>
     </a>
