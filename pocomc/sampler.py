@@ -384,9 +384,6 @@ class Sampler:
         self.saved_scale.append(self.scale/self.ideal_scale)
         self.saved_steps.append(self.Nsteps)
 
-        if self.accept < self.ind_threshold:
-            self.use_independent = False
-
         return u, x, J, L, P
 
 
