@@ -127,13 +127,13 @@
   </label>
   <ul>
    <li class="toctree-l2">
-    <a class="reference internal" href="tutorials/advanced_example.html">
-     Advanced example
+    <a class="reference internal" href="tutorials/fitting.html">
+     Fitting a model to data
     </a>
    </li>
    <li class="toctree-l2">
-    <a class="reference internal" href="tutorials/bridge_sampling.html">
-     Evidence estimation
+    <a class="reference internal" href="tutorials/model_comparison.html">
+     Comparing two models
     </a>
    </li>
   </ul>
@@ -392,14 +392,15 @@ title="Print to PDF"
 <p><code class="docutils literal notranslate"><span class="pre">pocoMC</span></code> is a Python implementation of <cite>Preconditioned Monte Carlo (PMC)</cite>.
 Using <code class="docutils literal notranslate"><span class="pre">pocoMC</span></code> one can perform Bayesian inference, including model comparison,
 for challenging scientific problems. <code class="docutils literal notranslate"><span class="pre">pocoMC</span></code>’s sophisticated <cite>normalizing flow
-preconditioning</cite> procedures enable efficient sampling from highly correlated posterior
+preconditioning</cite> procedures enables efficient sampling from highly correlated posterior
 distributions. <code class="docutils literal notranslate"><span class="pre">pocoMC</span></code> is designed to excel in demanding parameter estimation
 problems that include multimodal and highly non–Gaussian target distributions.</p>
 <div class="tip admonition">
 <p class="admonition-title">Where to start?</p>
 <p>🖥 A good place to get started is with the <a class="reference internal" href="install.html"><span class="doc">Installation</span></a> and then the
-<a class="reference internal" href="pages/quickstart.html"><span class="doc">Quickstart</span></a> guide.</p>
-<p>📖 For more details, check out the <a class="reference internal" href="tutorials.html"><span class="doc">Tutorials</span></a> and <a class="reference internal" href="examples.html"><span class="doc">Examples</span></a>,
+<a class="reference internal" href="pages/quickstart.html"><span class="doc">Quickstart</span></a> guide. If you are not familiar with Bayesian inference
+or how PMC wotks have a look at the <a class="reference internal" href="background.html"><span class="doc">Background</span></a>.</p>
+<p>📖 For more details, check out the <a class="reference internal" href="advanced.html"><span class="doc">Advanced Guide</span></a>, <a class="reference internal" href="tutorials.html"><span class="doc">Tutorials</span></a> and <a class="reference internal" href="examples.html"><span class="doc">Examples</span></a>,
 including the full <a class="reference internal" href="api.html"><span class="doc">API Reference</span></a> documentation.</p>
 <p>💡 If you’re running into problems getting <code class="docutils literal notranslate"><span class="pre">pocoMC</span></code> to do what you want, first
 check out the <a class="reference internal" href="faq.html"><span class="doc">FAQ</span></a> page, for some general tips and tricks.</p>
@@ -414,11 +415,11 @@ then head on over to the <a class="reference external" href="https://github.com/
 <p>Please cite the following if you find this code useful in your
 research. The BibTeX entry for the paper is:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nd">@article</span><span class="p">{</span><span class="n">karamanis2022pocomc</span><span class="p">,</span>
-         <span class="n">title</span><span class="o">=</span><span class="p">{</span><span class="n">Accelerating</span> <span class="n">astronomical</span> <span class="ow">and</span> <span class="n">cosmological</span> <span class="n">inference</span> <span class="k">with</span> <span class="n">Preconditioned</span> <span class="n">Monte</span> <span class="n">Carlo</span><span class="p">},</span>
-         <span class="n">author</span><span class="o">=</span><span class="p">{</span><span class="n">Karamanis</span><span class="p">,</span> <span class="n">Minas</span> <span class="ow">and</span> <span class="n">Beutler</span><span class="p">,</span> <span class="n">Florian</span> <span class="ow">and</span> <span class="n">Peacock</span><span class="p">,</span> <span class="n">John</span> <span class="n">A</span> <span class="ow">and</span> <span class="n">Nabergoj</span><span class="p">,</span> <span class="n">David</span><span class="p">,</span> <span class="ow">and</span> <span class="n">Seljak</span><span class="p">,</span> <span class="n">Uro</span>\<span class="n">v</span><span class="p">{</span><span class="n">s</span><span class="p">}},</span>
-         <span class="n">journal</span><span class="o">=</span><span class="p">{</span><span class="ow">in</span> <span class="n">prep</span><span class="p">},</span>
-         <span class="n">year</span><span class="o">=</span><span class="p">{</span><span class="mi">2022</span><span class="p">}</span>
-        <span class="p">}</span>
+    <span class="n">title</span><span class="o">=</span><span class="p">{</span><span class="n">Accelerating</span> <span class="n">astronomical</span> <span class="ow">and</span> <span class="n">cosmological</span> <span class="n">inference</span> <span class="k">with</span> <span class="n">Preconditioned</span> <span class="n">Monte</span> <span class="n">Carlo</span><span class="p">},</span>
+    <span class="n">author</span><span class="o">=</span><span class="p">{</span><span class="n">Karamanis</span><span class="p">,</span> <span class="n">Minas</span> <span class="ow">and</span> <span class="n">Beutler</span><span class="p">,</span> <span class="n">Florian</span> <span class="ow">and</span> <span class="n">Peacock</span><span class="p">,</span> <span class="n">John</span> <span class="n">A</span> <span class="ow">and</span> <span class="n">Nabergoj</span><span class="p">,</span> <span class="n">David</span><span class="p">,</span> <span class="ow">and</span> <span class="n">Seljak</span><span class="p">,</span> <span class="n">Uro</span>\<span class="n">v</span><span class="p">{</span><span class="n">s</span><span class="p">}},</span>
+    <span class="n">journal</span><span class="o">=</span><span class="p">{</span><span class="ow">in</span> <span class="n">prep</span><span class="p">},</span>
+    <span class="n">year</span><span class="o">=</span><span class="p">{</span><span class="mi">2022</span><span class="p">}</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 </section>

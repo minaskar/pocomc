@@ -12,7 +12,7 @@
 ``pocoMC`` is a Python implementation of `Preconditioned Monte Carlo (PMC)`.
 Using ``pocoMC`` one can perform Bayesian inference, including model comparison, 
 for challenging scientific problems. ``pocoMC``'s sophisticated `normalizing flow
-preconditioning` procedures enable efficient sampling from highly correlated posterior
+preconditioning` procedures enables efficient sampling from highly correlated posterior
 distributions. ``pocoMC`` is designed to excel in demanding parameter estimation
 problems that include multimodal and highly non--Gaussian target distributions.
 
@@ -20,9 +20,10 @@ problems that include multimodal and highly non--Gaussian target distributions.
     :class: tip
 
     🖥 A good place to get started is with the :doc:`install` and then the
-    :doc:`pages/quickstart` guide.
+    :doc:`pages/quickstart` guide. If you are not familiar with Bayesian inference
+    or how PMC wotks have a look at the :doc:`background`.
 
-    📖 For more details, check out the :doc:`tutorials` and :doc:`examples`,
+    📖 For more details, check out the :doc:`advanced`, :doc:`tutorials` and :doc:`examples`,
     including the full :doc:`api` documentation.
 
     💡 If you're running into problems getting ``pocoMC`` to do what you want, first
@@ -59,11 +60,11 @@ Please cite the following if you find this code useful in your
 research. The BibTeX entry for the paper is::
 
     @article{karamanis2022pocomc,
-             title={Accelerating astronomical and cosmological inference with Preconditioned Monte Carlo},
-             author={Karamanis, Minas and Beutler, Florian and Peacock, John A and Nabergoj, David, and Seljak, Uro\v{s}},
-             journal={in prep},
-             year={2022}
-            }
+        title={Accelerating astronomical and cosmological inference with Preconditioned Monte Carlo},
+        author={Karamanis, Minas and Beutler, Florian and Peacock, John A and Nabergoj, David, and Seljak, Uro\v{s}},
+        journal={in prep},
+        year={2022}
+    }
 
 
 Authors & License
