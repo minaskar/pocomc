@@ -501,14 +501,15 @@ class Sampler:
     def results(self):
         
         results = {
-            'iter' : np.array(self.saved_iter),
-            'posterior_samples' : np.vstack(self.saved_posterior_samples),
-            'posterior_logl' : np.hstack(self.saved_posterior_logl),
-            'posterior_logp' : np.hstack(self.saved_posterior_logp),
-            'samples' : np.array(self.saved_samples),
-            'logl' : np.array(self.saved_logl),
-            'logw' : np.array(self.saved_logw),
+            'samples' : np.vstack(self.saved_posterior_samples),
+            'loglikelihood' : np.hstack(self.saved_posterior_logl),
+            'logprior' : np.hstack(self.saved_posterior_logp),
             'logz' : np.array(self.saved_logz),
+            'iter' : np.array(self.saved_iter),
+            'x' : np.array(self.saved_samples),
+            'logl' : np.array(self.saved_logl),
+            'logp' : np.array(self.saved_logp),
+            'logw' : np.array(self.saved_logw),
             'ess' : np.array(self.saved_ess),
             'ncall' : np.array(self.saved_ncall),
             'beta' : np.array(self.saved_beta),
@@ -521,9 +522,9 @@ class Sampler:
 
     def bridge_sampling(self, tolerance=1e-10, maxiter=1000, thin=1):
 
-        x = self.results.get("posterior_samples")[::thin]
-        l = self.results.get("posterior_logl")[::thin]
-        p = self.results.get("posterior_logp")[::thin]
+        x = self.results.get("samples")[::thin]
+        l = self.results.get("loglikelihood")[::thin]
+        p = self.results.get("logprior")[::thin]
         
         N1 = len(x)
         N2 = len(x)

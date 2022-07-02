@@ -127,9 +127,7 @@ The next step is to import ``pocoMC`` and initialise the ``Sampler`` class::
                         )
 
 The sampler also accepts other arguments, for a full list see :doc:`api`. Those include:
-
-- A very important parameter that determine the sampling performance is the *correlation coefficient threshold*
-  ``corr_threshold`` (with default value of :math:`75\%`). 
+ 
 - Additional arguments passed to the log-likelihood using the arguments ``loglikelihood_args`` and ``loglikelihood_kwargs``,
   or to the log-prior using the arguments ``logprior_args`` and ``logprior_kwargs``.
 - The arguments ``vectorize_likelihood`` and ``vectorize_prior`` which accept boolean values allow the user to use vectorized
@@ -178,18 +176,32 @@ Running the above also produces a progress bar similar to the one shown below::
 
     Iter: 6it [00:17,  3.18s/it, beta=0.00239, calls=35000, ESS=0.95, logZ=-3.52, accept=0.232, N=6, scale=0.964, corr=0.728] 
 
-We can also use the ``run`` method to specify the desired *effective sample size (ESS)*, as well as the minimum and maximum number
-of MCMC steps per iteration (the actual number is determined adaptively)::
+We can also use the ``run`` method to specify the desired *effective sample size (ESS)*, the :math:`\gamma` factor, as well as
+the minimum and maximum number of MCMC steps per iteration (the actual number is determined adaptively)::
 
     sampler.run(start = prior_samples,
                 ess = 0.95,
+                gamma = 0.75,
                 nmin = 5,
                 nmax = 50
                )
 
+Effective sample size
+"""""""""""""""""""""
+
 The default choice for ESS is ``ess = 0.95``, meaning :math:`95\%`. The allowed range for ESS is :math:`(0\%, 100\%)`. Values closer
 to the upper limit result in slower but more careful sampling (and also better estimates of the model evidence). The default value
 works well for most target distributions.
+
+Correlation coefficient threshold :math:`\gamma` and number of MCMC steps
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+The :math:`\gamma` factor ( default is ``gamma = 0.75``) determnines the correlation coefficient threshold of the MCMC trajectories
+of the particles. The lower this threshold, the more MCMC steps are performed per iteration and thus less correlated the final positions
+of the particles are with respect to their initial ones. In other words, the value :math:`\gamma` determines the number of MCMC steps
+to perform. The default value works well for most problems. If you find that your particles are not decorrelated enough and you want
+to increase the number of MCMC steps they perform per iteration then I suggest that you decrease :math:`\gamma` to ``gamma = 0.50``
+for more robust sampling.
 
 Adding more samples
 -------------------
@@ -208,20 +220,21 @@ Once the run is complete and we have optionally added extra samples, it is time 
 
 This is a dictionary which includes the following arrays:
 
-1. ``results['iter']`` - Array with number iteration indeces (e.g. ``np.array([0, 1, 2, ...])``)
-2. ``results['posterior_samples']`` - Array with the **samples drawn from posterior**. This is usually what you need for parameter inference.
-3. ``results['posterior_logl']`` - Array with the **values of the log-likelihood** for the posterior samples given by ``results['posterior_samples']``.
-4. ``results['posterior_logp']`` - Array with the **values of the log-prior** for the posterior samples given by ``results['posterior_samples']``.
-5. ``results['samples']`` - Array with the final samples from all the intermediate distributions.
-6. ``results['logl']`` - Array with the values of the log-likelihood for the samples from all the intermediate distributions.
-7. ``results['logw']`` - Array with the values of the log-weights for the samples from all the intermediate distributions.
-8. ``results['logz']`` - Array with the evolution of the estimate of the **logarithm of the model evidence** :math:`\log\mathcal{Z}`. This is usually what you need for model comparison.
-9. ``results['ess']`` - Array with the evolution of the ESS during the run.
-10. ``results['ncall']`` - Array with the evolution of the number of log-likelihood calls during the run.
-11. ``results['beta']`` - Array with the values of beta.
-12. ``results['accept']`` - Array with the Metropolis-Hastings acceptance rates during the run.
-13. ``results['scale']`` - Array with the evolution of the scale factor during the run.
-14. ``results['steps']`` - Array with the number of MCMC steps per iteration during the run.
+1. ``results['samples']`` - Array with the **samples drawn from posterior**. This is usually what you need for parameter inference.
+2. ``results['loglikelihood']`` - Array with the **values of the log-likelihood** for the posterior samples given by ``results['samples']``.
+3. ``results['logprior']`` - Array with the **values of the log-prior** for the posterior samples given by ``results['samples']``.
+4. ``results['logz']`` - Array with the evolution of the estimate of the **logarithm of the model evidence** :math:`\log\mathcal{Z}`. This is usually what you need for model comparison.
+5. ``results['iter']`` - Array with number iteration indeces (e.g. ``np.array([0, 1, 2, ...])``)
+6. ``results['x']`` - Array with the final samples from all the intermediate distributions.
+7. ``results['logl']`` - Array with the values of the log-likelihood for the samples from all the intermediate distributions.
+8. ``results['logp']`` - Array with the values of the log-prior for the samples from all the intermediate distributions.
+9.  ``results['logw']`` - Array with the values of the log-weights for the samples from all the intermediate distributions.
+10. ``results['ess']`` - Array with the evolution of the ESS during the run.
+11. ``results['ncall']`` - Array with the evolution of the number of log-likelihood calls during the run.
+12. ``results['beta']`` - Array with the values of beta.
+13. ``results['accept']`` - Array with the Metropolis-Hastings acceptance rates during the run.
+14. ``results['scale']`` - Array with the evolution of the scale factor during the run.
+15. ``results['steps']`` - Array with the number of MCMC steps per iteration during the run.
 
 
 Visualising the results

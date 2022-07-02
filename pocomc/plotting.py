@@ -33,7 +33,7 @@ def trace(results,
     from scipy.stats import gaussian_kde
 
     # Get samples and log-weights
-    samples = results.get("samples")
+    samples = results.get("x")
     logw = results.get("logw")
     beta = results.get("beta")
 
@@ -128,7 +128,7 @@ def corner(results,
         color = 'C0'
 
     # Get posterior samples
-    posterior_samples = results.get("posterior_samples")
+    posterior_samples = results.get("samples")
 
     # Number of  particles and parameters/dimensions
     n_particles, n_dim = np.shape(posterior_samples)
