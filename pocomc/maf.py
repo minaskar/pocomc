@@ -12,6 +12,29 @@ def create_masks(input_size,
                  n_hidden,
                  input_order='sequential',
                  input_degrees=None):
+    """
+        Helper function to create masks.
+    
+    Parameters
+    ----------
+    input_size : int
+        Dimensionality of input data
+    hidden_size : int
+        Size of hidden layer
+    n_hidden : int
+        Number of hidden layers
+    input_order : str
+        Variable order for creating the autoregressive masks: ``"sequential"`` (default) or ``"random"``.
+    input_degrees : torch.Tensor or None
+        Degrees of connections between layers
+    
+    Returns
+    -------
+    masks : torch.Tensor
+        Masks
+    degrees : torch.Tensor
+        Degrees of connections between layers
+    """
     # MADE paper sec 4:
     # degrees of connections between layers -- ensure at most in_degree - 1 connections
     degrees = []
@@ -52,7 +75,7 @@ class MaskedLinear(nn.Linear):
         Dimensionality of input data.
     n_outputs : int
         Number of outputs
-    mask : int
+    mask : torch.Tensor
         Mask used to hide connections.
     cond_label_siize : int
         Number of conditional arguments.
@@ -506,9 +529,29 @@ class MAF(nn.Module):
 
 
 class LinearMaskedCoupling(nn.Module):
-    """ Modified RealNVP Coupling Layers per the MAF paper """
+    """
+        Modified RealNVP Coupling Layers per the MAF paper
+    
+    Parameters
+    ----------
+    input_size : int
+        Dimensionality of input data.
+    hidden_size : int
+        Number of neurons per layer.
+    n_hidden : int
+        Number of layers per MADE block.
+    mask : torch.Tensor
+        Mask used to hide connections.
+    cond_label_size : int
+        Dimensionality of conditional input data.
+    """
 
-    def __init__(self, input_size, hidden_size, n_hidden, mask, cond_label_size=None):
+    def __init__(self,
+                 input_size,
+                 hidden_size,
+                 n_hidden,
+                 mask,
+                 cond_label_size=None):
         super().__init__()
 
         self.register_buffer('mask', mask)

@@ -288,6 +288,7 @@ title="Fullscreen mode"
  <a href="#A"><strong>A</strong></a>
  | <a href="#B"><strong>B</strong></a>
  | <a href="#C"><strong>C</strong></a>
+ | <a href="#E"><strong>E</strong></a>
  | <a href="#F"><strong>F</strong></a>
  | <a href="#I"><strong>I</strong></a>
  | <a href="#L"><strong>L</strong></a>
@@ -319,6 +320,10 @@ title="Fullscreen mode"
 </li>
       </ul></li>
   </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/flow.html#pocomc.maf.BatchNorm">BatchNorm (class in pocomc.maf)</a>
+</li>
+  </ul></td>
 </tr></table>
 
 <h2 id="C">C</h2>
@@ -329,6 +334,16 @@ title="Fullscreen mode"
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/flow.html#pocomc.flow.Flow.create">create() (pocomc.flow.Flow method)</a>
+</li>
+      <li><a href="api/flow.html#pocomc.maf.create_masks">create_masks() (in module pocomc.maf)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="E">E</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/flow.html#pocomc.maf.MaskedLinear.extra_repr">extra_repr() (pocomc.maf.MaskedLinear method)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -344,14 +359,22 @@ title="Fullscreen mode"
       </ul></li>
       <li><a href="api/flow.html#pocomc.flow.Flow">Flow (class in pocomc.flow)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/flow.html#pocomc.maf.FlowSequential">FlowSequential (class in pocomc.maf)</a>
+</li>
       <li><a href="api/flow.html#pocomc.flow.Flow.forward">forward() (pocomc.flow.Flow method)</a>
 
       <ul>
+        <li><a href="api/flow.html#pocomc.maf.BatchNorm.forward">(pocomc.maf.BatchNorm method)</a>
+</li>
+        <li><a href="api/flow.html#pocomc.maf.FlowSequential.forward">(pocomc.maf.FlowSequential method)</a>
+</li>
+        <li><a href="api/flow.html#pocomc.maf.LinearMaskedCoupling.forward">(pocomc.maf.LinearMaskedCoupling method)</a>
+</li>
         <li><a href="api/flow.html#pocomc.maf.MADE.forward">(pocomc.maf.MADE method)</a>
 </li>
         <li><a href="api/flow.html#pocomc.maf.MAF.forward">(pocomc.maf.MAF method)</a>
+</li>
+        <li><a href="api/flow.html#pocomc.maf.MaskedLinear.forward">(pocomc.maf.MaskedLinear method)</a>
 </li>
         <li><a href="api/flow.html#pocomc.maf.RealNVP.forward">(pocomc.maf.RealNVP method)</a>
 </li>
@@ -365,6 +388,12 @@ title="Fullscreen mode"
       <li><a href="api/flow.html#pocomc.flow.Flow.inverse">inverse() (pocomc.flow.Flow method)</a>
 
       <ul>
+        <li><a href="api/flow.html#pocomc.maf.BatchNorm.inverse">(pocomc.maf.BatchNorm method)</a>
+</li>
+        <li><a href="api/flow.html#pocomc.maf.FlowSequential.inverse">(pocomc.maf.FlowSequential method)</a>
+</li>
+        <li><a href="api/flow.html#pocomc.maf.LinearMaskedCoupling.inverse">(pocomc.maf.LinearMaskedCoupling method)</a>
+</li>
         <li><a href="api/flow.html#pocomc.maf.MADE.inverse">(pocomc.maf.MADE method)</a>
 </li>
         <li><a href="api/flow.html#pocomc.maf.MAF.inverse">(pocomc.maf.MAF method)</a>
@@ -378,12 +407,16 @@ title="Fullscreen mode"
 <h2 id="L">L</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/flow.html#pocomc.maf.LinearMaskedCoupling">LinearMaskedCoupling (class in pocomc.maf)</a>
+</li>
       <li><a href="api/flow.html#pocomc.maf.MAF.log_prior">log_prior() (pocomc.maf.MAF method)</a>
 
       <ul>
         <li><a href="api/flow.html#pocomc.maf.RealNVP.log_prior">(pocomc.maf.RealNVP method)</a>
 </li>
       </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/flow.html#pocomc.maf.MADE.log_prob">log_prob() (pocomc.maf.MADE method)</a>
 
       <ul>
@@ -392,8 +425,6 @@ title="Fullscreen mode"
         <li><a href="api/flow.html#pocomc.maf.RealNVP.log_prob">(pocomc.maf.RealNVP method)</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/flow.html#pocomc.flow.Flow.logprob">logprob() (pocomc.flow.Flow method)</a>
 </li>
   </ul></td>
@@ -404,9 +435,11 @@ title="Fullscreen mode"
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/flow.html#pocomc.maf.MADE">MADE (class in pocomc.maf)</a>
 </li>
+      <li><a href="api/flow.html#pocomc.maf.MAF">MAF (class in pocomc.maf)</a>
+</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="api/flow.html#pocomc.maf.MAF">MAF (class in pocomc.maf)</a>
+      <li><a href="api/flow.html#pocomc.maf.MaskedLinear">MaskedLinear (class in pocomc.maf)</a>
 </li>
       <li><a href="api/mcmc.html#pocomc.mcmc.Metropolis">Metropolis() (in module pocomc.mcmc)</a>
 </li>
