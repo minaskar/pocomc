@@ -6,7 +6,7 @@ Installation
 Dependencies
 ------------
 
-**pocoMC** depends on ``numpy``, ``torch``, ``tqdm``,  ``scipy`` and ``matplotlib``.
+**pocoMC** depends on ``numpy``, ``torch``, ``tqdm``,  ``scipy``, ``corner`` and ``matplotlib``.
 
 Using pip
 ---------
