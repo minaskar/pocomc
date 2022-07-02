@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 
-from .mcmc import PreconditionedMetropolis, Metropolis, PreconditionedIndependentMetropolis
+from .mcmc import PreconditionedMetropolis, Metropolis
 from .tools import resample_equal, _FunctionWrapper, torch_to_numpy, numpy_to_torch, get_ESS, ProgressBar
 from .scaler import Reparameterise
 from .flow import Flow
@@ -104,9 +104,6 @@ class Sampler:
                  pool=None,
                  parallelize_prior=False,
                  corr_threshold=0.75,
-                 ind_threshold=0.1, # Acceptance threshold below which preconditioning is prefered
-                 ind_accept=0.9, # Adjust the number of independent Metropolis iteration to achiieve this probability of acceptance
-                 use_independent=False, # Use independent Metropolis
                  flow_config=None,
                  train_config=None,
                  random_state: int = None
@@ -183,10 +180,6 @@ class Sampler:
         self.accept = 0.234
         self.target_accept = 0.234
         self.corr_threshold = corr_threshold
-        self.ind_threshold = ind_threshold
-        self.paccept = ind_accept
-        self.use_independent = use_independent
-
 
     def run(self,
             x0,
@@ -356,19 +349,13 @@ class Sampler:
         option_dict = dict(nmin=self.nmin,
                            nmax=self.nmax,
                            corr_threshold=self.corr_threshold,
-                           paccept=self.paccept,
                            sigma=self.scale,
                            progress_bar=self.pbar)
 
         if self.use_flow:
-            if self.use_independent:
-                results = PreconditionedIndependentMetropolis(state_dict,
-                                                              function_dict, 
-                                                              option_dict)
-            else:
-                results = PreconditionedMetropolis(state_dict,
-                                                   function_dict, 
-                                                   option_dict)
+            results = PreconditionedMetropolis(state_dict,
+                                               function_dict, 
+                                               option_dict)
         else:
             results = Metropolis(state_dict,
                                  function_dict,
