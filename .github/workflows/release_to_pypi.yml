@@ -34,7 +34,7 @@ jobs:
 
       - name: Get the version
         id: get_version
-        run: echo ::set-output name=VERSION::$(cat pocomc/__init__.py | grep __version__ | cut -d'"' -f 2)
+        run: echo ::set-output name=VERSION::$(cat pocomc/_version.py | grep version | cut -d'"' -f 2)
 
       - name: Create GitHub Release
         id: create_release
