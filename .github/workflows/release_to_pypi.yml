@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - 'pocomc/__init__.py'  # Only run workflow on pushes where __init__.py was changed
+      - 'pocomc/_version.py'  # Only run workflow on pushes where _version.py was changed
 
 jobs:
   build-n-publish:
