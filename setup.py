@@ -3,9 +3,21 @@ import setuptools
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
-with open("requirements.txt", 'r') as dependencies:
-    requirements = [pkg.strip() for pkg in dependencies]
-
+try:
+    with open("requirements.txt", 'r') as dependencies:
+        requirements = [pkg.strip() for pkg in dependencies]
+except FileNotFoundError as e:
+    print(e)
+    print("Using hardcoded requirements")
+    requirements = [
+        "numpy",
+        "torch",
+        "tqdm",
+        "matplotlib",
+        "scipy",
+        "corner"
+    ]
+        
 setuptools.setup(
     name="pocomc",
     version="0.0.1",
