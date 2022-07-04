@@ -1,4 +1,7 @@
 import setuptools
+import pathlib
+
+print(f"Running setup.py from {str(pathlib.Path(__file__).resolve().parent)}") 
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
