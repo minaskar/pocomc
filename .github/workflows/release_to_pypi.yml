@@ -32,14 +32,18 @@ jobs:
           user: __token__
           password: ${{ secrets.PYPI_API_TOKEN }}
 
+      - name: Get the version
+        id: get_version
+        run: echo ::set-output name=VERSION::$(cat pocomc/__init__.py | grep __version__ | cut -d'"' -f 2)
+
       - name: Create GitHub Release
         id: create_release
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # This token is provided by Actions, no need to create our own
         with:
-          tag_name: ${{ cat pocomc/__init__.py | grep __version__ | cut -d'"' -f 2 }}
-          release_name: ${{ cat pocomc/__init__.py | grep __version__ | cut -d'"' -f 2 }}
+          tag_name: ${{ steps.get_version.outputs.VERSION }}
+          release_name: ${{ steps.get_version.outputs.VERSION }}
           draft: false
           prerelease: false
 
