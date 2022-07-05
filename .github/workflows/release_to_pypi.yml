@@ -26,6 +26,20 @@ jobs:
           python -m pip install --upgrade build twine
           python -m build
           twine check --strict dist/*
+          
+      - name: Install pocomc from the wheel file
+        run: |
+          pip install dist/*.whl
+          
+      - name: List the installed packages
+        run: |
+          pip freeze
+      
+      - name: Run pocomc unittests
+        run: |
+          python -m unittest tests/flow.py
+          python -m unittest tests/scaler.py
+          
       - name: Publish distribution to PyPI
         uses: pypa/gh-action-pypi-publish@master
         with:
