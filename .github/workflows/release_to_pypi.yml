@@ -26,12 +26,7 @@ jobs:
           python -m pip install --upgrade build twine
           python -m build
           twine check --strict dist/*
-      - name: Publish distribution to PyPI
-        uses: pypa/gh-action-pypi-publish@master
-        with:
-          user: __token__
-          password: ${{ secrets.PYPI_API_TOKEN }}
-
+          
       - name: Install pocomc from the wheel file
         run: |
           pip install dist/*.whl
@@ -40,6 +35,12 @@ jobs:
         run: |
           python -m unittest tests/flow.py
           python -m unittest tests/scaler.py
+          
+      - name: Publish distribution to PyPI
+        uses: pypa/gh-action-pypi-publish@master
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}
 
       - name: Get the version
         id: get_version
