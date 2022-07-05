@@ -30,6 +30,10 @@ jobs:
       - name: Install pocomc from the wheel file
         run: |
           pip install dist/*.whl
+          
+      - name: List the installed packages
+        run: |
+          pip freeze
       
       - name: Run pocomc unittests
         run: |
