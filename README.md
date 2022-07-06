@@ -8,6 +8,14 @@
 
 # Getting started
 
+## Brief introduction
+
+``pocoMC`` utilises a *Normalising Flow* in order to precondition the target distribution by removing any correlations between its parameters. The code then generates posterior samples, that can be used for parameter estimation, using a powerful adaptive *Sequential Monte Carlo* algorithm manifesting a sampling effiency that can be orders of magnitude higher than without precondition. Furthermore, ``pocoMC`` also provides an unbiased estimate of the *model evidence* that can be used for the task of *Bayesian model comparison*.
+
+## Documentation
+
+Read the docs at [pocomc.readthedocs.io](https://pocomc.readthedocs.io) for more information, examples and tutorials.
+
 ## Installation
 
 To install ``pocomc`` using ``pip`` run:
@@ -24,11 +32,7 @@ cd pocomc
 python setup.py install
 ```
 
-## Documentation
-
-Read the docs at [pocomc.readthedocs.io](https://pocomc.readthedocs.io) for more information, examples and tutorials.
-
-## Example
+## Basic example
 
 For instance, if you wanted to draw samples from a 10-dimensional Rosenbrock distribution with a uniform prior, you would do something like:
 
