@@ -13,21 +13,27 @@ def assert_equal_shape(x: np.ndarray,
 
 
 def assert_within_interval(x: np.ndarray,
-                           left: float,
-                           right: float,
+                           left: np.ndarray,
+                           right: np.ndarray,
                            left_open: bool = False,
                            right_open: bool = False):
+    left = left.copy()
+    left[np.isnan(left)] = -np.inf
+
+    right = right.copy()
+    right[np.isnan(right)] = np.inf
+
     if left_open and right_open:
-        condition = (left < x < right)
+        condition = (left < x) & (x < right)
         interval_string = f'({left}, {right})'
     elif left_open and not right_open:
-        condition = (left < x <= right)
+        condition = (left < x) & (x <= right)
         interval_string = f'({left}, {right}]'
     elif not left_open and right_open:
-        condition = (left <= x < right)
+        condition = (left <= x) & (x < right)
         interval_string = f'[{left}, {right})'
     else:
-        condition = (left <= x <= right)
+        condition = (left <= x) & (x <= right)
         interval_string = f'[{left}, {right}]'
 
     if not np.all(condition):
@@ -35,3 +41,8 @@ def assert_within_interval(x: np.ndarray,
         x_max = np.max(x)
         raise ValueError(f"Expected input to be within interval {interval_string}, "
                          f"but got minimum = {x_min} and maximum = {x_max}")
+
+
+def assert_float(x: np.ndarray):
+    if not np.issubdtype(x.dtype, np.floating):
+        raise ValueError(f"Expected input to have dtype float, but got {x.dtype}")

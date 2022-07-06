@@ -129,6 +129,16 @@ class ReparameteriseTestCase(unittest.TestCase):
 
         self.assertTrue(np.allclose(x, x_r))
 
+    def test_out_of_bounds(self):
+        # Test that providing out-of-bound inputs raises an error
+        np.random.seed(0)
+        x, lb, ub = self.make_lower_and_upper_bounded_data()
+        x[0] = lb - 1  # Artificially make example 0 go outside the bounds
+        x[1] = ub + 1  # Artificially make example 1 go outside the bounds
+
+        r = Reparameterise(ndim=x.shape[1], bounds=(lb, ub))
+        self.assertRaises(ValueError, r.fit, x)
+
 
 if __name__ == '__main__':
     unittest.main()

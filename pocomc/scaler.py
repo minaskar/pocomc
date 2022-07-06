@@ -1,5 +1,8 @@
 import numpy as np
 
+from pocomc.input_validation import assert_within_interval, assert_float
+
+
 class Reparameterise:
     """
         Function that reparameterises the model using change-of-variables parameter transformations.
@@ -27,13 +30,15 @@ class Reparameterise:
                  scale=True,
                  diagonal=True
                  ):
-                          
-        self.ndim = ndim 
+
+        self.ndim = ndim
 
         if bounds is None:
             bounds = np.full((self.ndim, 2), np.nan)
         elif len(bounds) == 2 and not np.shape(bounds) == (2,2):
-            bounds = np.tile(np.array(bounds).reshape(2,1), self.ndim).T
+            bounds = np.tile(np.array(bounds, dtype=np.float32).reshape(2,1), self.ndim).T
+        assert_float(bounds)
+
         self.low = bounds.T[0]
         self.high = bounds.T[1]
 
@@ -65,7 +70,7 @@ class Reparameterise:
         Transformed input
         """
         if (self.periodic is None) and (self.reflective is None):
-            return x 
+            return x
         elif self.periodic is None:
             return self._apply_reflective_boundary_conditions(x)
         elif self.reflective is None:
@@ -129,6 +134,8 @@ class Reparameterise:
         x : array
             Input data used for training.
         """
+        assert_within_interval(x, self.low, self.high)
+
         u = self._forward(x)
         self.mu = np.mean(u, axis=0)
         if self.diagonal:
@@ -152,6 +159,8 @@ class Reparameterise:
         u : array
             Transformed input data
         """
+        assert_within_interval(x, self.low, self.high)
+
         u = self._forward(x)
         if self.scale:
             u = self._forward_affine(u)
