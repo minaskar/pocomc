@@ -1,5 +1,5 @@
 # This workflow will install Python dependencies, run tests and lint with a variety of Python versions
-name: PMC
+name: Setup pocomc and run tests
 
 on:
   push:
@@ -36,5 +36,4 @@ jobs:
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Run tests
       run: |
-        python -m unittest tests/flow.py
-        python -m unittest tests/scaler.py
+        python -m unittest discover tests
