@@ -1,4 +1,3 @@
-from shutil import _ntuple_diskusage
 import numpy as np
 
 def trace(results,
