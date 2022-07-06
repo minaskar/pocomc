@@ -1,18 +1,28 @@
 import numpy as np
 
 
-def assert_2d(x: np.ndarray):
+def assert_array_2d(x: np.ndarray):
     if len(x.shape) != 2:
         raise ValueError(f"Input should have 2 dimensions, but got {len(x.shape)}")
 
 
-def assert_equal_shape(x: np.ndarray,
+def assert_array_1d(x: np.ndarray):
+    if len(x.shape) != 1:
+        raise ValueError(f"Input should have 1 dimension, but got {len(x.shape)}")
+
+
+def assert_equal_type(x, y):
+    if type(x) != type(y):
+        raise ValueError(f"Expected inputs to have equal types, but got {type(x)} and {type(y)}")
+
+
+def assert_arrays_equal_shape(x: np.ndarray,
                        y: np.ndarray):
     if x.shape != y.shape:
         raise ValueError(f"Inputs should have equal shape, but got {x.shape} and {y.shape}")
 
 
-def assert_within_interval(x: np.ndarray,
+def assert_array_within_interval(x: np.ndarray,
                            left: np.ndarray,
                            right: np.ndarray,
                            left_open: bool = False,
@@ -43,6 +53,6 @@ def assert_within_interval(x: np.ndarray,
                          f"but got minimum = {x_min} and maximum = {x_max}")
 
 
-def assert_float(x: np.ndarray):
+def assert_array_float(x: np.ndarray):
     if not np.issubdtype(x.dtype, np.floating):
         raise ValueError(f"Expected input to have dtype float, but got {x.dtype}")

@@ -1,10 +1,12 @@
 import numpy as np
 import torch
 
+from .input_validation import assert_array_2d, assert_arrays_equal_shape, assert_array_1d
 from .mcmc import PreconditionedMetropolis, Metropolis
 from .tools import resample_equal, _FunctionWrapper, torch_to_numpy, numpy_to_torch, get_ESS, ProgressBar
 from .scaler import Reparameterise
 from .flow import Flow
+
 
 class Sampler:
     r"""Main Precondioned Monte Carlo sampler class.
@@ -109,13 +111,13 @@ class Sampler:
 
         self.nwalkers = nparticles
         self.ndim = ndim
-        
+
         # Distributions
         self.loglikelihood = _FunctionWrapper(loglikelihood,
-                                              loglikelihood_args, 
+                                              loglikelihood_args,
                                               loglikelihood_kwargs)
-        self.logprior = _FunctionWrapper(logprior, 
-                                         logprior_args, 
+        self.logprior = _FunctionWrapper(logprior,
+                                         logprior_args,
                                          logprior_kwargs)
 
         # Sampling
@@ -164,7 +166,7 @@ class Sampler:
         self.flow = Flow(self.ndim, flow_config, train_config)
         self.threshold = threshold
         self.use_flow = False
-        
+
         # Scaler
         self.scaler = Reparameterise(self.ndim, bounds, periodic, reflective, scale, diagonal)
         self.rescale = rescale
@@ -177,12 +179,12 @@ class Sampler:
 
     def run(self,
             x0,
-            ess = 0.95,
-            gamma = 0.75,
-            nmin = None,
-            nmax = None,
-            progress=True
-            ):
+            ess=0.95,
+            gamma=0.75,
+            nmin=None,
+            nmax=None,
+            progress=True,
+            check_shape: bool = True):
         r"""Method that runs Preconditioned Monte Carlo.
 
         Parameters
@@ -204,6 +206,29 @@ class Sampler:
         progress : bool
             Whether or not to print progress bar (default is ``progress=True``).        
         """
+        assert_array_2d(x0)
+        if check_shape:
+            x_check = x0[:2, :]  # Use only two examples
+            likelihood_output = self.loglikelihood(x_check)
+            prior_output = self.logprior(x_check)
+
+            # Check likelihood shape
+            if type(likelihood_output) == float:
+                self.vectorize_likelihood = False
+            else:
+                assert_array_1d(likelihood_output)
+                self.vectorize_likelihood = True
+
+            # Check prior shape
+            if type(prior_output) == float:
+                self.vectorize_prior = False
+            else:
+                assert_array_1d(prior_output)
+                self.vectorize_prior = True
+
+            # Make sure the output shapes match
+            if type(likelihood_output) == np.ndarray and type(prior_output) == np.ndarray:
+                assert_arrays_equal_shape(likelihood_output, prior_output)
 
         # Run parameters
         self.ess = ess
@@ -243,7 +268,7 @@ class Sampler:
         self.saved_ess.append(self.ess)
         self.saved_ncall.append(self.ncall)
         self.saved_accept.append(self.accept)
-        self.saved_scale.append(self.scale/self.ideal_scale)
+        self.saved_scale.append(self.scale / self.ideal_scale)
         self.saved_steps.append(0)
 
         # Initialise progress bar
@@ -255,7 +280,7 @@ class Sampler:
                                     accept=0.234,
                                     N=0,
                                     scale=1.0))
-        
+
         # Run Sequential Monte Carlo
         while 1.0 - self.beta >= 1e-4:
 
@@ -288,13 +313,12 @@ class Sampler:
         self.saved_posterior_samples.append(self.x.copy())
         self.saved_posterior_logl.append(self.L.copy())
         self.saved_posterior_logp.append(self.P.copy())
-        
+
         self.pbar.close()
 
-    
     def add_samples(self,
                     N=1000,
-                    retrain=False, 
+                    retrain=False,
                     progress=True
                     ):
         r"""Method that generates additional samples at the end of the run
@@ -320,7 +344,7 @@ class Sampler:
                                     N=0,
                                     scale=0))
 
-        iterations = int(np.ceil(N/len(self.u)))
+        iterations = int(np.ceil(N / len(self.u)))
         for _ in range(iterations):
             self.u, self.x, self.J, self.L, self.P = self._mutate(self.u,
                                                                   self.x,
@@ -335,9 +359,8 @@ class Sampler:
             self.pbar.update_iter()
 
         self.pbar.close()
-        #self.u = np.tile(self.u.T, multiply).T
+        # self.u = np.tile(self.u.T, multiply).T
 
-    
     def _mutate(self, u, x, J, L, P):
 
         state_dict = dict(u=u.copy(),
@@ -360,13 +383,13 @@ class Sampler:
 
         if self.use_flow:
             results = PreconditionedMetropolis(state_dict,
-                                               function_dict, 
+                                               function_dict,
                                                option_dict)
         else:
             results = Metropolis(state_dict,
                                  function_dict,
                                  option_dict)
-            
+
         u = results.get('u').copy()
         x = results.get('x').copy()
         J = results.get('J').copy()
@@ -376,16 +399,15 @@ class Sampler:
         self.scale = results.get('scale')
         self.Nsteps = results.get('steps')
         self.accept = results.get('accept')
-        
+
         self.ncall += self.Nsteps * len(x)
 
         self.saved_ncall.append(self.ncall)
         self.saved_accept.append(self.accept)
-        self.saved_scale.append(self.scale/self.ideal_scale)
+        self.saved_scale.append(self.scale / self.ideal_scale)
         self.saved_steps.append(self.Nsteps)
 
         return u, x, J, L, P
-
 
     def _train(self, u):
         if (self.scale < self.threshold * self.ideal_scale and self.t > 1) or self.use_flow:
@@ -396,12 +418,11 @@ class Sampler:
         else:
             pass
 
-
     def _resample(self, u, x, J, L, P):
         self.saved_samples.append(x)
         self.saved_logl.append(L)
         self.saved_logp.append(P)
-        w = np.exp(self.logw-np.max(self.logw))
+        w = np.exp(self.logw - np.max(self.logw))
         w /= np.sum(w)
 
         assert np.any(~np.isnan(self.logw))
@@ -417,7 +438,6 @@ class Sampler:
 
         return u[idx], x[idx], J[idx], L[idx], P[idx]
 
-    
     def _update_beta(self):
 
         # Update iteration index
@@ -442,7 +462,7 @@ class Sampler:
                 if 1.0 - beta < dbeta * 0.1:
                     beta = 1.0
 
-            if (np.abs(self.ess_est-self.ess) < min(0.001 * self.ess, 0.001) or beta == 1.0):
+            if (np.abs(self.ess_est - self.ess) < min(0.001 * self.ess, 0.001) or beta == 1.0):
                 self.saved_beta.append(beta)
                 self.saved_logw.append(self.logw)
                 self.sum_logw += self.logw
@@ -456,10 +476,9 @@ class Sampler:
                 break
 
             elif self.ess_est < self.ess:
-                beta_max = beta 
+                beta_max = beta
             else:
                 beta_min = beta
-        
 
     def _logprior(self, x):
         if self.vectorize_prior:
@@ -469,7 +488,6 @@ class Sampler:
         else:
             return np.array(list(map(self.logprior, x)))
 
-
     def _loglike(self, x):
         if self.vectorize_likelihood:
             return self.loglikelihood(x)
@@ -478,15 +496,14 @@ class Sampler:
         else:
             return np.array(list(map(self.loglikelihood, x)))
 
-
     def __getstate__(self):
         """Get state information for pickling."""
 
         state = self.__dict__.copy()
 
         try:
-            #remove random module
-            #del state['rstate']
+            # remove random module
+            # del state['rstate']
 
             # deal with pool
             if state['pool'] is not None:
@@ -499,23 +516,23 @@ class Sampler:
 
     @property
     def results(self):
-        
+
         results = {
-            'samples' : np.vstack(self.saved_posterior_samples),
-            'loglikelihood' : np.hstack(self.saved_posterior_logl),
-            'logprior' : np.hstack(self.saved_posterior_logp),
-            'logz' : np.array(self.saved_logz),
-            'iter' : np.array(self.saved_iter),
-            'x' : np.array(self.saved_samples),
-            'logl' : np.array(self.saved_logl),
-            'logp' : np.array(self.saved_logp),
-            'logw' : np.array(self.saved_logw),
-            'ess' : np.array(self.saved_ess),
-            'ncall' : np.array(self.saved_ncall),
-            'beta' : np.array(self.saved_beta),
-            'accept' : np.array(self.saved_accept),
-            'scale' : np.array(self.saved_scale),
-            'steps' : np.array(self.saved_steps)
+            'samples': np.vstack(self.saved_posterior_samples),
+            'loglikelihood': np.hstack(self.saved_posterior_logl),
+            'logprior': np.hstack(self.saved_posterior_logp),
+            'logz': np.array(self.saved_logz),
+            'iter': np.array(self.saved_iter),
+            'x': np.array(self.saved_samples),
+            'logl': np.array(self.saved_logl),
+            'logp': np.array(self.saved_logp),
+            'logw': np.array(self.saved_logw),
+            'ess': np.array(self.saved_ess),
+            'ncall': np.array(self.saved_ncall),
+            'beta': np.array(self.saved_beta),
+            'accept': np.array(self.saved_accept),
+            'scale': np.array(self.saved_scale),
+            'steps': np.array(self.saved_steps)
         }
 
         return results
@@ -525,12 +542,12 @@ class Sampler:
         x = self.results.get("samples")[::thin]
         l = self.results.get("loglikelihood")[::thin]
         p = self.results.get("logprior")[::thin]
-        
+
         N1 = len(x)
         N2 = len(x)
 
-        s1 = N1 / (N1+N2)
-        s2 = N2 / (N1+N2)
+        s1 = N1 / (N1 + N2)
+        s2 = N2 / (N1 + N2)
 
         import torch
 
@@ -557,7 +574,7 @@ class Sampler:
         r = 1.0
         r0 = 0.0
         cnt = 1
-        while np.abs(r-r0) > tolerance or cnt <= maxiter:
+        while np.abs(r - r0) > tolerance or cnt <= maxiter:
             r0 = r
             A = np.mean(l2i / (s1 * l2i + s2 * r0))
             B = np.mean(1.0 / (s1 * l1j + s2 * r0))

@@ -1,6 +1,6 @@
 import numpy as np
 
-from pocomc.input_validation import assert_within_interval, assert_float
+from pocomc.input_validation import assert_array_float, assert_array_within_interval
 
 
 class Reparameterise:
@@ -37,7 +37,7 @@ class Reparameterise:
             bounds = np.full((self.ndim, 2), np.nan)
         elif len(bounds) == 2 and not np.shape(bounds) == (2,2):
             bounds = np.tile(np.array(bounds, dtype=np.float32).reshape(2,1), self.ndim).T
-        assert_float(bounds)
+        assert_array_float(bounds)
 
         self.low = bounds.T[0]
         self.high = bounds.T[1]
@@ -134,7 +134,7 @@ class Reparameterise:
         x : array
             Input data used for training.
         """
-        assert_within_interval(x, self.low, self.high)
+        assert_array_within_interval(x, self.low, self.high)
 
         u = self._forward(x)
         self.mu = np.mean(u, axis=0)
@@ -159,7 +159,7 @@ class Reparameterise:
         u : array
             Transformed input data
         """
-        assert_within_interval(x, self.low, self.high)
+        assert_array_within_interval(x, self.low, self.high)
 
         u = self._forward(x)
         if self.scale:
