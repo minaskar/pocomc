@@ -1,3 +1,5 @@
+import warnings
+
 import numpy as np
 import torch
 
@@ -177,6 +179,36 @@ class Sampler:
         self.accept = 0.234
         self.target_accept = 0.234
 
+    def validate_vectorization_settings(self, x_check):
+        likelihood_output = self.loglikelihood(x_check)
+        prior_output = self.logprior(x_check)
+
+        # Check likelihood shape
+        if type(likelihood_output) == float:
+            if self.vectorize_likelihood:
+                warnings.warn("Evaluating the log likelihood yields a scalar. Turning off vectorization.")
+            self.vectorize_likelihood = False
+        else:
+            assert_array_1d(likelihood_output)
+            if not self.vectorize_likelihood:
+                warnings.warn("Evaluating the log likelihood yields an array. Turning on vectorization.")
+            self.vectorize_likelihood = True
+
+        # Check prior shape
+        if type(prior_output) == float:
+            if self.vectorize_prior:
+                warnings.warn("Evaluating the log prior yields a scalar. Turning off vectorization.")
+            self.vectorize_prior = False
+        else:
+            assert_array_1d(prior_output)
+            if not self.vectorize_prior:
+                warnings.warn("Evaluating the log prior yields an array. Turning on vectorization.")
+            self.vectorize_prior = True
+
+        # Make sure the output shapes match
+        if type(likelihood_output) == np.ndarray and type(prior_output) == np.ndarray:
+            assert_arrays_equal_shape(likelihood_output, prior_output)
+
     def run(self,
             x0,
             ess=0.95,
@@ -208,27 +240,7 @@ class Sampler:
         """
         assert_array_2d(x0)
         if check_shape:
-            x_check = x0[:2, :]  # Use only two examples
-            likelihood_output = self.loglikelihood(x_check)
-            prior_output = self.logprior(x_check)
-
-            # Check likelihood shape
-            if type(likelihood_output) == float:
-                self.vectorize_likelihood = False
-            else:
-                assert_array_1d(likelihood_output)
-                self.vectorize_likelihood = True
-
-            # Check prior shape
-            if type(prior_output) == float:
-                self.vectorize_prior = False
-            else:
-                assert_array_1d(prior_output)
-                self.vectorize_prior = True
-
-            # Make sure the output shapes match
-            if type(likelihood_output) == np.ndarray and type(prior_output) == np.ndarray:
-                assert_arrays_equal_shape(likelihood_output, prior_output)
+            self.validate_vectorization_settings(x0[:2, :])  # Use only two examples
 
         # Run parameters
         self.ess = ess
