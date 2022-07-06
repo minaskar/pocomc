@@ -5,6 +5,29 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://github.com/minaskar/pocomc/blob/master/LICENSE)
 [![Documentation Status](https://readthedocs.org/projects/pocomc/badge/?version=latest)](https://pocomc.readthedocs.io/en/latest/?badge=latest)
 
+
+# Getting started
+
+## Installation
+
+To install ``pocomc`` using ``pip`` run:
+
+```bash
+pip install pocomc
+```
+
+or, to install from source:
+
+```bash
+git clone https://github.com/minaskar/pocomc.git
+cd pocomc
+python setup.py install
+```
+
+## Documentation
+
+Read the docs at [pocomc.readthedocs.io](https://pocomc.readthedocs.io) for more information, examples and tutorials.
+
 ## Example
 
 For instance, if you wanted to draw samples from a 10-dimensional Rosenbrock distribution with a uniform prior, you would do something like:
@@ -41,20 +64,8 @@ sampler.run(prior_samples)
 results = sampler.results # Dictionary with results
 ```
 
-## Documentation
 
-Read the docs at [pocomc.readthedocs.io](https://pocomc.readthedocs.io)
-
-
-## Installation
-
-To install ``pocomc`` using ``pip`` run:
-
-```bash
-pip install pocomc
-```
-
-## Attribution
+# Attribution & Citation
 
 Please cite the following papers if you found this code useful in your research:
 
@@ -67,7 +78,7 @@ Please cite the following papers if you found this code useful in your research:
 }
 ```
 
-## Licence
+# Licence
 
 Copyright 2022-Now Minas Karamanis and contributors.
 
