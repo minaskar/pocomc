@@ -212,5 +212,16 @@ class FlowTestCase(unittest.TestCase):
         self.assertEqual(x.shape, x_samples.shape)
         self.assertEqual(x.dtype, x_samples.dtype)
 
+    def test_logj(self):
+        torch.manual_seed(0)
+
+        x = self.make_data()
+        flow = Flow(ndim=x.shape[1])
+
+        z, logj_forward = flow.forward(x)
+        _, logj_inverse = flow.inverse(z)
+        assert torch.allclose(logj_forward, -logj_inverse)
+
+
 if __name__ == '__main__':
     unittest.main()
