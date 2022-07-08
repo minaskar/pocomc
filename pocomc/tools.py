@@ -83,41 +83,51 @@ def resample_equal(samples: np.ndarray,
 
 
 class ProgressBar:
+    def __init__(self, show: bool = True):
+        """
+        TODO write docstring.
 
-    def __init__(self, show=True):
-        self.show = show
-        if self.show:
-            self.progress_bar = tqdm(desc='Iter')
-
-        self.info = dict(beta=None,
-                         calls=None,
-                         ESS=None,
-                         logZ=None,
-                         accept=None,
-                         N=None,
-                         scale=None,
-                         corr=None,
-                         )
+        Parameters
+        ----------
+        show
+        """
+        self.progress_bar = tqdm(desc='Iter', disable=not show)
+        self.info = dict()
 
     def update_stats(self, info):
-        self.info['beta'] = info.get('beta', self.info['beta'])
-        self.info['calls'] = info.get('calls', self.info['calls'])
-        self.info['ESS'] = info.get('ESS', self.info['ESS'])
-        self.info['logZ'] = info.get('logZ', self.info['logZ'])
-        self.info['accept'] = info.get('accept', self.info['accept'])
-        self.info['N'] = info.get('N', self.info['N'])
-        self.info['scale'] = info.get('scale', self.info['scale'])
-        self.info['corr'] = info.get('corr', self.info['corr'])
-        if self.show:
-            self.progress_bar.set_postfix(ordered_dict=self.info)
+        """
+        TODO write docstring.
+
+        Parameters
+        ----------
+        info
+
+        Returns
+        -------
+
+        """
+        self.info = {**self.info, **info}
+        self.progress_bar.set_postfix(ordered_dict=self.info)
 
     def update_iter(self):
-        if self.show:
-            self.progress_bar.update(1)
+        """
+        TODO write docstring.
+
+        Returns
+        -------
+
+        """
+        self.progress_bar.update(1)
 
     def close(self):
-        if self.show:
-            self.progress_bar.close()
+        """
+        TODO write docstring.
+
+        Returns
+        -------
+
+        """
+        self.progress_bar.close()
 
 
 class _FunctionWrapper(object):
