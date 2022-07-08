@@ -1,4 +1,9 @@
-on: [push]
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'joss/paper.md'  # Only run workflow on pushes where paper.md was changed
 
 jobs:
   paper:
