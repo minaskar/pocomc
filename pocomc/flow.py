@@ -401,7 +401,7 @@ class Flow:
         u = torch_double_to_float(u)
         return self.flow.inverse(u)
 
-    def logprob(self, x: torch.Tensor) -> torch.Tensor:
+    def logprob(self, x: torch.Tensor) -> torch.Tensor:  # TODO rename to log_prob
         """
         Compute log probability of samples.
         
@@ -414,8 +414,8 @@ class Flow:
         Log-probability of samples.
         """
         x = torch_double_to_float(x)
-        u, logdetJ = self.flow.forward(x)
-        return torch.sum(self.flow.base_dist.log_prob(u) + logdetJ, dim=1)
+        u, log_abs_det_jac = self.flow.forward(x)
+        return torch.sum(self.flow.base_dist.log_prob(u) + log_abs_det_jac, dim=1)
 
     def sample(self, size: int = 1) -> Tuple[torch.Tensor, torch.Tensor]:
         """
@@ -431,5 +431,5 @@ class Flow:
             Samples as a torch.Tensor with shape (size, n_dimensions) and log probability values with shape (size, ).
         """
         u = torch.randn(size, self.ndim)
-        x, logdetJ = self.flow.inverse(u)
-        return x, torch.sum(self.flow.base_dist.log_prob(u) + logdetJ, dim=1)
+        x, log_abs_det_jac = self.flow.inverse(u)
+        return x, torch.sum(self.flow.base_dist.log_prob(u) + log_abs_det_jac, dim=1)
