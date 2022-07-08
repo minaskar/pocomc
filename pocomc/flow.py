@@ -1,4 +1,4 @@
-from typing import Union, Optional
+from typing import Union, Optional, Tuple, Dict, List
 
 from .maf import MAF, RealNVP
 import torch
@@ -250,26 +250,26 @@ def fit(model: Union[MAF, RealNVP],
 
 
 class Flow:
-    r"""
-    Normalising Flow class.
-    This class implements forward and inverse passes, log density evaluation, sampling and model fitting
-    irrespective of the kind of flow used.
-
-    Parameters
-    ----------
-    ndim : int
-        Number of dimensions.
-    flow_config : dict or None
-        Configuration of the flow. If ``None`` the default configuration used is ``dict(n_blocks=6,
-        hidden_size= 3 * ndim, n_hidden=1, batch_norm=True, activation='relu', input_order='sequential',
-        flow_type='maf')``
-    train_config : dict or None
-        Training configuration for the flow. If ``None`` the default configuration used is ``dict(validation_split=0.2,
-        epochs=1000, batch_size=nparticles, patience=30, monitor='val_loss', shuffle=True, lr=[1e-2, 1e-3, 1e-4, 1e-5],
-        weight_decay=1e-8, clip_grad_norm=1.0, l1=0.2, l2=None, device='cpu', verbose=0)``
-    """
-
     def __init__(self, ndim: int, flow_config: dict = None, train_config: dict = None):
+        r"""
+        Normalising Flow class.
+        This class implements forward and inverse passes, log density evaluation, sampling and model fitting
+        irrespective of the kind of flow used.
+
+        Parameters
+        ----------
+        ndim : int
+            Number of dimensions.
+        flow_config : dict or None
+            Configuration of the flow. If ``None`` the default configuration used is ``dict(n_blocks=6,
+            hidden_size= 3 * ndim, n_hidden=1, batch_norm=True, activation='relu', input_order='sequential',
+            flow_type='maf')``
+        train_config : dict or None
+            Training configuration for the flow. If ``None`` the default configuration used is
+            ``dict(validation_split=0.2, epochs=1000, batch_size=nparticles, patience=30, monitor='val_loss',
+             shuffle=True, lr=[1e-2, 1e-3, 1e-4, 1e-5], weight_decay=1e-8, clip_grad_norm=1.0, l1=0.2, l2=None,
+              device='cpu', verbose=0)``
+        """
         if ndim == 1:
             raise ValueError(f"1D data is not supported. Please provide data with ndim >= 2.")
 
@@ -294,7 +294,8 @@ class Flow:
 
         Parameters
         ----------
-        config: dictionary with key-value pairs to be passed onto constructors of MAF or RealNVP.
+        config: dict
+            dictionary with key-value pairs to be passed to constructors of MAF or RealNVP.
         """
         allowed_keys = list(self.default_config.keys())
         for k in config.keys():
@@ -307,11 +308,8 @@ class Flow:
 
         Parameters
         ----------
-        config: dictionary with key-value pairs to be passed onto constructors of MAF or RealNVP.
-
-        Returns
-        -------
-        A MAF or RealNVP object with the desired configuration.
+        config: dict
+            dictionary with key-value pairs to be passed to constructors of MAF or RealNVP.
         """
         if config is None:
             config = dict()
@@ -325,18 +323,20 @@ class Flow:
         else:
             raise ValueError(f"Unsupported flow type: {config['flow_type']}. Please use one of ['maf', 'realnvp'].")
 
-    def fit(self, x: torch.Tensor):
+    def fit(self, x: torch.Tensor) -> Dict[str, List]:
         """
         Train the normalising flow on the provided data.
 
         Parameters
         ----------
         x : torch.Tensor
-            Training data.
+            Training data with shape (n_samples, n_dimensions).
         
         Returns
         -------
-        Training history.
+        history: dict
+            Training history containing logged scalars from model fitting. Each scalar has its own key and value which
+            is a list of per-epoch values.
         """
         x = torch_double_to_float(x)
 
@@ -367,24 +367,27 @@ class Flow:
 
         return history
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Forward transformation.
-        
+        Inputs are transformed from the original (relating to the distribution to be modeled) to the latent space.
+
         Parameters
         ----------
         x : torch.Tensor
             Samples to transform.
         Returns
         -------
-        Tranformed samples.
+        u : torch.Tensor
+            Transformed samples in latent space with the same shape as the original space inputs.
         """
         x = torch_double_to_float(x)
         return self.flow.forward(x)
 
-    def inverse(self, u: torch.Tensor):
+    def inverse(self, u: torch.Tensor) -> torch.Tensor:
         """
         Inverse transformation.
+        Inputs are transformed from the latent to the original space (relating to the distribution to be modeled).
         
         Parameters
         ----------
@@ -392,14 +395,15 @@ class Flow:
             Samples to transform.
         Returns
         -------
-        Tranformed samples.
+        x : torch.Tensor
+            Transformed samples in the original space with the same shape as the latent space inputs.
         """
         u = torch_double_to_float(u)
         return self.flow.inverse(u)
 
-    def logprob(self, x: torch.Tensor):
+    def logprob(self, x: torch.Tensor) -> torch.Tensor:
         """
-        Log-probability of samples.
+        Compute log probability of samples.
         
         Parameters
         ----------
@@ -413,17 +417,18 @@ class Flow:
         u, logdetJ = self.flow.forward(x)
         return torch.sum(self.flow.base_dist.log_prob(u) + logdetJ, dim=1)
 
-    def sample(self, size: int = 1):
+    def sample(self, size: int = 1) -> Tuple[torch.Tensor, torch.Tensor]:
         """
-        Method that generates random samples.
+        Draw random samples from the normalizing flow.
 
         Parameters
         ----------
         size : int
-            Number of samples to generate.
+            Number of samples to generate. Default: 1.
         Returns
         -------
-        samples and respective log-probability values. 
+        samples, log_prob : tuple
+            Samples as a torch.Tensor with shape (size, n_dimensions) and log probability values with shape (size, ).
         """
         u = torch.randn(size, self.ndim)
         x, logdetJ = self.flow.inverse(u)
