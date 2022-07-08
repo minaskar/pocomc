@@ -28,7 +28,7 @@ affiliations:
    index: 2
  - name: Physics Department, University of California and Lawrence Berkeley National Laboratory Berkeley, CA 94720, USA
    index: 3
-date: 29 June 2022
+date: 8 July 2022
 bibliography: paper.bib
 
 ---
@@ -36,12 +36,14 @@ bibliography: paper.bib
 # Summary
 
 `pocoMC` is a Python package for accelerated Bayesian inference in astronomy and 
-cosmology. It facilitates both tasks of parameter estimation and model comparison. 
-It allows fitting arbitrary models defined as a log-likelihood function and a 
-log-prior probability density function in Python. `pocoMC` is designed to sample 
-efficiently from  posterior distributions with non-trivial geometry, including 
-strong multimodality and non-linearity. Parallelisation to computing clusters 
-manifests linear scaling.
+cosmology. The code is designed to sample efficiently from posterior distributions
+with non-trivial geometry, including strong multimodality and non-linearity. To this end,
+`pocoMC` relies on the Preconditioned Monte Carlo algorithm which utilises a Normalising
+Flow in order to decorrelate the parameters of the posterior. It facilitates both tasks of
+parameter estimation and model comparison, focusing especially on computationally expensive
+applications. It allows fitting arbitrary models defined as a log-likelihood function and a
+log-prior probability density function in Python. Finally, parallelisation to computing
+clusters manifests linear scaling.
 
 # Statement of need
 
@@ -77,7 +79,11 @@ designed to tackle exactly these kinds of difficulties by automatically reparame
 the model such that the parameters of the model are approximately uncorrelated and standard techniques 
 can be applied. As a result, `pocoMC` produces both samples from the posterior distribution and an
 unbiased estimate of the model evidence thus facilitating both scientific tasks with excellent 
-efficiency and robustness.
+efficiency and robustness. Compared to popular alternatives such as nested sampling, `pocoMC`
+can reduce the computational cost, and thus, the total run time of the analysis by orders of magnitude,
+in both artificial and realistic applications [@karamanis2022pmc]. Finally, the code is well-tested
+and has already been used for ongoing research work in the field of gravitational wave parameter
+estimation [@vretinaris2022postmerger].
 
 ![Logo of `pocoMC`.](./../logo.png)
 
@@ -137,6 +143,6 @@ updates in the preconditioned/uncorrelated latent space.
 
 # Acknowledgements
 
-We acknowledge contributions from X, Y, Z.
+MK would like to thank Jamie Donald-McCann and Richard Grumitt for providing constructive comments and George Vretinaris for feedback on an early version of the code. This project has received funding from the European Research Council (ERC) under the European Union's Horizon 2020 research and innovation program (grant agreement 853291), and  by the U.S. Department of Energy, Office of Science, Office of Advanced Scientific Computing Research under Contract No. DE-AC02-05CH11231 at Lawrence Berkeley National Laboratory to enable research for Data-intensive Machine Learning and Analysis. FB is a University Research Fellow.
 
 # References
