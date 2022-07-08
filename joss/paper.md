@@ -82,8 +82,7 @@ unbiased estimate of the model evidence thus facilitating both scientific tasks 
 efficiency and robustness. Compared to popular alternatives such as nested sampling, `pocoMC`
 can reduce the computational cost, and thus, the total run time of the analysis by orders of magnitude,
 in both artificial and realistic applications [@karamanis2022pmc]. Finally, the code is well-tested
-and has already been used for ongoing research work in the field of gravitational wave parameter
-estimation [@vretinaris2022postmerger].
+and is currently used for research work in the field of gravitational wave parameter estimation [@vretinaris2022postmerger].
 
 ![Logo of `pocoMC`.](./../logo.png)
 
