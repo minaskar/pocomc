@@ -1,3 +1,5 @@
+from typing import Union
+
 from .maf import MAF, RealNVP
 import torch
 from .tools import torch_double_to_float
@@ -7,63 +9,68 @@ import copy
 import time
 
 
-def fit(model,
-        data,
-        context=None,
-        validation_data=None,
-        validation_context=None,
-        validation_split=0.0,
-        epochs=20,
-        batch_size=100,
-        patience=np.inf,
-        monitor='val_loss',
-        shuffle=True,
-        lr=1e-3,
-        weight_decay=1e-8,
-        clip_grad_norm=1.0,
-        l1=None,
-        l2=None,
-        device='cpu',
-        verbose=2):
+def fit(model: Union[MAF, RealNVP],
+        data: Union[np.ndarray, torch.Tensor],
+        context: Union[np.ndarray, torch.Tensor] = None,
+        validation_data: Union[np.ndarray, torch.Tensor] = None,
+        validation_context: Union[np.ndarray, torch.Tensor] = None,
+        validation_split: float = 0.0,
+        epochs: int = 20,
+        batch_size: int = 100,
+        patience: int = np.inf,
+        monitor: str = 'val_loss',
+        shuffle: bool = True,
+        lr: float = 1e-3,
+        weight_decay: float = 1e-8,
+        clip_grad_norm: float = 1.0,
+        l1: float = None,  # TODO rename this to laplace_prior_scale
+        l2: float = None,  # TODO rename this to gaussian_prior_scale
+        device: str = 'cpu',
+        verbose: int = 2):
     r"""
-        Method to fit the normalising flow.
+        Fit a normalising flow model.
+        We minimize the negative log likelihood of data with an optional L1 and/or L2 regularization term.
+        The fitting is done using Adam.
 
     Parameters
     ----------
+    model: ``MAF or RealNVP``
+        Normalising flow model to fit.
     data : ``np.ndarray``
         Samples used for training the flow.
     context : ``np.ndarray`` or None
-        Additional samples corresponding to conditional  arguments.
+        Additional samples corresponding to conditional  arguments. Default: ``None``.
     validation_data : ``np.ndarray`` or None
-        Samples used for validating the flow.
+        Samples used for validating the flow. Default: ``None``.
     validation_context : ``np.ndarray`` or None
-        Addiitional samples correspondingg to conditioonal arguments,
-        used for validation.
+        Additional samples corresponding to conditional arguments, used for validation. Default: ``None``.
     validation_split : float
-        Percentage of ``data`` to be used for validation.
+        Percentage of ``data`` to be used for validation. Default: ``0.0``.
     epochs : int
-        Number of training epochs.
+        Number of training epochs. Default: ``20``.
     batch_size : int
-        Batch size used for training.
+        Batch size used for training. Default: ``100``.
     patience : int
-        Number of epochs to wait with no improvement until termination.
+        Number of epochs to wait with no improvement in monitored loss until termination.
+        Default: ``np.inf`` (never terminate early).
     monitor : str
-        Which loss to monitor for early stopping (e.g. ``val_loss``, ``loss``),
-        default is ``val_loss``.
+        Which loss to monitor for early stopping. Must be one of ``val_loss``, ``loss``. Default: ``val_loss``.
     shuffle : bool
-        Shuffle data before training.
+        Shuffle data before training. Default: ``True``.
     lr : float
-        Learning rate.
+        Learning rate for Adam. Default: ``1e-3``.
     weight_decay : float
-        Weight decay parameter.
+        Weight decay for Adam. Default: ``1e-8``.
     clip_grad_norm : float
-        Clip large gradients (default is ``0``).
+        Clip large gradients. Default: ``0``.
     l1 : float or None
-        Laplace prior scale for regularisation.
+        Laplace prior scale for regularisation. Must be nonnegative. Smaller values correspond to more regularization.
+        Default: None (no regularization).
     l2 : float or None
-        Gaussian prior scale for regularisation.
+        Gaussian prior scale for regularisation. Must be nonnegative. Smaller values correspond to more regularization.
+        Default: None (no regularization).
     device : str
-        Device to use for training, default is ``cpu``.
+        Device to use for training. Default: ``cpu``.
     verbose : int
         Whether to print all (``2``), some (``1``), or no messages (``0``).
 
@@ -74,31 +81,24 @@ def fit(model,
 
     optimizer = torch.optim.Adam(model.parameters(), lr, weight_decay=weight_decay)
 
-    if not isinstance(data, torch.Tensor):
-        data = torch.tensor(data, dtype=torch.float32)
-
-    if (validation_data is not None) and (not isinstance(validation_data, torch.Tensor)):
-        validation_data = torch.tensor(validation_data, dtype=torch.float32)
+    data = torch.as_tensor(data)
+    validation_data = torch.as_tensor(validation_data) if validation_data is not None else None
 
     if context is not None:
         use_context = True
-        if not isinstance(context, torch.Tensor):
-            context = torch.tensor(context, dtype=torch.float32)
+        context = torch.as_tensor(context)
     else:
         use_context = False
 
-    if (validation_context is not None) and (not isinstance(validation_context, torch.Tensor)):
-        validation_context = torch.tensor(validation_context, dtype=torch.float32)
+    validation_context = torch.as_tensor(validation_context) if validation_context is not None else None
 
     if validation_data is not None:
-
         if use_context:
             train_dl = DataLoader(TensorDataset(data, context), batch_size, shuffle)
             val_dl = DataLoader(TensorDataset(validation_data, validation_context), batch_size, shuffle)
         else:
             train_dl = DataLoader(TensorDataset(data), batch_size, shuffle)
             val_dl = DataLoader(TensorDataset(validation_data), batch_size, shuffle)
-
         validation = True
     else:
         if validation_split > 0.0 and validation_split < 1.0:
@@ -120,7 +120,7 @@ def fit(model,
             else:
                 train_dl = DataLoader(TensorDataset(data), batch_size, shuffle)
 
-    history = {}  # Collects per-epoch loss
+    history = dict()  # Collects per-epoch loss
     history['loss'] = []
     history['val_loss'] = []
 
@@ -197,11 +197,9 @@ def fit(model,
 
         if verbose > 1:
             try:
-                print('Epoch %3d/%3d, train loss: %5.2f, val loss: %5.2f' % \
-                      (epoch + 1, epochs, train_loss, val_loss))
-            except:
-                print('Epoch %3d/%3d, train loss: %5.2f' % \
-                      (epoch + 1, epochs, train_loss))
+                print('Epoch %3d/%3d, train loss: %5.2f, val loss: %5.2f' % (epoch + 1, epochs, train_loss, val_loss))
+            except:  # TODO specify type of exception
+                print('Epoch %3d/%3d, train loss: %5.2f' % (epoch + 1, epochs, train_loss))
 
         # Monitor loss
         if history[monitor][-1] < best_loss:
@@ -212,8 +210,8 @@ def fit(model,
         if epoch - best_epoch >= patience:
             model.load_state_dict(best_model)
             if verbose > 0:
-                print('Finished early after %3d epochs' % (best_epoch))
-                print('Best loss achieved %5.2f' % (best_loss))
+                print('Finished early after %3d epochs' % best_epoch)
+                print('Best loss achieved %5.2f' % best_loss)
             break
 
     # END OF TRAINING LOOP
@@ -223,8 +221,8 @@ def fit(model,
         total_time_sec = end_time_sec - start_time_sec
         time_per_epoch_sec = total_time_sec / epochs
         print()
-        print('Time total:     %5.2f sec' % (total_time_sec))
-        print('Time per epoch: %5.2f sec' % (time_per_epoch_sec))
+        print('Time total:     %5.2f sec' % total_time_sec)
+        print('Time per epoch: %5.2f sec' % time_per_epoch_sec)
 
     return history
 
@@ -247,6 +245,7 @@ class Flow:
         epochs=1000, batch_size=nparticles, patience=30, monitor='val_loss', shuffle=True, lr=[1e-2, 1e-3, 1e-4, 1e-5],
         weight_decay=1e-8, clip_grad_norm=1.0, l1=0.2, l2=None, device='cpu', verbose=0``
     """
+
     def __init__(self, ndim: int, flow_config: dict = None, train_config: dict = None):
         if ndim == 1:
             raise ValueError(f"1D data is not supported. Please provide data with ndim >= 2.")
