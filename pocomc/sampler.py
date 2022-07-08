@@ -1,5 +1,4 @@
 import warnings
-from typing import List
 
 import numpy as np
 import torch
@@ -693,11 +692,8 @@ class Sampler:
         s1 = N1 / (N1 + N2)
         s2 = N2 / (N1 + N2)
 
-        import torch
-
         u_prop, logg_i = self.flow.sample(size=N2)
         x_prop, J_prop = self.scaler.inverse(torch_to_numpy(u_prop))
-        u_prop = torch_to_numpy(u_prop)
         logg_i = torch_to_numpy(logg_i) + J_prop
 
         u = self.scaler.forward(x)
