@@ -44,7 +44,7 @@ parameter estimation and model comparison, focusing especially on computationall
 applications. It allows fitting arbitrary models defined as a log-likelihood function and a
 log-prior probability density function in Python. Compared to popular alternatives (e.g.
 nested sampling) `pocoMC` can speed up the sampling procedure by orders of magnitude, cutting
-down their computational cost substantially. Finally, parallelisation to computing clusters
+down the computational cost substantially. Finally, parallelisation to computing clusters
 manifests linear scaling.
 
 # Statement of need
