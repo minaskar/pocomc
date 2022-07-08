@@ -219,22 +219,6 @@ class Sampler:
         self.vectorize_likelihood = is_function_vectorized(self.loglikelihood)
         self.vectorize_prior = is_function_vectorized(self.logprior)
 
-        # if is_function_vectorized(self.loglikelihood):
-        #     # warnings.warn("Evaluating the log likelihood yields an array. Turning on vectorization.")
-        #     self.vectorize_likelihood = True
-        # else:
-        #     # warnings.warn("Evaluating the log likelihood yields a scalar. Turning off vectorization.")
-        #     self.vectorize_likelihood = False
-        #
-        #
-        #
-        # if is_function_vectorized(self.logprior):
-        #     # warnings.warn("Evaluating the log prior yields an array. Turning on vectorization.")
-        #     self.vectorize_prior = True
-        # else:
-        #     # warnings.warn("Evaluating the log prior yields a scalar. Turning off vectorization.")
-        #     self.vectorize_prior = False
-
     def run(self,
             x0: np.ndarray,
             ess: float = 0.95,
