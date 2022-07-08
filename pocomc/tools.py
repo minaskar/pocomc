@@ -7,7 +7,8 @@ import warnings
 SQRTEPS = math.sqrt(float(np.finfo(np.float64).eps))
 
 
-def get_ESS(logw):
+def get_ESS(logw: np.ndarray):
+    # TODO rename to get_ess or compute_ess
     logw_max = np.max(logw)
     logw_normed = logw - logw_max
 
@@ -15,7 +16,9 @@ def get_ESS(logw):
     return 1.0 / np.sum(weights * weights) / len(weights)
 
 
-def resample_equal(samples, weights, rstate=None):
+def resample_equal(samples: np.ndarray,
+                   weights: np.ndarray,
+                   rstate: np.random.RandomState = None):
     """
         Resample a new set of points from the weighted set of inputs
         such that they all have equal weight.
@@ -41,7 +44,7 @@ def resample_equal(samples, weights, rstate=None):
     --------
     >>> x = np.array([[1., 1.], [2., 2.], [3., 3.], [4., 4.]])
     >>> w = np.array([0.6, 0.2, 0.15, 0.05])
-    >>> utils.resample_equal(x, w)
+    >>> resample_equal(x, w)
     array([[ 1.,  1.],
            [ 1.,  1.],
            [ 1.,  1.],
@@ -62,14 +65,14 @@ def resample_equal(samples, weights, rstate=None):
         weights = np.array(weights) / np.sum(weights)
 
     # Make N subdivisions and choose positions with a consistent random offset.
-    nsamples = len(weights)
-    positions = (rstate.random() + np.arange(nsamples)) / nsamples
+    n_samples = len(weights)
+    positions = (rstate.random() + np.arange(n_samples)) / n_samples
 
     # Resample the data.
-    idx = np.zeros(nsamples, dtype=int)
+    idx = np.zeros(n_samples, dtype=int)
     cumulative_sum = np.cumsum(weights)
     i, j = 0, 0
-    while i < nsamples:
+    while (i < n_samples) and (j < len(cumulative_sum)):
         if positions[i] < cumulative_sum[j]:
             idx[i] = j
             i += 1
