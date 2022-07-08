@@ -3,44 +3,49 @@ import torch
 
 from .tools import numpy_to_torch, torch_to_numpy
 
+
 class Pearson:
     """
-        Pearson correlation coefficient.
+    Pearson correlation coefficient.
+    TODO add description.
 
     Parameters
     ----------
     a : array of shape (nparticles, ndim)
         Initial positions of particles
     """
+
     def __init__(self, a):
-        self.l = a.shape[0]
+        self.l = a.shape[0]  # TODO avoid ambiguous variable name 'l', rename to something else.
         self.am = a - np.sum(a, axis=0) / self.l
-        self.aa = np.sum(self.am**2, axis=0) ** 0.5
+        self.aa = np.sum(self.am ** 2, axis=0) ** 0.5
 
     def get(self, b):
         """
-            Method that computes the correlation coefficients between current positions and initial.
+        Method that computes the correlation coefficients between current positions and initial.
 
         Parameters
         ----------
-        b : array of shape (nparticles, ndim)
+        b : array of shape (n_particles, n_dim)
             Current positions of particles
         Returns
         -------
         correlation coefficients
         """
         bm = b - np.sum(b, axis=0) / self.l
-        bb = np.sum(bm**2, axis=0) ** 0.5
+        bb = np.sum(bm ** 2, axis=0) ** 0.5
         ab = np.sum(self.am * bm, axis=0)
         return np.abs(ab / (self.aa * bb))
 
 
+# TODO rename to `preconditioned_metropolis`
 @torch.no_grad()
-def PreconditionedMetropolis(state_dict=None,
-                             function_dict=None,
-                             option_dict=None):
+def PreconditionedMetropolis(state_dict: dict,
+                             function_dict: dict,
+                             option_dict: dict):
     """
-        Preconditioned Metropolis
+    Preconditioned Metropolis
+    TODO add description
     
     Parameters
     ----------
@@ -70,7 +75,7 @@ def PreconditionedMetropolis(state_dict=None,
     logprior = function_dict.get('logprior')
     scaler = function_dict.get('scaler')
     flow = function_dict.get('flow')
-    
+
     # Get MCMC options
     nmin = option_dict.get('nmin')
     nmax = option_dict.get('nmax')
@@ -79,7 +84,7 @@ def PreconditionedMetropolis(state_dict=None,
     progress_bar = option_dict.get('progress_bar')
 
     # Get number of particles and parameters/dimensions
-    nwalkers, ndim = x.shape    
+    nwalkers, ndim = x.shape
 
     # Transform u to theta
     theta, logdetJ = flow.forward(u)
@@ -109,10 +114,12 @@ def PreconditionedMetropolis(state_dict=None,
         L_prime = numpy_to_torch(loglike(torch_to_numpy(x_prime)))
         P_prime = numpy_to_torch(logprior(torch_to_numpy(x_prime)))
         Z_prime = numpy_to_torch(logprob(torch_to_numpy(L_prime), torch_to_numpy(P_prime), beta))
-        
+
         # Compute Metropolis factors
-        alpha = torch.minimum(torch.ones(nwalkers),
-                              torch.exp( Z_prime - Z + J_prime - J + J_flow_prime - J_flow))
+        alpha = torch.minimum(
+            torch.ones(nwalkers),
+            torch.exp(Z_prime - Z + J_prime - J + J_flow_prime - J_flow)
+        )
         alpha[torch.isnan(alpha)] = 0.0
 
         # Metropolis criterion
@@ -129,7 +136,7 @@ def PreconditionedMetropolis(state_dict=None,
         P[mask] = P_prime[mask]
 
         # Adapt scale parameter using diminishing adaptation
-        sigma_prime = sigma + 1/(i+1) * (torch.mean(alpha) - 0.234)
+        sigma_prime = sigma + 1 / (i + 1) * (torch.mean(alpha) - 0.234)
         if sigma_prime > 1e-4:
             sigma = sigma_prime
 
@@ -138,35 +145,43 @@ def PreconditionedMetropolis(state_dict=None,
 
         # Update progress bar if available
         if progress_bar is not None:
-            progress_bar.update_stats(dict(calls=progress_bar.info['calls']+nwalkers,
-                                           accept=torch.mean(alpha).item(),
-                                           N=i,
-                                           scale=sigma.item()/(2.38/np.sqrt(ndim)),
-                                           corr=np.mean(cc_prime)))
+            progress_bar.update_stats(
+                dict(
+                    calls=progress_bar.info['calls'] + nwalkers,
+                    accept=torch.mean(alpha).item(),
+                    N=i,
+                    scale=sigma.item() / (2.38 / np.sqrt(ndim)),
+                    corr=np.mean(cc_prime)
+                )
+            )
 
         # Loop termination criteria:
-        if corr_threshold is None and i >= int(nmin * ((2.38/np.sqrt(ndim))/sigma.item())**2):
+        if corr_threshold is None and i >= int(nmin * ((2.38 / np.sqrt(ndim)) / sigma.item()) ** 2):
             break
         elif np.mean(cc_prime) < corr_threshold and i >= nmin:
             break
         elif i >= nmax:
             break
 
-    return dict(u=torch_to_numpy(u),
-                x=torch_to_numpy(x),
-                J=torch_to_numpy(J),
-                L=torch_to_numpy(L),
-                P=torch_to_numpy(P),
-                scale=sigma.item(),
-                accept=torch.mean(alpha).item(),
-                steps=i)
+    return dict(
+        u=torch_to_numpy(u),
+        x=torch_to_numpy(x),
+        J=torch_to_numpy(J),
+        L=torch_to_numpy(L),
+        P=torch_to_numpy(P),
+        scale=sigma.item(),
+        accept=torch.mean(alpha).item(),
+        steps=i
+    )
 
 
-def Metropolis(state_dict=None,
-               function_dict=None,
-               option_dict=None):
+# TODO rename to `metropolis`
+def Metropolis(state_dict: dict,
+               function_dict: dict,
+               option_dict: dict):
     """
-        Random-walk Metropolis
+    Random-walk Metropolis
+    TODO add description.
     
     Parameters
     ----------
@@ -195,7 +210,7 @@ def Metropolis(state_dict=None,
     loglike = function_dict.get('loglike')
     logprior = function_dict.get('logprior')
     scaler = function_dict.get('scaler')
-    
+
     # Get MCMC options
     nmin = option_dict.get('nmin')
     nmax = option_dict.get('nmax')
@@ -230,7 +245,10 @@ def Metropolis(state_dict=None,
         Z_prime = logprob(L_prime, P_prime, beta)
 
         # Compute Metropolis factor
-        alpha = np.minimum(np.ones(len(u_prime)), np.exp( Z_prime - Z + J_prime - J ))
+        alpha = np.minimum(
+            np.ones(len(u_prime)),
+            np.exp(Z_prime - Z + J_prime - J)
+        )
         alpha[np.isnan(alpha)] = 0.0
 
         # Metropolis criterion
@@ -245,7 +263,7 @@ def Metropolis(state_dict=None,
         P[mask] = P_prime[mask]
 
         # Adapt scale parameter using diminishing adaptation
-        sigma_prime = sigma + 1/(i+1) * (np.mean(alpha) - 0.234)
+        sigma_prime = sigma + 1 / (i + 1) * (np.mean(alpha) - 0.234)
         if sigma_prime > 1e-4:
             sigma = sigma_prime
 
@@ -254,35 +272,40 @@ def Metropolis(state_dict=None,
 
         # Update progress bar if available
         if progress_bar is not None:
-            progress_bar.update_stats(dict(calls=progress_bar.info['calls']+len(u),
-                                           accept=np.mean(alpha),
-                                           N=i,
-                                           scale=sigma/(2.38/np.sqrt(ndim)),
-                                           corr=np.mean(cc_prime),
-
-            ))
+            progress_bar.update_stats(
+                dict(
+                    calls=progress_bar.info['calls'] + len(u),
+                    accept=np.mean(alpha),
+                    N=i,
+                    scale=sigma / (2.38 / np.sqrt(ndim)),
+                    corr=np.mean(cc_prime),
+                )
+            )
 
         # Termination criteria:
-        if corr_threshold is None and i >= int(nmin * ((2.38/np.sqrt(ndim))/sigma)**2):
+        if corr_threshold is None and i >= int(nmin * ((2.38 / np.sqrt(ndim)) / sigma) ** 2):
             break
         elif np.mean(cc_prime) < corr_threshold and i >= nmin:
             break
         elif i >= nmax:
             break
 
-    return dict(u=u,
-                x=x,
-                J=J,
-                L=L,
-                P=P,
-                scale=sigma,
-                accept=np.mean(alpha),
-                steps=i)
+    return dict(
+        u=u,
+        x=x,
+        J=J,
+        L=L,
+        P=P,
+        scale=sigma,
+        accept=np.mean(alpha),
+        steps=i
+    )
 
 
+# TODO rename to `log_prob`
 def logprob(L, P, beta):
     """
-        Helper function that computes tempered log posterior.
+    Helper function that computes tempered log posterior.
     
     Parameters
     ----------
