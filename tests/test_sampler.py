@@ -15,16 +15,28 @@ class SamplerTestCase(unittest.TestCase):
         return x
 
     @staticmethod
-    def log_likelihood(x):
+    def log_likelihood_single(x):
+        return np.sum(-0.5 * np.log(2 * np.pi) - 0.5 * x ** 2)
+
+    @staticmethod
+    def log_prior_single(x, lower: float = -5.0, upper: float = 5.0):
+        if np.any((x < lower) | (x > upper)):  # If any dimension is out of bounds, the log prior is -infinity
+            return -np.inf
+        else:
+            n_dim = x.size
+            return -n_dim * (np.log(upper - lower))
+
+    @staticmethod
+    def log_likelihood_vectorized(x):
         # Gaussian log likelihood with mu = 0, sigma = 1
         return np.sum(-0.5 * np.log(2 * np.pi) - 0.5 * x ** 2, axis=1)
 
     @staticmethod
-    def log_prior(x, lower: float = -5.0, upper: float = 5.0):
+    def log_prior_vectorized(x, lower: float = -5.0, upper: float = 5.0):
         # Uniform log prior with bounds (-5, 5)
         n_particles, n_dim = x.shape
         if np.any((x < lower) | (x > upper)):  # If any dimension is out of bounds, the log prior is -infinity
-            return np.zeros(n_particles) - np.inf
+            return np.zeros(n_particles) - np.inf  # FIXME assign -inf only to invalid particles, not all
         else:
             return np.zeros(n_particles) - n_dim * (np.log(upper - lower))
 
@@ -36,10 +48,78 @@ class SamplerTestCase(unittest.TestCase):
         sampler = Sampler(
             nparticles=n_particles,
             ndim=n_dim,
-            loglikelihood=self.log_likelihood,
-            logprior=self.log_prior,
+            loglikelihood=self.log_likelihood_vectorized,
+            logprior=self.log_prior_vectorized,
             vectorize_prior=True,
             vectorize_likelihood=True,
+            bounds=np.array([-5.0, 5.0]),
+            train_config={'epochs': 1}
+        )
+        sampler.run(x0=x)
+
+    def test_run_incorrect_prior_vectorization(self):
+        # Sampler should do a run when vectorization settings are bad
+        x = self.make_data()
+        n_particles, n_dim = x.shape
+
+        sampler = Sampler(
+            nparticles=n_particles,
+            ndim=n_dim,
+            loglikelihood=self.log_likelihood_vectorized,
+            logprior=self.log_prior_vectorized,
+            vectorize_prior=False,
+            vectorize_likelihood=True,
+            bounds=np.array([-5.0, 5.0]),
+            train_config={'epochs': 1}
+        )
+        sampler.run(x0=x)
+
+    def test_run_incorrect_likelihood_vectorization(self):
+        # Sampler should do a run when vectorization settings are bad
+        x = self.make_data()
+        n_particles, n_dim = x.shape
+
+        sampler = Sampler(
+            nparticles=n_particles,
+            ndim=n_dim,
+            loglikelihood=self.log_likelihood_vectorized,
+            logprior=self.log_prior_vectorized,
+            vectorize_prior=True,
+            vectorize_likelihood=False,
+            bounds=np.array([-5.0, 5.0]),
+            train_config={'epochs': 1}
+        )
+        sampler.run(x0=x)
+
+    def test_run_incorrect_likelihood_vectorization_2(self):
+        # Sampler should do a run when vectorization settings are bad
+        x = self.make_data()
+        n_particles, n_dim = x.shape
+
+        sampler = Sampler(
+            nparticles=n_particles,
+            ndim=n_dim,
+            loglikelihood=self.log_likelihood_single,
+            logprior=self.log_prior_vectorized,
+            vectorize_likelihood=True,
+            vectorize_prior=True,
+            bounds=np.array([-5.0, 5.0]),
+            train_config={'epochs': 1}
+        )
+        sampler.run(x0=x)
+
+    def test_run_incorrect_prior_vectorization_2(self):
+        # Sampler should do a run when vectorization settings are bad
+        x = self.make_data()
+        n_particles, n_dim = x.shape
+
+        sampler = Sampler(
+            nparticles=n_particles,
+            ndim=n_dim,
+            loglikelihood=self.log_likelihood_vectorized,
+            logprior=self.log_prior_single,
+            vectorize_likelihood=True,
+            vectorize_prior=True,
             bounds=np.array([-5.0, 5.0]),
             train_config={'epochs': 1}
         )
