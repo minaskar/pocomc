@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Union, Optional
 
 from .maf import MAF, RealNVP
 import torch
@@ -7,6 +7,55 @@ import numpy as np
 from torch.utils.data import DataLoader, TensorDataset
 import copy
 import time
+
+
+def compute_loss(model: Union[MAF, RealNVP],
+                 batch: torch.Tensor,
+                 device: str,
+                 laplace_prior_scale: Optional[float],
+                 gaussian_prior_scale: Optional[float],
+                 use_context: bool):
+    """
+        Compute normalising flow loss given a batch of data.
+        The loss is defined as the sum of the negative log likelihood and the negative log prior.
+        The likelihood is computed according to the normalising flow.
+        The prior is the sum of Laplace and Gaussian priors. The prior is unused by default.
+
+    Parameters
+    ----------
+    model: ``MAF or RealNVP``
+        Normalising flow model used to compute the loss.
+    batch: ``torch.Tensor``
+        Data with shape (n_samples, n_dimensions).
+    device: ``str``
+        Torch device used for the loss computation.
+    laplace_prior_scale: ``float``
+        Laplace prior scale.
+    gaussian_prior_scale: ``float``
+        Gaussian prior scale.
+    use_context: ``bool``
+        If True, the batch should be a tuple with data as the first element and context data as the second element.
+        The likelihood is then further conditional on context data, not only the parameters of the flow.
+
+    Returns
+    -------
+    Scalar loss value.
+    """
+    if use_context:
+        x = batch[0].to(device)
+        y = batch[1].to(device)
+        loss = -model.log_prob(x, y).sum()
+    else:
+        x = batch[0].to(device)
+        loss = -model.log_prob(x).sum()
+
+    if laplace_prior_scale is not None:
+        loss -= model.log_prior(scale=laplace_prior_scale, type='Laplace')
+
+    if gaussian_prior_scale is not None:
+        loss -= model.log_prior(scale=gaussian_prior_scale, type='Gaussian')
+
+    return loss
 
 
 def fit(model: Union[MAF, RealNVP],
@@ -141,21 +190,7 @@ def fit(model: Union[MAF, RealNVP],
         for batch in train_dl:
 
             optimizer.zero_grad()
-
-            if use_context:
-                x = batch[0].to(device)
-                y = batch[1].to(device)
-                loss = -model.log_prob(x, y).sum()
-            else:
-                x = batch[0].to(device)
-                loss = -model.log_prob(x).sum()
-
-            if l1 is not None:
-                loss -= model.log_prior(scale=l1, type='Laplace')
-
-            if l2 is not None:
-                loss -= model.log_prior(scale=l2, type='Gaussian')
-
+            loss = compute_loss(model, batch, device, l1, l2, use_context)
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), clip_grad_norm)
             optimizer.step()
@@ -173,21 +208,8 @@ def fit(model: Union[MAF, RealNVP],
             val_loss = 0.0
 
             for batch in val_dl:
-
-                if use_context:
-                    x = batch[0].to(device)
-                    y = batch[1].to(device)
-                    loss = -model.log_prob(x, y).sum()
-                else:
-                    x = batch[0].to(device)
-                    loss = -model.log_prob(x).sum()
-
-                if l1 is not None:
-                    loss -= model.log_prior(scale=l1, type='Laplace')
-
-                if l2 is not None:
-                    loss -= model.log_prior(scale=l2, type='Gaussian')
-
+                with torch.no_grad():
+                    loss = compute_loss(model, batch, device, l1, l2, use_context)
                 # val_loss += loss.data.item() * x.size(0)
                 val_loss += loss.data.item()
 
