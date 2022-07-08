@@ -16,10 +16,10 @@ def compute_loss(model: Union[MAF, RealNVP],
                  gaussian_prior_scale: Optional[float],
                  use_context: bool):
     """
-        Compute normalising flow loss given a batch of data.
-        The loss is defined as the sum of the negative log likelihood and the negative log prior.
-        The likelihood is computed according to the normalising flow.
-        The prior is the sum of Laplace and Gaussian priors. The prior is unused by default.
+    Compute normalising flow loss given a batch of data.
+    The loss is defined as the sum of the negative log likelihood and the negative log prior.
+    The likelihood is computed according to the normalising flow.
+    The prior is the sum of Laplace and Gaussian priors. The prior is unused by default.
 
     Parameters
     ----------
@@ -77,9 +77,9 @@ def fit(model: Union[MAF, RealNVP],
         device: str = 'cpu',
         verbose: int = 2):
     r"""
-        Fit a normalising flow model.
-        We minimize the negative log likelihood of data with an optional L1 and/or L2 regularization term.
-        The fitting is done using Adam.
+    Fit a normalising flow model.
+    We minimize the negative log likelihood of data with an optional L1 and/or L2 regularization term.
+    The fitting is done using Adam.
 
     Parameters
     ----------
@@ -251,21 +251,22 @@ def fit(model: Union[MAF, RealNVP],
 
 class Flow:
     r"""
-    
-        Normalising Flow object.
+    Normalising Flow class.
+    This class implements forward and inverse passes, log density evaluation, sampling and model fitting
+    irrespective of the kind of flow used.
 
     Parameters
     ----------
     ndim : int
-        Number of parameters or dimensions
+        Number of dimensions.
     flow_config : dict or None
-        Configuration of the flow. If ``None`` the default configuration is used ``dict(n_blocks=6,
+        Configuration of the flow. If ``None`` the default configuration used is ``dict(n_blocks=6,
         hidden_size= 3 * ndim, n_hidden=1, batch_norm=True, activation='relu', input_order='sequential',
         flow_type='maf')``
     train_config : dict or None
-        Training confiiguration for the flow. If ``None`` the default configuration is used ``validation_split=0.2,
+        Training configuration for the flow. If ``None`` the default configuration used is ``dict(validation_split=0.2,
         epochs=1000, batch_size=nparticles, patience=30, monitor='val_loss', shuffle=True, lr=[1e-2, 1e-3, 1e-4, 1e-5],
-        weight_decay=1e-8, clip_grad_norm=1.0, l1=0.2, l2=None, device='cpu', verbose=0``
+        weight_decay=1e-8, clip_grad_norm=1.0, l1=0.2, l2=None, device='cpu', verbose=0)``
     """
 
     def __init__(self, ndim: int, flow_config: dict = None, train_config: dict = None):
@@ -273,8 +274,8 @@ class Flow:
             raise ValueError(f"1D data is not supported. Please provide data with ndim >= 2.")
 
         self.ndim = ndim
-        self.flow_config = flow_config  # TODO do we have to store this?
-        self.train_config = train_config
+        self.flow_config = flow_config  # TODO remove this if unused.
+        self.train_config = train_config  # TODO remove this if unused.
 
         self.default_config = dict(
             n_blocks=6,

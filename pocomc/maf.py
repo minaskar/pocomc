@@ -417,7 +417,7 @@ class MAF(nn.Module):
                  input_size,
                  hidden_size,
                  n_hidden,
-                 cond_label_size=None,
+                 cond_label_size: int = None,
                  activation='relu',
                  input_order='sequential',
                  batch_norm=True,
@@ -653,7 +653,7 @@ class RealNVP(nn.Module):
                  input_size,
                  hidden_size,
                  n_hidden,
-                 cond_label_size=None,
+                 cond_label_size: int = None,
                  batch_norm=True,
                  **kwargs):
         super().__init__()
