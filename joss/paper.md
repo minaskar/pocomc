@@ -42,8 +42,10 @@ with non-trivial geometry, including strong multimodality and non-linearity. To 
 Flow in order to decorrelate the parameters of the posterior. It facilitates both tasks of
 parameter estimation and model comparison, focusing especially on computationally expensive
 applications. It allows fitting arbitrary models defined as a log-likelihood function and a
-log-prior probability density function in Python. Finally, parallelisation to computing
-clusters manifests linear scaling.
+log-prior probability density function in Python. Compared to popular alternatives (e.g.
+nested sampling) `pocoMC` can speed up the sampling procedure by orders of magnitude, cutting
+down their computational cost substantially. Finally, parallelisation to computing clusters
+manifests linear scaling.
 
 # Statement of need
 
@@ -72,8 +74,10 @@ or as part of another method (e.g. nested sampling [@skilling2006nested]). Howev
 as MCMC relies on the local exploration of the posterior, the presense of non-linear
 correlation between parameters and multimodality can at best hinder its performance
 and at worst violate its theoretical guarantees of convergence (i.e. ergodicity). Usually
-those challenges are partially addressed by reparameterising the model using a common change-of-variables parameter transformation. However, the practical effect of this often limited and usually
-requires expert knowledge. These problems are usually complicated further by the substantial
+those challenges are partially addressed by reparameterising the model using a common
+change-of-variables parameter transformation. However, guessing the right kind of
+reparameterisation a priori is not trivial as it often requires a deep knowledge of
+the physical model and its symmetries. These problems are usually complicated further by the substantial
 computational cost of evaluating astronomical and cosmological models. `pocoMC` is 
 designed to tackle exactly these kinds of difficulties by automatically reparameterising
 the model such that the parameters of the model are approximately uncorrelated and standard techniques 

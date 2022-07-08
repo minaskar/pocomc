@@ -238,7 +238,7 @@ class Sampler:
             nmin: int = None,
             nmax: int = None,
             progress: bool = True,
-            check_shape: bool = True):
+            check_shape: bool = False):
         r"""Run Preconditioned Monte Carlo.
 
         Parameters
