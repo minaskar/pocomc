@@ -131,42 +131,85 @@ class ProgressBar:
 
 
 class _FunctionWrapper(object):
-    r"""
-        This is a hack to make the likelihood function pickleable when ``args``
-        or ``kwargs`` are also included.
-
-    Parameters
-    ----------
-    f : (callable)
-        Log Probability function.
-    args : list
-        Extra arguments to be passed into the logprob.
-    kwargs : dict
-        Extra arguments to be passed into the logprob.
-
-    Returns
-    -------
-        Log Probability function.
-    """
-
     def __init__(self, f, args, kwargs):
+        r"""
+        Make the likelihood function pickleable when ``args`` or ``kwargs`` are also included.
+
+        Parameters
+        ----------
+        f : callable
+            Log probability function.
+        args : list
+            Extra positional arguments to be passed to f.
+        kwargs : dict
+            Extra keyword arguments to be passed to f.
+        """
         self.f = f
         self.args = [] if args is None else args
         self.kwargs = {} if kwargs is None else kwargs
 
     def __call__(self, x):
+        """
+        TODO add docstring
+
+        Parameters
+        ----------
+        x
+
+        Returns
+        -------
+
+        """
         return self.f(x, *self.args, **self.kwargs)
 
 
-def torch_to_numpy(x):
+def torch_to_numpy(x: torch.Tensor) -> np.ndarray:
+    """
+    Cast torch tensor to numpy.
+
+    Parameters
+    ----------
+    x : torch.Tensor
+        Input tensor.
+
+    Returns
+    -------
+        Numpy array corresponding to the input tensor.
+    """
     return x.detach().numpy()
 
 
-def numpy_to_torch(x):
+def numpy_to_torch(x: np.ndarray) -> torch.Tensor:
+    """
+    Cast numpy array to torch tensor.
+
+    Parameters
+    ----------
+    x : np.ndarray
+        Input array.
+
+    Returns
+    -------
+        Torch tensor corresponding to the input array.
+    """
     return torch.tensor(x, dtype=torch.float32)
 
 
-def torch_double_to_float(x, warn=True):
+def torch_double_to_float(x: torch.Tensor, warn: bool = True):
+    """
+    Cast double precision (Float64) torch tensor to single precision (Float32).
+
+    Parameters
+    ----------
+    x: torch.Tensor
+        Input tensor.
+    warn: bool
+        If True, warn the user about the typecast.
+
+    Returns
+    -------
+        Single precision (Float32) torch tensor.
+    """
     if x.dtype == torch.float64 and warn:
         warnings.warn(f"Float64 data is currently unsupported, casting to Float32. Output will also have type Float32.")
         return x.float()
