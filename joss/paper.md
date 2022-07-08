@@ -133,15 +133,12 @@ updates in the preconditioned/uncorrelated latent space.
 
 # Features
 
-- User-friendly black-box API
-- Only the log-likelihood, log-prior and some prior samples are required from the user
-- No tuning is required but is possible for experienced users
-- Default configuration sufficient for most applications
+- User-friendly black-box API (only the log-likelihood, log-prior and some prior samples required from the user)
+- Default configuration sufficient for most applications (no tuning is required but is possible for experienced users)
 - Posterior corner, trace, and run plotting tools
 - Support for both MAF and RealNVP normalising flows with added regularisation [@papamakarios2017masked; @dinh2016density]
 - Straightforward parallelisation using MPI or multiprocessing
-- Wide range of examples of using the code
-- Continuous integration and unit tests available
+- Continuous integration, unit tests and wide range of examples available
 - [Extensive documentation available](http://pocomc.readthedocs.io)
 
 # Acknowledgements
