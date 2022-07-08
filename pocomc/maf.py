@@ -7,13 +7,14 @@ import math
 import copy
 
 
-def create_masks(input_size,
-                 hidden_size,
-                 n_hidden,
-                 input_order='sequential',
-                 input_degrees=None):
+def create_masks(input_size: int,
+                 hidden_size: int,
+                 n_hidden: int,
+                 input_order: str = 'sequential',
+                 input_degrees: torch.Tensor = None):
     """
-        Helper function to create masks.
+    Helper function to create masks.
+    TODO add description.
     
     Parameters
     ----------
@@ -66,25 +67,26 @@ def create_masks(input_size,
 
 
 class MaskedLinear(nn.Linear):
-    """ 
+    def __init__(self,
+                 input_size: int,
+                 n_outputs: int,
+                 mask: torch.Tensor,
+                 cond_label_size: int = None):
+        """
         MADE building block layer
+        TODO add description.
 
-    Parameters
-    ----------
-    input_size : int
-        Dimensionality of input data.
-    n_outputs : int
-        Number of outputs
-    mask : torch.Tensor
-        Mask used to hide connections.
-    cond_label_siize : int
-        Number of conditional arguments.
-        
-    """
-    def __init__(self, input_size,
-                 n_outputs,
-                 mask,
-                 cond_label_size=None):
+        Parameters
+        ----------
+        input_size : int
+            Dimensionality of input data.
+        n_outputs : int
+            Number of outputs
+        mask : torch.Tensor
+            Mask used to hide connections.
+        cond_label_size : int
+            Number of conditional arguments.
+        """
         super().__init__(input_size, n_outputs)
 
         self.register_buffer('mask', mask)
@@ -93,9 +95,12 @@ class MaskedLinear(nn.Linear):
         if cond_label_size is not None:
             self.cond_weight = nn.Parameter(torch.rand(n_outputs, cond_label_size) / math.sqrt(cond_label_size))
 
-    def forward(self, x, y=None):
+    def forward(self,
+                x: torch.Tensor,
+                y: torch.Tensor = None):
         """
         Forward transformation.
+
         Parameters
         ----------
         x : torch.Tensor
@@ -115,26 +120,26 @@ class MaskedLinear(nn.Linear):
     def extra_repr(self):
         return 'in_features={}, out_features={}, bias={}'.format(
             self.in_features, self.out_features, self.bias is not None
-        ) + (self.cond_label_size != None) * ', cond_features={}'.format(self.cond_label_size)
+        ) + (self.cond_label_size is not None) * ', cond_features={}'.format(self.cond_label_size)
 
 
 class BatchNorm(nn.Module):
-    """ 
+    def __init__(self,
+                 input_size: int,
+                 momentum: float = 0.9,
+                 eps: float = 1e-5):
+        """
         Batch Normalisation layer
 
-    Parameters
-    ----------
-    input_size : int
-        Dimensionality of input data
-    momemntum : float
-        Value of momentum variable (Default is ``0.9``)
-    eps : float
-        Value of epsilon parameter (Default is ``1e-5``)
-    """
-
-    def __init__(self, input_size,
-                 momentum=0.9,
-                 eps=1e-5):
+        Parameters
+        ----------
+        input_size : int
+            Dimensionality of input data
+        momentum : float
+            Value of momentum variable. Default: ``0.9``.
+        eps : float
+            Value of epsilon parameter. Default: ``1e-5``.
+        """
         super().__init__()
         self.momentum = momentum
         self.eps = eps
@@ -148,7 +153,9 @@ class BatchNorm(nn.Module):
         self.register_buffer('running_mean', torch.zeros(input_size))
         self.register_buffer('running_var', torch.ones(input_size))
 
-    def forward(self, x, cond_y=None):
+    def forward(self,
+                x: torch.Tensor,
+                cond_y: torch.Tensor = None):
         """
         Forward transformation.
         Parameters
@@ -162,7 +169,7 @@ class BatchNorm(nn.Module):
         y : torch.Tensor
             Transformed data.
         log_abs_det_jacobian : torch.Tensor
-            Log(Abs(Det(Jacobian)))
+            log(abs(det(Jacobian)))
         """
         if self.training:
             self.batch_mean = x.mean(0)
@@ -187,11 +194,11 @@ class BatchNorm(nn.Module):
 
         # compute log_abs_det_jacobian (cf RealNVP paper)
         log_abs_det_jacobian = self.log_gamma - 0.5 * torch.log(var + self.eps)
-        #        print('in sum log var {:6.3f} ; out sum log var {:6.3f}; sum log det {:8.3f}; mean log_gamma {:5.3f}; mean beta {:5.3f}'.format(
-        #            (var + self.eps).log().sum().data.numpy(), y.var(0).log().sum().data.numpy(), log_abs_det_jacobian.mean(0).item(), self.log_gamma.mean(), self.beta.mean()))
         return y, log_abs_det_jacobian.expand_as(x)
 
-    def inverse(self, y, cond_y=None):
+    def inverse(self,
+                y: torch.Tensor,
+                cond_y: torch.Tensor = None):
         """
         Inverse transformation.
         Parameters
@@ -205,7 +212,7 @@ class BatchNorm(nn.Module):
         x : torch.Tensor
             Transformed data.
         log_abs_det_jacobian : torch.Tensor
-            Log(Abs(Det(Jacobian)))
+            log(abs(det(Jacobian)))
         """
         if self.training:
             mean = self.batch_mean if self.batch_mean is not None else torch.tensor(0.0)
@@ -225,7 +232,7 @@ class BatchNorm(nn.Module):
 class FlowSequential(nn.Sequential):
     """ Join multiple layers of a normalizing flow """
 
-    def forward(self, x, y):
+    def forward(self, x, y):  # TODO handle signature mismatch
         """
         Forward transformation.
         Parameters
@@ -239,7 +246,7 @@ class FlowSequential(nn.Sequential):
         u : torch.Tensor
             Transformed data.
         log_abs_det_jacobian : torch.Tensor
-            Log(Abs(Det(Jacobian)))
+            log(abs(det(Jacobian)))
         """
         sum_log_abs_det_jacobians = 0
         for module in self:
@@ -247,7 +254,9 @@ class FlowSequential(nn.Sequential):
             sum_log_abs_det_jacobians = sum_log_abs_det_jacobians + log_abs_det_jacobian
         return x, sum_log_abs_det_jacobians
 
-    def inverse(self, u, y):
+    def inverse(self,
+                u: torch.Tensor,
+                y: torch.Tensor):
         """
         Inverse transformation.
         Parameters
@@ -261,7 +270,7 @@ class FlowSequential(nn.Sequential):
         x : torch.Tensor
             Transformed data.
         log_abs_det_jacobian : torch.Tensor
-            Log(Abs(Det(Jacobian)))
+            log(abs(det(Jacobian)))
         """
         sum_log_abs_det_jacobians = 0
         for module in reversed(self):
@@ -271,40 +280,43 @@ class FlowSequential(nn.Sequential):
 
 
 class MADE(nn.Module):
-    """
-        Masked Autoregressive Density Estimator (MADE)
-    
-    Parameters
-    ----------
-    input_size : int
-        Dimensionality of inputs
-    hidden_size : int
-        Size of hidden layers
-    n_hidden : int
-        Number of hidden layers
-    activation : str
-        Activation function: ``"relu"`` (default) or ``"tanh"``.
-    input_order : str
-        Variable order for creating the autoregressive masks: ``"sequential"`` (default) or ``"random"``.
-    """
-    def __init__(self, input_size,
-                 hidden_size,
-                 n_hidden,
+    def __init__(self,
+                 input_size: int,
+                 hidden_size: int,
+                 n_hidden: int,
                  cond_label_size=None,
-                 activation='relu',
-                 input_order='sequential',
+                 activation: str = 'relu',
+                 input_order: str = 'sequential',
                  input_degrees=None):
+        """
+        Masked Autoregressive Density Estimator (MADE)
+
+        Parameters
+        ----------
+        input_size : int
+            Dimensionality of inputs
+        hidden_size : int
+            Size of hidden layers
+        n_hidden : int
+            Number of hidden layers
+        activation : str
+            Activation function: ``"relu"`` (default) or ``"tanh"``.
+        input_order : str
+            Variable order for creating the autoregressive masks: ``"sequential"`` (default) or ``"random"``.
+        """
         super().__init__()
         # base distribution for calculation of log prob under the model
         self.register_buffer('base_dist_mean', torch.zeros(input_size))
         self.register_buffer('base_dist_var', torch.ones(input_size))
 
         # create masks
-        masks, self.input_degrees = create_masks(input_size,
-                                                 hidden_size,
-                                                 n_hidden,
-                                                 input_order,
-                                                 input_degrees)
+        masks, self.input_degrees = create_masks(
+            input_size,
+            hidden_size,
+            n_hidden,
+            input_order,
+            input_degrees
+        )
 
         # setup activation
         if activation == 'relu':
@@ -325,10 +337,14 @@ class MADE(nn.Module):
 
     @property
     def base_dist(self):
-        """ Base distribution """
+        """
+        Base distribution
+        """
         return D.Normal(self.base_dist_mean, self.base_dist_var)
 
-    def forward(self, x, y=None):
+    def forward(self,
+                x: torch.Tensor,
+                y: torch.Tensor = None):
         """
         Forward transformation.
         Parameters
@@ -348,7 +364,10 @@ class MADE(nn.Module):
         log_abs_det_jacobian = - loga
         return u, log_abs_det_jacobian
 
-    def inverse(self, u, y=None, sum_log_abs_det_jacobians=None):
+    def inverse(self,
+                u: torch.Tensor,
+                y: torch.Tensor = None,
+                sum_log_abs_det_jacobians=None):  # TODO add sum_log_abs_det_jacobians to docstring
         """
         Inverse transformation.
         Parameters
@@ -362,16 +381,18 @@ class MADE(nn.Module):
         Transformed data.
         """
         # MAF eq 3
-        D = u.shape[1]
         x = torch.zeros_like(u)
         # run through reverse model
+        loga = 0
         for i in self.input_degrees:
             m, loga = self.net(self.net_input(x, y)).chunk(chunks=2, dim=1)
             x[:, i] = u[:, i] * torch.exp(loga[:, i]) + m[:, i]
         log_abs_det_jacobian = loga
         return x, log_abs_det_jacobian
 
-    def log_prob(self, x, y=None):
+    def log_prob(self,
+                 x: torch.Tensor,
+                 y: torch.Tensor = None):
         """
         Log-probability of input data
         Parameters
@@ -390,7 +411,7 @@ class MADE(nn.Module):
 
 class MAF(nn.Module):
     """
-        Masked Autoregressive Flow (MAF).
+    Masked Autoregressive Flow (MAF).
 
     Parameters
     ----------
@@ -410,19 +431,33 @@ class MAF(nn.Module):
         Variable order for creating the autoregressive masks: ``"sequential"`` (default) or ``"random"``.
     batch_norm : bool
         Whether to use batch normalisation (Default is ``True``).
-        
     """
+
     def __init__(self,
-                 n_blocks,
-                 input_size,
-                 hidden_size,
-                 n_hidden,
+                 n_blocks: int,
+                 input_size: int,
+                 hidden_size: int,
+                 n_hidden: int,
                  cond_label_size: int = None,
-                 activation='relu',
-                 input_order='sequential',
-                 batch_norm=True,
-                 **kwargs
-                 ):
+                 activation: str = 'relu',
+                 input_order: str = 'sequential',
+                 batch_norm: bool = True,
+                 **kwargs):
+        """
+        TODO write docstring.
+
+        Parameters
+        ----------
+        n_blocks
+        input_size
+        hidden_size
+        n_hidden
+        cond_label_size
+        activation
+        input_order
+        batch_norm
+        kwargs
+        """
         super().__init__()
         # base distribution for calculation of log prob under the model
         self.register_buffer('base_dist_mean', torch.zeros(input_size))
@@ -441,10 +476,14 @@ class MAF(nn.Module):
 
     @property
     def base_dist(self):
-        """ Base distribution """
+        """
+        Base distribution
+        """
         return D.Normal(self.base_dist_mean, self.base_dist_var, validate_args=False)
 
-    def forward(self, x, y=None):
+    def forward(self,
+                x: torch.Tensor,
+                y: torch.Tensor = None):
         """
         Forward transformation.
         Parameters
@@ -459,7 +498,9 @@ class MAF(nn.Module):
         """
         return self.net(x, y)
 
-    def inverse(self, u, y=None):
+    def inverse(self,
+                u: torch.Tensor,
+                y: torch.Tensor = None):
         """
         Inverse transformation.
         Parameters
@@ -474,7 +515,9 @@ class MAF(nn.Module):
         """
         return self.net.inverse(u, y)
 
-    def log_prob(self, x, y=None):
+    def log_prob(self,
+                 x: torch.Tensor,
+                 y: torch.Tensor = None):
         """
         Log-probability of input data
         Parameters
@@ -490,7 +533,8 @@ class MAF(nn.Module):
         u, sum_log_abs_det_jacobians = self.forward(x, y)
         return torch.sum(self.base_dist.log_prob(u) + sum_log_abs_det_jacobians, dim=1)
 
-    def log_prior(self, scale=1.0, type='Laplace'):
+    # TODO only implement a single log_prior for both MAF and RealNVP instead of two separate implementations.
+    def log_prior(self, scale: float = 1.0, type: str = 'Laplace'):  # TODO rename `type` to avoid builtin shadow
         """
         Log-prior of weights
         Parameters
@@ -506,9 +550,7 @@ class MAF(nn.Module):
         total = 0.0
 
         for i, layer in enumerate(self.net):
-
             if isinstance(layer, MADE):
-                # print(i, layer)
                 for parameter_name, parameter in layer.net.named_parameters():
                     if parameter_name.endswith('weight'):
                         # Regularize weights, but not biases
@@ -517,11 +559,6 @@ class MAF(nn.Module):
                         elif type in ['Gaussian', 'gaussian', 'l2', 'L2', 'Normal', 'normal']:
                             total += parameter.square().sum()  # Gaussian prior
 
-                # for parameter_name, parameter in layer.net_input.named_parameters():
-                #    if parameter_name.endswith('weight'):
-                #        # Regularize weights, but not biases
-                #        total += parameter.abs().sum()  # Laplace prior
-
         if type in ['Laplace', 'laplace', 'l1', 'L1']:
             return -total / scale
         elif type in ['Gaussian', 'gaussian', 'l2', 'L2', 'Normal', 'normal']:
@@ -529,29 +566,28 @@ class MAF(nn.Module):
 
 
 class LinearMaskedCoupling(nn.Module):
-    """
-        Modified RealNVP Coupling Layers per the MAF paper
-    
-    Parameters
-    ----------
-    input_size : int
-        Dimensionality of input data.
-    hidden_size : int
-        Number of neurons per layer.
-    n_hidden : int
-        Number of layers per MADE block.
-    mask : torch.Tensor
-        Mask used to hide connections.
-    cond_label_size : int
-        Dimensionality of conditional input data.
-    """
-
     def __init__(self,
-                 input_size,
-                 hidden_size,
-                 n_hidden,
-                 mask,
-                 cond_label_size=None):
+                 input_size: int,
+                 hidden_size: int,
+                 n_hidden: int,
+                 mask: torch.Tensor,
+                 cond_label_size: int = None):
+        """
+        Modified RealNVP Coupling Layers per the MAF paper
+
+        Parameters
+        ----------
+        input_size : int
+            Dimensionality of input data.
+        hidden_size : int
+            Number of neurons per layer.
+        n_hidden : int
+            Number of layers per MADE block.
+        mask : torch.Tensor
+            Mask used to hide connections.
+        cond_label_size : int
+            Dimensionality of conditional input data.
+        """
         super().__init__()
 
         self.register_buffer('mask', mask)
@@ -569,7 +605,9 @@ class LinearMaskedCoupling(nn.Module):
         for i in range(len(self.t_net)):
             if not isinstance(self.t_net[i], nn.Linear): self.t_net[i] = nn.ReLU()
 
-    def forward(self, x, y=None):
+    def forward(self,
+                x: torch.Tensor,
+                y: torch.Tensor = None):
         """
         Forward transformation.
         Parameters
@@ -583,7 +621,7 @@ class LinearMaskedCoupling(nn.Module):
         u : torch.Tensor
             Transformed data.
         log_abs_det_jacobian : torch.Tensor
-            Log(Abs(Det(Jacobian)))
+            log(abs(det(Jacobian)))
         """
         # apply mask
         mx = x * self.mask
@@ -591,15 +629,18 @@ class LinearMaskedCoupling(nn.Module):
         # run through model
         s = self.s_net(mx if y is None else torch.cat([y, mx], dim=1))
         t = self.t_net(mx if y is None else torch.cat([y, mx], dim=1))
-        u = mx + (1 - self.mask) * (x - t) * torch.exp(
-            -s)  # cf RealNVP eq 8 where u corresponds to x (here we're modeling u)
 
-        log_abs_det_jacobian = - (
-                    1 - self.mask) * s  # log det du/dx; cf RealNVP 8 and 6; note, sum over input_size done at model log_prob
+        # cf RealNVP eq 8 where u corresponds to x (here we're modeling u)
+        u = mx + (1 - self.mask) * (x - t) * torch.exp(-s)
+
+        # log det du/dx; cf RealNVP 8 and 6; note, sum over input_size done at model log_prob
+        log_abs_det_jacobian = - (1 - self.mask) * s
 
         return u, log_abs_det_jacobian
 
-    def inverse(self, u, y=None):
+    def inverse(self,
+                u: torch.Tensor,
+                y: torch.Tensor = None):
         """
         Inverse transformation.
         Parameters
@@ -613,7 +654,7 @@ class LinearMaskedCoupling(nn.Module):
         x : torch.Tensor
             Transformed data.
         log_abs_det_jacobian : torch.Tensor
-            Log(Abs(Det(Jacobian)))
+            log(abs(det(Jacobian)))
         """
         # apply mask
         mu = u * self.mask
@@ -629,33 +670,32 @@ class LinearMaskedCoupling(nn.Module):
 
 
 class RealNVP(nn.Module):
-    """
+    def __init__(self,
+                 n_blocks: int,
+                 input_size: int,
+                 hidden_size: int,
+                 n_hidden: int,
+                 cond_label_size: int = None,
+                 batch_norm: bool = True,
+                 **kwargs):
+        """
         RealNVP normalising flow.
 
-    Parameters
-    ----------
-    n_blocks : int
-        Number of MADE blocks.
-    input_size : int
-        Dimensionality of input data.
-    hidden_size : int
-        Number of neurons per layer.
-    n_hidden : int
-        Number of layers per MADE block.
-    cond_label_size : int
-        Dimensionality of conditional input data.
-    batch_norm : bool
-        Whether to use batch normalisation (Default is ``True``).
-
-    """
-    def __init__(self,
-                 n_blocks,
-                 input_size,
-                 hidden_size,
-                 n_hidden,
-                 cond_label_size: int = None,
-                 batch_norm=True,
-                 **kwargs):
+        Parameters
+        ----------
+        n_blocks : int
+            Number of MADE blocks.
+        input_size : int
+            Dimensionality of input data.
+        hidden_size : int
+            Number of neurons per layer.
+        n_hidden : int
+            Number of layers per MADE block.
+        cond_label_size : int
+            Dimensionality of conditional input data.
+        batch_norm : bool
+            Whether to use batch normalisation. Default: ``True``.
+        """
         super().__init__()
 
         # base distribution for calculation of log prob under the model
@@ -674,10 +714,14 @@ class RealNVP(nn.Module):
 
     @property
     def base_dist(self):
-        """ Base distribution """
+        """
+        Base distribution
+        """
         return D.Normal(self.base_dist_mean, self.base_dist_var)
 
-    def forward(self, x, y=None):
+    def forward(self,
+                x: torch.Tensor,
+                y: torch.Tensor = None):
         """
         Forward transformation.
         Parameters
@@ -692,7 +736,9 @@ class RealNVP(nn.Module):
         """
         return self.net(x, y)
 
-    def inverse(self, u, y=None):
+    def inverse(self,
+                u: torch.Tensor,
+                y: torch.Tensor = None):
         """
         Inverse transformation.
         Parameters
@@ -707,7 +753,9 @@ class RealNVP(nn.Module):
         """
         return self.net.inverse(u, y)
 
-    def log_prob(self, x, y=None):
+    def log_prob(self,
+                 x: torch.Tensor,
+                 y: torch.Tensor = None):
         """
         Log-probability of input data
         Parameters
@@ -723,7 +771,9 @@ class RealNVP(nn.Module):
         u, sum_log_abs_det_jacobians = self.forward(x, y)
         return torch.sum(self.base_dist.log_prob(u) + sum_log_abs_det_jacobians, dim=1)
 
-    def log_prior(self, scale=1.0, type='Laplace'):
+    def log_prior(self,
+                  scale: float = 1.0,
+                  type: str = 'Laplace'):  # TODO rename `type` to avoid builtin shadow
         """
         Log-prior of weights
         Parameters
@@ -737,11 +787,8 @@ class RealNVP(nn.Module):
         Log-prior of weights.
         """
         total = 0.0
-
         for i, layer in enumerate(self.net):
-
             if isinstance(layer, MADE):
-                # print(i, layer)
                 for parameter_name, parameter in layer.net.named_parameters():
                     if parameter_name.endswith('weight'):
                         # Regularize weights, but not biases
