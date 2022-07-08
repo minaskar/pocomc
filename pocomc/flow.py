@@ -150,7 +150,7 @@ def fit(model: Union[MAF, RealNVP],
             val_dl = DataLoader(TensorDataset(validation_data), batch_size, shuffle)
         validation = True
     else:
-        if validation_split > 0.0 and validation_split < 1.0:
+        if 0.0 < validation_split < 1.0:
             validation = True
             split = int(data.size()[0] * (1. - validation_split))
             if use_context:
