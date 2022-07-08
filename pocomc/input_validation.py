@@ -17,16 +17,16 @@ def assert_equal_type(x, y):
 
 
 def assert_arrays_equal_shape(x: np.ndarray,
-                       y: np.ndarray):
+                              y: np.ndarray):
     if x.shape != y.shape:
         raise ValueError(f"Inputs should have equal shape, but got {x.shape} and {y.shape}")
 
 
 def assert_array_within_interval(x: np.ndarray,
-                           left: np.ndarray,
-                           right: np.ndarray,
-                           left_open: bool = False,
-                           right_open: bool = False):
+                                 left: np.ndarray,
+                                 right: np.ndarray,
+                                 left_open: bool = False,
+                                 right_open: bool = False):
     left = left.copy()
     left[np.isnan(left)] = -np.inf
 
