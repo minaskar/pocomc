@@ -18,7 +18,7 @@ def get_ESS(logw: np.ndarray):
 
 def resample_equal(samples: np.ndarray,
                    weights: np.ndarray,
-                   rstate: np.random.RandomState = None):
+                   random_state: int = None):
     """
         Resample a new set of points from the weighted set of inputs
         such that they all have equal weight.
@@ -32,8 +32,8 @@ def resample_equal(samples: np.ndarray,
         Set of unequally weighted samples.
     weights : `~numpy.ndarray` with shape (nsamples,)
         Corresponding weight of each sample.
-    rstate : `~numpy.random.RandomState`, optional
-        `~numpy.random.RandomState` instance.
+    random_state : `int`, optional
+        Random seed.
 
     Returns
     -------
@@ -56,8 +56,8 @@ def resample_equal(samples: np.ndarray,
     Gustafsson (2006) <doi:10.1109/NSSPW.2006.4378824>`_.
     """
 
-    if rstate is None:
-        rstate = np.random
+    if random_state is not None:
+        np.random.seed(random_state)
 
     if abs(np.sum(weights) - 1.) > SQRTEPS:  # same tol as in np.random.choice.
         # Guarantee that the weights will sum to 1.
@@ -66,7 +66,7 @@ def resample_equal(samples: np.ndarray,
 
     # Make N subdivisions and choose positions with a consistent random offset.
     n_samples = len(weights)
-    positions = (rstate.random() + np.arange(n_samples)) / n_samples
+    positions = (np.random.random() + np.arange(n_samples)) / n_samples
 
     # Resample the data.
     idx = np.zeros(n_samples, dtype=int)

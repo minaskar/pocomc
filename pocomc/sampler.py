@@ -130,6 +130,7 @@ class Sampler:
         if random_state is not None:
             np.random.seed(random_state)
             torch.manual_seed(random_state)
+        self.random_state = random_state
 
         self.nwalkers = nparticles
         self.ndim = ndim
@@ -556,13 +557,13 @@ class Sampler:
         w = np.exp(self.logw - np.max(self.logw))
         w /= np.sum(w)
 
-        assert np.any(~np.isnan(self.logw))  # TODO should this be np.all?
-        assert np.any(np.isfinite(self.logw))  # TODO should this be np.all?
-        assert np.any(~np.isnan(w))  # TODO should this be np.all?
-        assert np.any(np.isfinite(w))  # TODO should this be np.all?
+        assert np.all(~np.isnan(self.logw))
+        assert np.all(np.isfinite(self.logw))
+        assert np.all(~np.isnan(w))
+        assert np.all(np.isfinite(w))
 
         try:
-            idx = resample_equal(np.arange(len(u)), w)
+            idx = resample_equal(np.arange(len(u)), w, self.random_state)
         except:  # TODO use specific exception type
             idx = np.random.choice(np.arange(len(u)), p=w, size=len(w))
         self.logw = 0.0
