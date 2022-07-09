@@ -55,7 +55,7 @@ class SamplerTestCase(unittest.TestCase):
             bounds=np.array([-5.0, 5.0]),
             train_config={'epochs': 1}
         )
-        sampler.run(x0=x)
+        sampler.run(prior_samples=x)
 
     def test_run_incorrect_prior_vectorization(self):
         # Sampler should do a run when vectorization settings are bad
@@ -72,7 +72,7 @@ class SamplerTestCase(unittest.TestCase):
             bounds=np.array([-5.0, 5.0]),
             train_config={'epochs': 1}
         )
-        sampler.run(x0=x)
+        sampler.run(prior_samples=x)
 
     def test_run_incorrect_likelihood_vectorization(self):
         # Sampler should do a run when vectorization settings are bad
@@ -89,7 +89,7 @@ class SamplerTestCase(unittest.TestCase):
             bounds=np.array([-5.0, 5.0]),
             train_config={'epochs': 1}
         )
-        sampler.run(x0=x)
+        sampler.run(prior_samples=x)
 
     def test_run_incorrect_likelihood_vectorization_2(self):
         # Sampler should do a run when vectorization settings are bad
@@ -106,7 +106,7 @@ class SamplerTestCase(unittest.TestCase):
             bounds=np.array([-5.0, 5.0]),
             train_config={'epochs': 1}
         )
-        sampler.run(x0=x)
+        sampler.run(prior_samples=x)
 
     def test_run_incorrect_prior_vectorization_2(self):
         # Sampler should do a run when vectorization settings are bad
@@ -123,7 +123,7 @@ class SamplerTestCase(unittest.TestCase):
             bounds=np.array([-5.0, 5.0]),
             train_config={'epochs': 1}
         )
-        sampler.run(x0=x)
+        sampler.run(prior_samples=x)
 
 
 if __name__ == '__main__':

@@ -104,10 +104,8 @@ def corner(results: dict,
            title_quantiles=None,
            **kwargs,
            ):
-    r"""Corner plot.
-    # TODO describe what's plotted in more detail.
-    # TODO add range_, smooth, smooth1d, titles, show_titles, title_quantiles to docstring.
-    # TODO perhaps use **kwargs for all corner kwargs, not only additional ones.
+    r"""
+        Corner plot.
 
     Parameters
     ----------
@@ -123,6 +121,9 @@ def corner(results: dict,
     bins : int
         Number of KDE bins to use (default is 20).
     """
+    # TODO describe what's plotted in more detail.
+    # TODO add range_, smooth, smooth1d, titles, show_titles, title_quantiles to docstring.
+    # TODO perhaps use **kwargs for all corner kwargs, not only additional ones.
     import corner
 
     if color is None:

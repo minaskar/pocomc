@@ -11,6 +11,18 @@ from .flow import Flow
 
 
 class Sampler:
+    r"""
+        A Preconditioned Monte Carlo class.
+
+    Attributes
+    ----------
+    results : dict
+        Dictionary holding results. Includes the following properties: 
+        ``samples``, ``loglikelihood``, ``logprior``, ``iter``
+        ``logw``, ``logl``, ``logp``, ``logz``, ``ess``, ``ncall``,
+        ``beta``, ``accept``, ``scale``, and ``steps``.
+    
+    """
     def __init__(self,
                  nparticles: int,
                  ndim: int,
@@ -34,7 +46,7 @@ class Sampler:
                  flow_config: dict = None,
                  train_config: dict = None,
                  random_state: int = None):
-        r"""Main Preconditioned Monte Carlo sampler class.
+        r""" Initialise the sampler.
 
         Parameters
         ----------
@@ -96,14 +108,6 @@ class Sampler:
         train_config : dict or ``None``
             Configuration for training the normalizing flow
             (default is ``train_config=None``).
-
-        Attributes
-        ----------
-        results : dict
-            Dictionary holding results. Includes the following
-            properties: ``iter``, ``samples``, ``posterior_samples``,
-            ``logw``, ``logl``, ``logz``, ``ess``, ``ncall``,
-            ``beta``, ``accept``, ``scale``, and ``steps``.
         """
         if random_state is not None:
             np.random.seed(random_state)
@@ -220,7 +224,7 @@ class Sampler:
         self.vectorize_prior = is_function_vectorized(self.logprior)
 
     def run(self,
-            x0: np.ndarray,
+            prior_samples: np.ndarray,
             ess: float = 0.95,
             gamma: float = 0.75,
             nmin: int = None,
@@ -231,7 +235,7 @@ class Sampler:
 
         Parameters
         ----------
-        x0 : ``np.ndarray``
+        prior_samples : ``np.ndarray``
             Array holding the initial positions of the particles. The initial
             positions must be sampled from the prior distribution.
         ess : float
@@ -250,9 +254,9 @@ class Sampler:
         check_shape : bool
             Whether or not to check if likelihood and prior output shapes are valid and compatible.
         """
-        assert_array_2d(x0)
+        assert_array_2d(prior_samples)
         if check_shape:
-            self.validate_vectorization_settings(x0)  # Use only two examples
+            self.validate_vectorization_settings(prior_samples)  
 
         # Run parameters
         self.ess = ess
@@ -268,7 +272,7 @@ class Sampler:
         self.progress = progress
 
         # Set state parameters
-        self.x = np.copy(x0)
+        self.x = np.copy(prior_samples)
         self.scaler.fit(self.x)
         self.u = self.scaler.forward(self.x)
         self.J = self.scaler.inverse(self.u)[1]
