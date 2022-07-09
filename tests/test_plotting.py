@@ -47,7 +47,7 @@ class PlottingTestCase(unittest.TestCase):
             bounds=np.array([-5.0, 5.0]),
             train_config={'epochs': epochs}
         )
-        sampler.run(x0=x)
+        sampler.run(prior_samples=x)
         return sampler
 
     def test_corner(self):
