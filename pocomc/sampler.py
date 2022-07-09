@@ -29,8 +29,8 @@ class Sampler:
                  loglikelihood: callable,
                  logprior: callable,
                  bounds: np.ndarray = None,
-                 periodic=None,  # TODO add to docstring
-                 reflective=None,  # TODO add to docstring
+                 periodic=None,
+                 reflective=None,
                  threshold: float = 1.0,
                  scale: bool = True,
                  rescale: bool = False,
@@ -41,6 +41,7 @@ class Sampler:
                  logprior_kwargs: dict = None,
                  vectorize_likelihood: bool = False,
                  vectorize_prior: bool = False,
+                 infer_vectorization: bool = True,
                  pool=None,
                  parallelize_prior: bool = False,
                  flow_config: dict = None,
@@ -65,6 +66,12 @@ class Sampler:
             of parameters (default is ``bounds=None``). If a
             parameter is unbounded from below, above or both
             please provide ``None`` for the respective boundary.
+        periodic : list
+            List of indeces that correspond to parameters with
+            periodic boundary conditions.
+        reflective : list
+            List of indeces that correspond to parameters with
+            reflective boundary conditions.
         threshold : float
             The threshold value for the (normalised) proposal
             scale parameter below which normalising flow
@@ -72,11 +79,15 @@ class Sampler:
             ``threshold=1.0``, meaning that NFP is used all
             the time).
         scale : bool
-            Scale
+            Whether to scale the distribution of particles to
+            have zero mean and unit variance. Default is ``True``.
         rescale : bool
-            Rescale
+            Whether to rescale the distribution of particles to
+            have zero mean and unit variance in every iterations.
+            Default is ``False``.
         diagonal : bool
-            Diagonal
+            Use a diagonal covariance matrix when rescaling instead
+            of a full covariance. Default is ``True``.
         loglikelihood_args : list
             Extra arguments to be passed into the loglikelihood
             (default is ``loglikelihood_args=None``).
@@ -95,6 +106,11 @@ class Sampler:
         vectorize_logprior : bool
             Whether or not to vectorize the ``logprior``
             calculation (default is ``vectorize_prior=False``).
+        infer_vectorization : bool
+            Whether or not to infer the vectorization status of
+            the loglikelihood and logprior automatically. Default
+            is ``True`` (overwrites the ``vectorize_likelihood``
+            and ``vectorize_prior`` arguments).
         pool : pool
             Provided ``MPI`` or ``multiprocessing`` pool for
             parallelisation (default is ``pool=None``).
@@ -108,6 +124,8 @@ class Sampler:
         train_config : dict or ``None``
             Configuration for training the normalizing flow
             (default is ``train_config=None``).
+        random_state : int or ``None``
+            Initial random seed.
         """
         if random_state is not None:
             np.random.seed(random_state)
@@ -168,6 +186,7 @@ class Sampler:
             self.distribute = pool.map
         self.vectorize_likelihood = vectorize_likelihood
         self.vectorize_prior = vectorize_prior
+        self.infer_vectorization = infer_vectorization
         self.parallelize_prior = parallelize_prior
 
         # Flow
@@ -229,8 +248,7 @@ class Sampler:
             gamma: float = 0.75,
             nmin: int = None,
             nmax: int = None,
-            progress: bool = True,
-            check_shape: bool = True):
+            progress: bool = True):
         r"""Run Preconditioned Monte Carlo.
 
         Parameters
@@ -251,11 +269,9 @@ class Sampler:
             The maximum number of MCMC steps per iteration  (default is ``nmin = int(10 * ndim)``).
         progress : bool
             Whether or not to print progress bar (default is ``progress=True``).
-        check_shape : bool
-            Whether or not to check if likelihood and prior output shapes are valid and compatible.
         """
         assert_array_2d(prior_samples)
-        if check_shape:
+        if self.infer_vectorization:
             self.validate_vectorization_settings(prior_samples)  
 
         # Run parameters
@@ -403,19 +419,33 @@ class Sampler:
 
     def _mutate(self, u, x, J, L, P):
         """
-        TODO write docstring
+            Method which mutates particle positions
 
         Parameters
         ----------
-        u
-        x
-        J
-        L
-        P
+        u : ``np.ndarray``
+            Scaled positions of particles.
+        x : ``np.ndarray``
+            Unscaled (original) positions of particles.
+        J : ``np.ndarray``
+            Logarithms of the absolute determinant of the Jacobian of the scaling transform.
+        L : ``np.ndarray``
+            log-likelihood values of particles
+        P : ``np.ndarray``
+            log-prior values of particles
 
         Returns
         -------
-
+        u : ``np.ndarray``
+            Mutated scaled positions of particles.
+        x : ``np.ndarray``
+            Mutated unscaled (original) positions of particles.
+        J : ``np.ndarray``
+            Mutated logarithms of the absolute determinant of the Jacobian of the scaling transform.
+        L : ``np.ndarray``
+            Mutated log-likelihood values of particles
+        P : ``np.ndarray``
+            Mutated log-prior values of particles
         """
         state_dict = dict(
             u=u.copy(),
@@ -461,29 +491,26 @@ class Sampler:
         P = results.get('P').copy()
 
         self.scale = results.get('scale')
-        self.Nsteps = results.get('steps')
+        self.nsteps = results.get('steps')
         self.accept = results.get('accept')
 
-        self.ncall += self.Nsteps * len(x)
+        self.ncall += self.nsteps * len(x)
 
         self.saved_ncall.append(self.ncall)
         self.saved_accept.append(self.accept)
         self.saved_scale.append(self.scale / self.ideal_scale)
-        self.saved_steps.append(self.Nsteps)
+        self.saved_steps.append(self.nsteps)
 
         return u, x, J, L, P
 
     def _train(self, u):
         """
-        TODO write docstring.
+            Method which trains the normalising flow.
 
         Parameters
         ----------
-        u
-
-        Returns
-        -------
-
+        u : ``np.ndarray``
+            Input training data (i.e. positions of particles)
         """
         if (self.scale < self.threshold * self.ideal_scale and self.t > 1) or self.use_flow:
             y = np.copy(u)
@@ -495,19 +522,33 @@ class Sampler:
 
     def _resample(self, u, x, J, L, P):
         """
-        TODO write docstring.
+            Method which resamples particle positions
 
         Parameters
         ----------
-        u
-        x
-        J
-        L
-        P
+        u : ``np.ndarray``
+            Scaled positions of particles.
+        x : ``np.ndarray``
+            Unscaled (original) positions of particles.
+        J : ``np.ndarray``
+            Logarithms of the absolute determinant of the Jacobian of the scaling transform.
+        L : ``np.ndarray``
+            log-likelihood values of particles
+        P : ``np.ndarray``
+            log-prior values of particles
 
         Returns
         -------
-
+        u : ``np.ndarray``
+            Resampled scaled positions of particles.
+        x : ``np.ndarray``
+            Resampled unscaled (original) positions of particles.
+        J : ``np.ndarray``
+            Resampled logarithms of the absolute determinant of the Jacobian of the scaling transform.
+        L : ``np.ndarray``
+            Resampled log-likelihood values of particles
+        P : ``np.ndarray``
+            Resampled log-prior values of particles
         """
         self.saved_samples.append(x)
         self.saved_logl.append(L)
@@ -530,11 +571,7 @@ class Sampler:
 
     def _update_beta(self):
         """
-        TODO write docstring.
-
-        Returns
-        -------
-
+            Update beta level and evidence estimate.
         """
         # Update iteration index
         self.t += 1
@@ -544,12 +581,12 @@ class Sampler:
         beta_prev = np.copy(self.beta)
         beta_max = 1.0
         beta_min = np.copy(beta_prev)
-        self.logw_prev = np.copy(self.logw)
+        logw_prev = np.copy(self.logw)
 
         while True:
             beta = (beta_max + beta_min) * 0.5
-            self.logw = self.logw_prev + self.L * (beta - beta_prev)
-            self.ess_est = get_ESS(self.logw)
+            self.logw = logw_prev + self.L * (beta - beta_prev)
+            ess_est = get_ESS(self.logw)
 
             if len(self.saved_beta) > 1:
                 dbeta = self.saved_beta[-1] - self.saved_beta[-2]
@@ -557,35 +594,37 @@ class Sampler:
                 if 1.0 - beta < dbeta * 0.1:
                     beta = 1.0
 
-            if np.abs(self.ess_est - self.ess) < min(0.001 * self.ess, 0.001) or beta == 1.0:
+            if np.abs(ess_est - self.ess) < min(0.001 * self.ess, 0.001) or beta == 1.0:
                 self.saved_beta.append(beta)
                 self.saved_logw.append(self.logw)
                 self.sum_logw += self.logw
-                self.saved_ess.append(self.ess_est)
+                self.saved_ess.append(ess_est)
                 self.beta = beta
-                self.pbar.update_stats(dict(beta=self.beta, ESS=self.ess_est))
+                self.pbar.update_stats(dict(beta=self.beta, ESS=ess_est))
                 # Update evidence 
                 self.logz += np.mean(self.logw)
                 self.saved_logz.append(self.logz)
                 self.pbar.update_stats(dict(logZ=self.logz))
                 break
 
-            elif self.ess_est < self.ess:
+            elif ess_est < self.ess:
                 beta_max = beta
             else:
                 beta_min = beta
 
     def _logprior(self, x):
         """
-        TODO write docstring.
+            Compute the log-prior values of the particles.
 
         Parameters
         ----------
-        x
+        x : ``np.ndarray``
+            Input array of particle positions.
 
         Returns
         -------
-
+        P : ``np.ndarray``
+            Array of log-prior values of particles.
         """
         if self.vectorize_prior:
             return self.logprior(x)
@@ -596,15 +635,17 @@ class Sampler:
 
     def _loglike(self, x):
         """
-        TODO write docstring.
+            Compute the log-likelihood values of the particles.
 
         Parameters
         ----------
-        x
+        x : ``np.ndarray``
+            Input array of particle positions.
 
         Returns
         -------
-
+        L : ``np.ndarray``
+            Array of log-likelihood values of particles.
         """
         if self.vectorize_likelihood:
             return self.loglikelihood(x)
@@ -635,7 +676,10 @@ class Sampler:
     @property
     def results(self):
         """
-        TODO write docstring.
+            Results dictionary. Includes the following properties: 
+            ``samples``, ``loglikelihood``, ``logprior``, ``iter``
+            ``logw``, ``logl``, ``logp``, ``logz``, ``ess``, ``ncall``,
+            ``beta``, ``accept``, ``scale``, and ``steps``.
         """
         results = {
             'samples': np.vstack(self.saved_posterior_samples),
@@ -657,23 +701,10 @@ class Sampler:
 
         return results
 
-    def bridge_sampling(self,
+    def _bridge_sampling(self,
                         tolerance: float = 1e-10,
                         maxiter: int = 1000,
                         thin: int = 1):
-        """
-        TODO write docstring.
-
-        Parameters
-        ----------
-        tolerance
-        maxiter
-        thin
-
-        Returns
-        -------
-
-        """
         x = self.results.get("samples")[::thin]
         l = self.results.get("loglikelihood")[::thin]
         p = self.results.get("logprior")[::thin]
