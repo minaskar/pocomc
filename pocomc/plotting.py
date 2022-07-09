@@ -115,8 +115,6 @@ def corner(results: dict,
         See here ``https://corner.readthedocs.io/en/latest/api.html``
         for a complete list.
     """
-    # TODO add range_, smooth, smooth1d, titles, show_titles, title_quantiles to docstring.
-    # TODO perhaps use **kwargs for all corner kwargs, not only additional ones.
     import corner
 
     if color is None:
