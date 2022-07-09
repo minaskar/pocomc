@@ -9,8 +9,7 @@ def trace(results: dict,
           width: float = 10.0,
           height: float = 3.0,
           kde_bins: int = 200):
-    r"""Trace plot.
-    # TODO describe what's plotted in more detail
+    r""" Plot particle traces and 1-D marginal posteriors.
 
     Parameters
     ----------
@@ -95,17 +94,10 @@ def corner(results: dict,
            labels: List = None,
            dims: Union[List, np.ndarray] = None,
            color: str = None,
-           bins: int = 20,
-           range_=None,
-           smooth=None,
-           smooth1d=None,
-           titles=None,
-           show_titles=True,
-           title_quantiles=None,
-           **kwargs,
+           **corner_kwargs,
            ):
     r"""
-        Corner plot.
+        Corner plot of the 1-D and 2-D marginal posteriors.
 
     Parameters
     ----------
@@ -118,10 +110,11 @@ def corner(results: dict,
         The subset of dimensions that should be plotted. If not provided, all dimensions will be shown.
     color : str or None
         Color to use for contours.
-    bins : int
-        Number of KDE bins to use (default is 20).
+    **corner_kwargs : -
+        Any additional arguments passed to ``corner.corner``.
+        See here ``https://corner.readthedocs.io/en/latest/api.html``
+        for a complete list.
     """
-    # TODO describe what's plotted in more detail.
     # TODO add range_, smooth, smooth1d, titles, show_titles, title_quantiles to docstring.
     # TODO perhaps use **kwargs for all corner kwargs, not only additional ones.
     import corner
@@ -148,21 +141,14 @@ def corner(results: dict,
     return corner.corner(data=posterior_samples,
                          labels=labels,
                          color=color,
-                         bins=bins,
-                         range=range_,
-                         smooth=smooth,
-                         smooth1d=smooth1d,
-                         titles=titles,
-                         show_titles=show_titles,
-                         title_quantiles=title_quantiles,
-                         **kwargs)
+                         **corner_kwargs)
 
 
 def run(results: dict,
         full_run: bool = True,
         width: float = 10.0,
         height: float = 2.5):
-    r"""Run plot.
+    r"""Run plot which shows various statistics computed during the run.
 
     Parameters
     ----------

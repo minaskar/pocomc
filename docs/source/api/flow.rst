@@ -60,3 +60,8 @@ Fitting function
 ----------------
 
 .. autofunction:: pocomc.flow.fit
+
+Compute loss function
+---------------------
+
+.. autofunction:: pocomc.flow.compute_loss

@@ -67,26 +67,26 @@ def create_masks(input_size: int,
 
 
 class MaskedLinear(nn.Linear):
+    """
+    MADE building block layer
+    TODO add description.
+
+    Parameters
+    ----------
+    input_size : int
+        Dimensionality of input data.
+    n_outputs : int
+        Number of outputs
+    mask : torch.Tensor
+        Mask used to hide connections.
+    cond_label_size : int
+        Number of conditional arguments.
+    """
     def __init__(self,
                  input_size: int,
                  n_outputs: int,
                  mask: torch.Tensor,
                  cond_label_size: int = None):
-        """
-        MADE building block layer
-        TODO add description.
-
-        Parameters
-        ----------
-        input_size : int
-            Dimensionality of input data.
-        n_outputs : int
-            Number of outputs
-        mask : torch.Tensor
-            Mask used to hide connections.
-        cond_label_size : int
-            Number of conditional arguments.
-        """
         super().__init__(input_size, n_outputs)
 
         self.register_buffer('mask', mask)
@@ -124,22 +124,22 @@ class MaskedLinear(nn.Linear):
 
 
 class BatchNorm(nn.Module):
+    """
+    Batch Normalisation layer
+
+    Parameters
+    ----------
+    input_size : int
+        Dimensionality of input data
+    momentum : float
+        Value of momentum variable. Default: ``0.9``.
+    eps : float
+        Value of epsilon parameter. Default: ``1e-5``.
+    """
     def __init__(self,
                  input_size: int,
                  momentum: float = 0.9,
                  eps: float = 1e-5):
-        """
-        Batch Normalisation layer
-
-        Parameters
-        ----------
-        input_size : int
-            Dimensionality of input data
-        momentum : float
-            Value of momentum variable. Default: ``0.9``.
-        eps : float
-            Value of epsilon parameter. Default: ``1e-5``.
-        """
         super().__init__()
         self.momentum = momentum
         self.eps = eps
@@ -280,6 +280,22 @@ class FlowSequential(nn.Sequential):
 
 
 class MADE(nn.Module):
+    r"""
+    Masked Autoregressive Density Estimator (MADE)
+
+    Parameters
+    ----------
+    input_size : int
+        Dimensionality of inputs
+    hidden_size : int
+        Size of hidden layers
+    n_hidden : int
+        Number of hidden layers
+    activation : str
+        Activation function: ``"relu"`` (default) or ``"tanh"``.
+    input_order : str
+        Variable order for creating the autoregressive masks: ``"sequential"`` (default) or ``"random"``.
+    """
     def __init__(self,
                  input_size: int,
                  hidden_size: int,
@@ -288,22 +304,6 @@ class MADE(nn.Module):
                  activation: str = 'relu',
                  input_order: str = 'sequential',
                  input_degrees=None):
-        """
-        Masked Autoregressive Density Estimator (MADE)
-
-        Parameters
-        ----------
-        input_size : int
-            Dimensionality of inputs
-        hidden_size : int
-            Size of hidden layers
-        n_hidden : int
-            Number of hidden layers
-        activation : str
-            Activation function: ``"relu"`` (default) or ``"tanh"``.
-        input_order : str
-            Variable order for creating the autoregressive masks: ``"sequential"`` (default) or ``"random"``.
-        """
         super().__init__()
         # base distribution for calculation of log prob under the model
         self.register_buffer('base_dist_mean', torch.zeros(input_size))
@@ -566,28 +566,29 @@ class MAF(nn.Module):
 
 
 class LinearMaskedCoupling(nn.Module):
+    """
+    Modified RealNVP Coupling Layers per the MAF paper
+
+    Parameters
+    ----------
+    input_size : int
+        Dimensionality of input data.
+    hidden_size : int
+        Number of neurons per layer.
+    n_hidden : int
+        Number of layers per MADE block.
+    mask : torch.Tensor
+        Mask used to hide connections.
+    cond_label_size : int
+        Dimensionality of conditional input data.
+    """
     def __init__(self,
                  input_size: int,
                  hidden_size: int,
                  n_hidden: int,
                  mask: torch.Tensor,
                  cond_label_size: int = None):
-        """
-        Modified RealNVP Coupling Layers per the MAF paper
-
-        Parameters
-        ----------
-        input_size : int
-            Dimensionality of input data.
-        hidden_size : int
-            Number of neurons per layer.
-        n_hidden : int
-            Number of layers per MADE block.
-        mask : torch.Tensor
-            Mask used to hide connections.
-        cond_label_size : int
-            Dimensionality of conditional input data.
-        """
+        
         super().__init__()
 
         self.register_buffer('mask', mask)
@@ -670,6 +671,24 @@ class LinearMaskedCoupling(nn.Module):
 
 
 class RealNVP(nn.Module):
+    r"""
+    RealNVP normalising flow.
+
+    Parameters
+    ----------
+    n_blocks : int
+        Number of MADE blocks.
+    input_size : int
+        Dimensionality of input data.
+    hidden_size : int
+        Number of neurons per layer.
+    n_hidden : int
+        Number of layers per MADE block.
+    cond_label_size : int
+        Dimensionality of conditional input data.
+    batch_norm : bool
+        Whether to use batch normalisation. Default: ``True``.
+    """
     def __init__(self,
                  n_blocks: int,
                  input_size: int,
@@ -678,24 +697,6 @@ class RealNVP(nn.Module):
                  cond_label_size: int = None,
                  batch_norm: bool = True,
                  **kwargs):
-        """
-        RealNVP normalising flow.
-
-        Parameters
-        ----------
-        n_blocks : int
-            Number of MADE blocks.
-        input_size : int
-            Dimensionality of input data.
-        hidden_size : int
-            Number of neurons per layer.
-        n_hidden : int
-            Number of layers per MADE block.
-        cond_label_size : int
-            Dimensionality of conditional input data.
-        batch_norm : bool
-            Whether to use batch normalisation. Default: ``True``.
-        """
         super().__init__()
 
         # base distribution for calculation of log prob under the model

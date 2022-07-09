@@ -5,7 +5,7 @@ import torch
 
 from .input_validation import assert_array_2d, assert_arrays_equal_shape, assert_array_1d
 from .mcmc import PreconditionedMetropolis, Metropolis
-from .tools import resample_equal, _FunctionWrapper, torch_to_numpy, numpy_to_torch, compute_ess, ProgressBar
+from .tools import resample_equal, FunctionWrapper, torch_to_numpy, numpy_to_torch, compute_ess, ProgressBar
 from .scaler import Reparameterise
 from .flow import Flow
 
@@ -127,12 +127,12 @@ class Sampler:
         self.ndim = ndim
 
         # Distributions
-        self.loglikelihood = _FunctionWrapper(
+        self.loglikelihood = FunctionWrapper(
             loglikelihood,
             loglikelihood_args,
             loglikelihood_kwargs
         )
-        self.logprior = _FunctionWrapper(
+        self.logprior = FunctionWrapper(
             logprior,
             logprior_args,
             logprior_kwargs

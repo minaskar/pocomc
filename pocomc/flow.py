@@ -72,8 +72,8 @@ def fit(model: Union[MAF, RealNVP],
         lr: float = 1e-3,
         weight_decay: float = 1e-8,
         clip_grad_norm: float = 1.0,
-        l1: float = None,  # TODO rename this to laplace_prior_scale
-        l2: float = None,  # TODO rename this to gaussian_prior_scale
+        laplace_prior_scale: float = 0.2,
+        gaussian_prior_scale: float = None,
         device: str = 'cpu',
         verbose: int = 2):
     r"""
@@ -112,10 +112,10 @@ def fit(model: Union[MAF, RealNVP],
         Weight decay for Adam. Default: ``1e-8``.
     clip_grad_norm : float
         Clip large gradients. Default: ``0``.
-    l1 : float or None
+    laplace_prior_scale : float or None
         Laplace prior scale for regularisation. Must be nonnegative. Smaller values correspond to more regularization.
-        Default: None (no regularization).
-    l2 : float or None
+        Default: 0.2.
+    gaussian_prior_scale : float or None
         Gaussian prior scale for regularisation. Must be nonnegative. Smaller values correspond to more regularization.
         Default: None (no regularization).
     device : str
@@ -190,7 +190,7 @@ def fit(model: Union[MAF, RealNVP],
         for batch in train_dl:
 
             optimizer.zero_grad()
-            loss = compute_loss(model, batch, device, l1, l2, use_context)
+            loss = compute_loss(model, batch, device, laplace_prior_scale, gaussian_prior_scale, use_context)
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), clip_grad_norm)
             optimizer.step()
@@ -209,7 +209,7 @@ def fit(model: Union[MAF, RealNVP],
 
             for batch in val_dl:
                 with torch.no_grad():
-                    loss = compute_loss(model, batch, device, l1, l2, use_context)
+                    loss = compute_loss(model, batch, device, laplace_prior_scale, gaussian_prior_scale, use_context)
                 # val_loss += loss.data.item() * x.size(0)
                 val_loss += loss.data.item()
 
@@ -250,26 +250,27 @@ def fit(model: Union[MAF, RealNVP],
 
 
 class Flow:
-    def __init__(self, ndim: int, flow_config: dict = None, train_config: dict = None):
-        r"""
-        Normalising Flow class.
-        This class implements forward and inverse passes, log density evaluation, sampling and model fitting
-        irrespective of the kind of flow used.
+    r"""
+    Normalising Flow class.
+    This class implements forward and inverse passes, log density evaluation, sampling and model fitting
+    irrespective of the kind of flow used.
 
-        Parameters
-        ----------
-        ndim : int
-            Number of dimensions.
-        flow_config : dict or None
-            Configuration of the flow. If ``None`` the default configuration used is ``dict(n_blocks=6,
-            hidden_size= 3 * ndim, n_hidden=1, batch_norm=True, activation='relu', input_order='sequential',
-            flow_type='maf')``
-        train_config : dict or None
-            Training configuration for the flow. If ``None`` the default configuration used is
-            ``dict(validation_split=0.2, epochs=1000, batch_size=nparticles, patience=30, monitor='val_loss',
-             shuffle=True, lr=[1e-2, 1e-3, 1e-4, 1e-5], weight_decay=1e-8, clip_grad_norm=1.0, l1=0.2, l2=None,
-              device='cpu', verbose=0)``
-        """
+    Parameters
+    ----------
+    ndim : int
+        Number of dimensions.
+    flow_config : dict or None
+        Configuration of the flow. If ``None`` the default configuration used is ``dict(n_blocks=6,
+        hidden_size= 3 * ndim, n_hidden=1, batch_norm=True, activation='relu', input_order='sequential',
+        flow_type='maf')``
+    train_config : dict or None
+        Training configuration for the flow. If ``None`` the default configuration used is
+        ``dict(validation_split=0.2, epochs=1000, batch_size=nparticles, patience=30, monitor='val_loss',
+        shuffle=True, lr=[1e-2, 1e-3, 1e-4, 1e-5], weight_decay=1e-8, clip_grad_norm=1.0, laplace_prior_scale=0.2,
+        gaussian_prior_scale=None, device='cpu', verbose=0)``
+    """
+    def __init__(self, ndim: int, flow_config: dict = None, train_config: dict = None):
+        
         if ndim == 1:
             raise ValueError(f"1D data is not supported. Please provide data with ndim >= 2.")
 
@@ -350,8 +351,8 @@ class Flow:
             lr=[1e-2, 1e-3, 1e-4, 1e-5],
             weight_decay=1e-8,
             clip_grad_norm=1.0,
-            l1=0.2,
-            l2=None,
+            laplace_prior_scale=0.2,
+            gaussian_prior_scale=None,
             device='cpu',
             verbose=0
         )

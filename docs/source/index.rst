@@ -21,7 +21,7 @@ problems that include multimodal and highly non--Gaussian target distributions.
 
     🖥 A good place to get started is with the :doc:`install` and then the
     :doc:`pages/quickstart` guide. If you are not familiar with Bayesian inference
-    or how PMC wotks have a look at the :doc:`background`.
+    or how PMC works have a look at the :doc:`background`.
 
     📖 For more details, check out the :doc:`advanced`, :doc:`tutorials` and :doc:`examples`,
     including the full :doc:`api` documentation.

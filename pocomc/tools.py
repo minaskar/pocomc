@@ -95,15 +95,15 @@ def resample_equal(samples: np.ndarray,
 
 
 class ProgressBar:
-    def __init__(self, show: bool = True):
-        """
-            Progress bar class.
+    """
+        Progress bar class.
 
-        Parameters
-        ----------
-        show : `bool`
-            Whether or not to show a progress bar. Default is ``True``.
-        """
+    Parameters
+    ----------
+    show : `bool`
+        Whether or not to show a progress bar. Default is ``True``.
+    """
+    def __init__(self, show: bool = True):
         self.progress_bar = tqdm(desc='Iter', disable=not show)
         self.info = dict()
 
@@ -132,21 +132,21 @@ class ProgressBar:
         self.progress_bar.close()
 
 
-class _FunctionWrapper(object):
-    def __init__(self, f, args, kwargs):
-        r"""
-            Make the log-likelihood or log-prior function pickleable
-            when ``args`` or ``kwargs`` are also included.
+class FunctionWrapper(object):
+    r"""
+        Make the log-likelihood or log-prior function pickleable
+        when ``args`` or ``kwargs`` are also included.
 
-        Parameters
-        ----------
-        f : callable
-            Log probability function.
-        args : list
-            Extra positional arguments to be passed to f.
-        kwargs : dict
-            Extra keyword arguments to be passed to f.
-        """
+    Parameters
+    ----------
+    f : callable
+        Log probability function.
+    args : list
+        Extra positional arguments to be passed to f.
+    kwargs : dict
+        Extra keyword arguments to be passed to f.
+    """
+    def __init__(self, f, args, kwargs):
         self.f = f
         self.args = [] if args is None else args
         self.kwargs = {} if kwargs is None else kwargs

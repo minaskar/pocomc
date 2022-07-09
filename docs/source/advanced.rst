@@ -179,7 +179,7 @@ Running the above also produces a progress bar similar to the one shown below::
 We can also use the ``run`` method to specify the desired *effective sample size (ESS)*, the :math:`\gamma` factor, as well as
 the minimum and maximum number of MCMC steps per iteration (the actual number is determined adaptively)::
 
-    sampler.run(start = prior_samples,
+    sampler.run(prior_samples = prior_samples,
                 ess = 0.95,
                 gamma = 0.75,
                 nmin = 5,
@@ -317,7 +317,7 @@ functions. The disadvantage is that it needs to be installed manually. An exampl
                          pool = pool,
                         )
         
-        sampler.run(start = prior_samples)
+        sampler.run(prior_samples = prior_samples)
 
         sampler.add_samples(2000)
 
