@@ -5,23 +5,93 @@ import torch
 
 from .input_validation import assert_array_2d, assert_arrays_equal_shape, assert_array_1d
 from .mcmc import PreconditionedMetropolis, Metropolis
-from .tools import resample_equal, _FunctionWrapper, torch_to_numpy, numpy_to_torch, get_ESS, ProgressBar
+from .tools import resample_equal, _FunctionWrapper, torch_to_numpy, numpy_to_torch, compute_ess, ProgressBar
 from .scaler import Reparameterise
 from .flow import Flow
 
 
 class Sampler:
-    r"""
+    r""" 
+
         A Preconditioned Monte Carlo class.
 
-    Attributes
+    Parameters
     ----------
-    results : dict
-        Dictionary holding results. Includes the following properties: 
-        ``samples``, ``loglikelihood``, ``logprior``, ``iter``
-        ``logw``, ``logl``, ``logp``, ``logz``, ``ess``, ``ncall``,
-        ``beta``, ``accept``, ``scale``, and ``steps``.
-    
+    nparticles : int
+        The total number of particles/walkers to use.
+    ndim : int
+        The total number of parameters/dimensions.
+    loglikelihood : callable
+        Function returning the log likelihood of a set
+        of parameters.
+    logprior : callable
+        Function returning the log prior of a set
+        of parameters.
+    bounds : ``np.ndarray`` or None
+        Array of shape ``(ndim, 2)`` holding the boundaries
+        of parameters (default is ``bounds=None``). If a
+        parameter is unbounded from below, above or both
+        please provide ``None`` for the respective boundary.
+    periodic : list
+        List of indeces that correspond to parameters with
+        periodic boundary conditions.
+    reflective : list
+        List of indeces that correspond to parameters with
+        reflective boundary conditions.
+    threshold : float
+        The threshold value for the (normalised) proposal
+        scale parameter below which normalising flow
+        preconditioning (NFP) is enabled (default is
+        ``threshold=1.0``, meaning that NFP is used all
+        the time).
+    scale : bool
+        Whether to scale the distribution of particles to
+        have zero mean and unit variance. Default is ``True``.
+    rescale : bool
+        Whether to rescale the distribution of particles to
+        have zero mean and unit variance in every iterations.
+        Default is ``False``.
+    diagonal : bool
+        Use a diagonal covariance matrix when rescaling instead
+        of a full covariance. Default is ``True``.
+    loglikelihood_args : list
+        Extra arguments to be passed into the loglikelihood
+        (default is ``loglikelihood_args=None``).
+    loglikelihood_kwargs : dict
+        Extra arguments to be passed into the loglikelihood
+        (default is ``loglikelihood_kwargs=None``).
+    logprior_args : list
+        Extra arguments to be passed into the logprior
+        (default is ``logprior_args=None``).
+    logprior_kwargs : list
+        Extra arguments to be passed into the logprior
+        (default is ``logprior_kwargs=None``).
+    vectorize_likelihood : bool
+        Whether or not to vectorize the ``loglikelihood``
+        calculation (default is ``vectorize_likelihood=False``).
+    vectorize_logprior : bool
+        Whether or not to vectorize the ``logprior``
+        calculation (default is ``vectorize_prior=False``).
+    infer_vectorization : bool
+        Whether or not to infer the vectorization status of
+        the loglikelihood and logprior automatically. Default
+        is ``True`` (overwrites the ``vectorize_likelihood``
+        and ``vectorize_prior`` arguments).
+    pool : pool
+        Provided ``MPI`` or ``multiprocessing`` pool for
+        parallelisation (default is ``pool=None``).
+    parallelize_prior : bool
+        Whether or not to use the ``pool`` (if provided)
+        for the ``logprior`` as well (default is
+        ``parallelize_prior=False``).
+    flow_config : dict or ``None``
+        Configuration of the normalizing flow (default is
+        ``flow_config=None``).
+    train_config : dict or ``None``
+        Configuration for training the normalizing flow
+        (default is ``train_config=None``).
+    random_state : int or ``None``
+        Initial random seed.
     """
     def __init__(self,
                  nparticles: int,
@@ -47,86 +117,7 @@ class Sampler:
                  flow_config: dict = None,
                  train_config: dict = None,
                  random_state: int = None):
-        r""" Initialise the sampler.
-
-        Parameters
-        ----------
-        nparticles : int
-            The total number of particles/walkers to use.
-        ndim : int
-            The total number of parameters/dimensions.
-        loglikelihood : callable
-            Function returning the log likelihood of a set
-            of parameters.
-        logprior : callable
-            Function returning the log prior of a set
-            of parameters.
-        bounds : ``np.ndarray`` or None
-            Array of shape ``(ndim, 2)`` holding the boundaries
-            of parameters (default is ``bounds=None``). If a
-            parameter is unbounded from below, above or both
-            please provide ``None`` for the respective boundary.
-        periodic : list
-            List of indeces that correspond to parameters with
-            periodic boundary conditions.
-        reflective : list
-            List of indeces that correspond to parameters with
-            reflective boundary conditions.
-        threshold : float
-            The threshold value for the (normalised) proposal
-            scale parameter below which normalising flow
-            preconditioning (NFP) is enabled (default is
-            ``threshold=1.0``, meaning that NFP is used all
-            the time).
-        scale : bool
-            Whether to scale the distribution of particles to
-            have zero mean and unit variance. Default is ``True``.
-        rescale : bool
-            Whether to rescale the distribution of particles to
-            have zero mean and unit variance in every iterations.
-            Default is ``False``.
-        diagonal : bool
-            Use a diagonal covariance matrix when rescaling instead
-            of a full covariance. Default is ``True``.
-        loglikelihood_args : list
-            Extra arguments to be passed into the loglikelihood
-            (default is ``loglikelihood_args=None``).
-        loglikelihood_kwargs : dict
-            Extra arguments to be passed into the loglikelihood
-            (default is ``loglikelihood_kwargs=None``).
-        logprior_args : list
-            Extra arguments to be passed into the logprior
-            (default is ``logprior_args=None``).
-        logprior_kwargs : list
-            Extra arguments to be passed into the logprior
-            (default is ``logprior_kwargs=None``).
-        vectorize_likelihood : bool
-            Whether or not to vectorize the ``loglikelihood``
-            calculation (default is ``vectorize_likelihood=False``).
-        vectorize_logprior : bool
-            Whether or not to vectorize the ``logprior``
-            calculation (default is ``vectorize_prior=False``).
-        infer_vectorization : bool
-            Whether or not to infer the vectorization status of
-            the loglikelihood and logprior automatically. Default
-            is ``True`` (overwrites the ``vectorize_likelihood``
-            and ``vectorize_prior`` arguments).
-        pool : pool
-            Provided ``MPI`` or ``multiprocessing`` pool for
-            parallelisation (default is ``pool=None``).
-        parallelize_prior : bool
-            Whether or not to use the ``pool`` (if provided)
-            for the ``logprior`` as well (default is
-            ``parallelize_prior=False``).
-        flow_config : dict or ``None``
-            Configuration of the normalizing flow (default is
-            ``flow_config=None``).
-        train_config : dict or ``None``
-            Configuration for training the normalizing flow
-            (default is ``train_config=None``).
-        random_state : int or ``None``
-            Initial random seed.
-        """
+        
         if random_state is not None:
             np.random.seed(random_state)
             torch.manual_seed(random_state)
@@ -587,7 +578,7 @@ class Sampler:
         while True:
             beta = (beta_max + beta_min) * 0.5
             self.logw = logw_prev + self.L * (beta - beta_prev)
-            ess_est = get_ESS(self.logw)
+            ess_est = compute_ess(self.logw)
 
             if len(self.saved_beta) > 1:
                 dbeta = self.saved_beta[-1] - self.saved_beta[-2]

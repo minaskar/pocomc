@@ -7,8 +7,20 @@ import warnings
 SQRTEPS = math.sqrt(float(np.finfo(np.float64).eps))
 
 
-def get_ESS(logw: np.ndarray):
-    # TODO rename to get_ess or compute_ess
+def compute_ess(logw: np.ndarray):
+    r"""
+        Compute effective sample size (per centage).
+
+    Parameters
+    ----------
+    logw : ``np.ndarray``
+        Log-weights.
+    Returns
+    -------
+    ess : float
+        Effective sample size divided by actual number
+        of particles (between 0 and 1)
+    """
     logw_max = np.max(logw)
     logw_normed = logw - logw_max
 
@@ -61,7 +73,7 @@ def resample_equal(samples: np.ndarray,
 
     if abs(np.sum(weights) - 1.) > SQRTEPS:  # same tol as in np.random.choice.
         # Guarantee that the weights will sum to 1.
-        # warnings.warn("Weights do not sum to 1 and have been renormalized.")
+        warnings.warn("Weights do not sum to 1 and have been renormalized.")
         weights = np.array(weights) / np.sum(weights)
 
     # Make N subdivisions and choose positions with a consistent random offset.
@@ -85,47 +97,37 @@ def resample_equal(samples: np.ndarray,
 class ProgressBar:
     def __init__(self, show: bool = True):
         """
-        TODO write docstring.
+            Progress bar class.
 
         Parameters
         ----------
-        show
+        show : `bool`
+            Whether or not to show a progress bar. Default is ``True``.
         """
         self.progress_bar = tqdm(desc='Iter', disable=not show)
         self.info = dict()
 
     def update_stats(self, info):
         """
-        TODO write docstring.
+            Update shown stats.
 
         Parameters
         ----------
-        info
-
-        Returns
-        -------
-
+        info : dict
+            Dictionary with stats to show.
         """
         self.info = {**self.info, **info}
         self.progress_bar.set_postfix(ordered_dict=self.info)
 
     def update_iter(self):
         """
-        TODO write docstring.
-
-        Returns
-        -------
-
+            Update iteration counter.
         """
         self.progress_bar.update(1)
 
     def close(self):
         """
-        TODO write docstring.
-
-        Returns
-        -------
-
+            Close progress bar.
         """
         self.progress_bar.close()
 
@@ -133,7 +135,8 @@ class ProgressBar:
 class _FunctionWrapper(object):
     def __init__(self, f, args, kwargs):
         r"""
-        Make the likelihood function pickleable when ``args`` or ``kwargs`` are also included.
+            Make the log-likelihood or log-prior function pickleable
+            when ``args`` or ``kwargs`` are also included.
 
         Parameters
         ----------
@@ -150,15 +153,17 @@ class _FunctionWrapper(object):
 
     def __call__(self, x):
         """
-        TODO add docstring
+            Evaluate log-likelihood or log-prior function.
 
         Parameters
         ----------
-        x
+        x : ``np.ndarray``
+            Input position array.
 
         Returns
         -------
-
+        f : float or ``np.ndarray``
+            f(x)
         """
         return self.f(x, *self.args, **self.kwargs)
 

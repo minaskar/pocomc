@@ -24,7 +24,7 @@ copyright = '2022, Minas Karamanis'
 author = 'Minas Karamanis'
 
 # The full version, including alpha/beta/rc tags
-release = '0.0.1'
+release = pocomc.__version__
 
 
 # -- General configuration ---------------------------------------------------
@@ -77,4 +77,4 @@ nb_execution_mode = "off"
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+#html_static_path = ['_static']

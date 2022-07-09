@@ -338,20 +338,64 @@ title="Print to PDF"
 <dd><blockquote>
 <div><p>A Preconditioned Monte Carlo class.</p>
 </div></blockquote>
-<dl class="py attribute">
-<dt class="sig sig-object py" id="pocomc.Sampler.results">
-<span class="sig-name descname"><span class="pre">results</span></span><a class="headerlink" href="#pocomc.Sampler.results" title="Permalink to this definition">#</a></dt>
-<dd><p>Dictionary holding results. Includes the following properties:
-<code class="docutils literal notranslate"><span class="pre">samples</span></code>, <code class="docutils literal notranslate"><span class="pre">loglikelihood</span></code>, <code class="docutils literal notranslate"><span class="pre">logprior</span></code>, <code class="docutils literal notranslate"><span class="pre">iter</span></code>
-<code class="docutils literal notranslate"><span class="pre">logw</span></code>, <code class="docutils literal notranslate"><span class="pre">logl</span></code>, <code class="docutils literal notranslate"><span class="pre">logp</span></code>, <code class="docutils literal notranslate"><span class="pre">logz</span></code>, <code class="docutils literal notranslate"><span class="pre">ess</span></code>, <code class="docutils literal notranslate"><span class="pre">ncall</span></code>,
-<code class="docutils literal notranslate"><span class="pre">beta</span></code>, <code class="docutils literal notranslate"><span class="pre">accept</span></code>, <code class="docutils literal notranslate"><span class="pre">scale</span></code>, and <code class="docutils literal notranslate"><span class="pre">steps</span></code>.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p>dict</p>
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>nparticles</strong> (<em>int</em>) – The total number of particles/walkers to use.</p></li>
+<li><p><strong>ndim</strong> (<em>int</em>) – The total number of parameters/dimensions.</p></li>
+<li><p><strong>loglikelihood</strong> (<em>callable</em>) – Function returning the log likelihood of a set
+of parameters.</p></li>
+<li><p><strong>logprior</strong> (<em>callable</em>) – Function returning the log prior of a set
+of parameters.</p></li>
+<li><p><strong>bounds</strong> (<code class="docutils literal notranslate"><span class="pre">np.ndarray</span></code> or None) – Array of shape <code class="docutils literal notranslate"><span class="pre">(ndim,</span> <span class="pre">2)</span></code> holding the boundaries
+of parameters (default is <code class="docutils literal notranslate"><span class="pre">bounds=None</span></code>). If a
+parameter is unbounded from below, above or both
+please provide <code class="docutils literal notranslate"><span class="pre">None</span></code> for the respective boundary.</p></li>
+<li><p><strong>periodic</strong> (<em>list</em>) – List of indeces that correspond to parameters with
+periodic boundary conditions.</p></li>
+<li><p><strong>reflective</strong> (<em>list</em>) – List of indeces that correspond to parameters with
+reflective boundary conditions.</p></li>
+<li><p><strong>threshold</strong> (<em>float</em>) – The threshold value for the (normalised) proposal
+scale parameter below which normalising flow
+preconditioning (NFP) is enabled (default is
+<code class="docutils literal notranslate"><span class="pre">threshold=1.0</span></code>, meaning that NFP is used all
+the time).</p></li>
+<li><p><strong>scale</strong> (<em>bool</em>) – Whether to scale the distribution of particles to
+have zero mean and unit variance. Default is <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></li>
+<li><p><strong>rescale</strong> (<em>bool</em>) – Whether to rescale the distribution of particles to
+have zero mean and unit variance in every iterations.
+Default is <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
+<li><p><strong>diagonal</strong> (<em>bool</em>) – Use a diagonal covariance matrix when rescaling instead
+of a full covariance. Default is <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></li>
+<li><p><strong>loglikelihood_args</strong> (<em>list</em>) – Extra arguments to be passed into the loglikelihood
+(default is <code class="docutils literal notranslate"><span class="pre">loglikelihood_args=None</span></code>).</p></li>
+<li><p><strong>loglikelihood_kwargs</strong> (<em>dict</em>) – Extra arguments to be passed into the loglikelihood
+(default is <code class="docutils literal notranslate"><span class="pre">loglikelihood_kwargs=None</span></code>).</p></li>
+<li><p><strong>logprior_args</strong> (<em>list</em>) – Extra arguments to be passed into the logprior
+(default is <code class="docutils literal notranslate"><span class="pre">logprior_args=None</span></code>).</p></li>
+<li><p><strong>logprior_kwargs</strong> (<em>list</em>) – Extra arguments to be passed into the logprior
+(default is <code class="docutils literal notranslate"><span class="pre">logprior_kwargs=None</span></code>).</p></li>
+<li><p><strong>vectorize_likelihood</strong> (<em>bool</em>) – Whether or not to vectorize the <code class="docutils literal notranslate"><span class="pre">loglikelihood</span></code>
+calculation (default is <code class="docutils literal notranslate"><span class="pre">vectorize_likelihood=False</span></code>).</p></li>
+<li><p><strong>vectorize_logprior</strong> (<em>bool</em>) – Whether or not to vectorize the <code class="docutils literal notranslate"><span class="pre">logprior</span></code>
+calculation (default is <code class="docutils literal notranslate"><span class="pre">vectorize_prior=False</span></code>).</p></li>
+<li><p><strong>infer_vectorization</strong> (<em>bool</em>) – Whether or not to infer the vectorization status of
+the loglikelihood and logprior automatically. Default
+is <code class="docutils literal notranslate"><span class="pre">True</span></code> (overwrites the <code class="docutils literal notranslate"><span class="pre">vectorize_likelihood</span></code>
+and <code class="docutils literal notranslate"><span class="pre">vectorize_prior</span></code> arguments).</p></li>
+<li><p><strong>pool</strong> (<em>pool</em>) – Provided <code class="docutils literal notranslate"><span class="pre">MPI</span></code> or <code class="docutils literal notranslate"><span class="pre">multiprocessing</span></code> pool for
+parallelisation (default is <code class="docutils literal notranslate"><span class="pre">pool=None</span></code>).</p></li>
+<li><p><strong>parallelize_prior</strong> (<em>bool</em>) – Whether or not to use the <code class="docutils literal notranslate"><span class="pre">pool</span></code> (if provided)
+for the <code class="docutils literal notranslate"><span class="pre">logprior</span></code> as well (default is
+<code class="docutils literal notranslate"><span class="pre">parallelize_prior=False</span></code>).</p></li>
+<li><p><strong>flow_config</strong> (dict or <code class="docutils literal notranslate"><span class="pre">None</span></code>) – Configuration of the normalizing flow (default is
+<code class="docutils literal notranslate"><span class="pre">flow_config=None</span></code>).</p></li>
+<li><p><strong>train_config</strong> (dict or <code class="docutils literal notranslate"><span class="pre">None</span></code>) – Configuration for training the normalizing flow
+(default is <code class="docutils literal notranslate"><span class="pre">train_config=None</span></code>).</p></li>
+<li><p><strong>random_state</strong> (int or <code class="docutils literal notranslate"><span class="pre">None</span></code>) – Initial random seed.</p></li>
+</ul>
 </dd>
 </dl>
-</dd></dl>
-
 <dl class="py method">
 <dt class="sig sig-object py" id="pocomc.Sampler.add_samples">
 <span class="sig-name descname"><span class="pre">add_samples</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">N</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">retrain</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">progress</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pocomc.Sampler.add_samples" title="Permalink to this definition">#</a></dt>
@@ -368,8 +412,8 @@ title="Print to PDF"
 </dd></dl>
 
 <dl class="py property">
-<dt class="sig sig-object py" id="id0">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">results</span></span><a class="headerlink" href="#id0" title="Permalink to this definition">#</a></dt>
+<dt class="sig sig-object py" id="pocomc.Sampler.results">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">results</span></span><a class="headerlink" href="#pocomc.Sampler.results" title="Permalink to this definition">#</a></dt>
 <dd><p>Results dictionary. Includes the following properties:
 <code class="docutils literal notranslate"><span class="pre">samples</span></code>, <code class="docutils literal notranslate"><span class="pre">loglikelihood</span></code>, <code class="docutils literal notranslate"><span class="pre">logprior</span></code>, <code class="docutils literal notranslate"><span class="pre">iter</span></code>
 <code class="docutils literal notranslate"><span class="pre">logw</span></code>, <code class="docutils literal notranslate"><span class="pre">logl</span></code>, <code class="docutils literal notranslate"><span class="pre">logp</span></code>, <code class="docutils literal notranslate"><span class="pre">logz</span></code>, <code class="docutils literal notranslate"><span class="pre">ess</span></code>, <code class="docutils literal notranslate"><span class="pre">ncall</span></code>,
