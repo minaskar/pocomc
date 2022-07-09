@@ -57,11 +57,18 @@ Attribution & Citation
 ======================
 
 Please cite the following if you find this code useful in your
-research. The BibTeX entry for the paper is::
+research. The BibTeX entries for the papers are::
 
-    @article{karamanis2022pocomc,
+    @article{karamanis2022pmc,
         title={Accelerating astronomical and cosmological inference with Preconditioned Monte Carlo},
         author={Karamanis, Minas and Beutler, Florian and Peacock, John A and Nabergoj, David, and Seljak, Uro\v{s}},
+        journal={in prep},
+        year={2022}
+    }
+
+    @article{karamanis2022pocomc,
+        title={pocoMC: A Python package for accelerated Bayesian inference in astronomy and cosmology},
+        author={Karamanis, Minas and Nabergoj, David, and Beutler, Florian and Peacock, John A and Seljak, Uro\v{s}},
         journal={in prep},
         year={2022}
     }
