@@ -4,7 +4,7 @@ import numpy as np
 import torch
 
 from .input_validation import assert_array_2d, assert_arrays_equal_shape, assert_array_1d
-from .mcmc import PreconditionedMetropolis, Metropolis
+from .mcmc import preconditioned_metropolis, metropolis
 from .tools import resample_equal, FunctionWrapper, torch_to_numpy, numpy_to_torch, compute_ess, ProgressBar
 from .scaler import Reparameterise
 from .flow import Flow
@@ -464,13 +464,13 @@ class Sampler:
         )
 
         if self.use_flow:
-            results = PreconditionedMetropolis(
+            results = preconditioned_metropolis(
                 state_dict,
                 function_dict,
                 option_dict
             )
         else:
-            results = Metropolis(
+            results = metropolis(
                 state_dict,
                 function_dict,
                 option_dict

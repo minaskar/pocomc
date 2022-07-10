@@ -87,40 +87,40 @@ def fit(model: Union[MAF, RealNVP],
         Normalising flow model to fit.
     data : ``np.ndarray``
         Samples used for training the flow.
-    context : ``np.ndarray`` or None
+    context : ``np.ndarray`` or ``None``
         Additional samples corresponding to conditional  arguments. Default: ``None``.
-    validation_data : ``np.ndarray`` or None
+    validation_data : ``np.ndarray`` or ``None``
         Samples used for validating the flow. Default: ``None``.
-    validation_context : ``np.ndarray`` or None
+    validation_context : ``np.ndarray`` or ``None``
         Additional samples corresponding to conditional arguments, used for validation. Default: ``None``.
-    validation_split : float
+    validation_split : ``float``
         Percentage of ``data`` to be used for validation. Default: ``0.0``.
-    epochs : int
+    epochs : ``int``
         Number of training epochs. Default: ``20``.
-    batch_size : int
+    batch_size : ``int``
         Batch size used for training. Default: ``100``.
-    patience : int
+    patience : ``int``
         Number of epochs to wait with no improvement in monitored loss until termination.
         Default: ``np.inf`` (never terminate early).
-    monitor : str
+    monitor : ``str``
         Which loss to monitor for early stopping. Must be one of ``val_loss``, ``loss``. Default: ``val_loss``.
-    shuffle : bool
+    shuffle : ``bool``
         Shuffle data before training. Default: ``True``.
-    lr : float
+    lr : ``float``
         Learning rate for Adam. Default: ``1e-3``.
-    weight_decay : float
+    weight_decay : ``float``
         Weight decay for Adam. Default: ``1e-8``.
-    clip_grad_norm : float
+    clip_grad_norm : ``float``
         Clip large gradients. Default: ``0``.
-    laplace_prior_scale : float or None
+    laplace_prior_scale : ``float`` or ``None``
         Laplace prior scale for regularisation. Must be nonnegative. Smaller values correspond to more regularization.
         Default: 0.2.
-    gaussian_prior_scale : float or None
+    gaussian_prior_scale : ``float`` or ``None``
         Gaussian prior scale for regularisation. Must be nonnegative. Smaller values correspond to more regularization.
         Default: None (no regularization).
-    device : str
+    device : ``str``
         Device to use for training. Default: ``cpu``.
-    verbose : int
+    verbose : ``int``
         Whether to print all (``2``), some (``1``), or no messages (``0``).
 
     Returns
@@ -257,13 +257,13 @@ class Flow:
 
     Parameters
     ----------
-    ndim : int
+    ndim : ``int``
         Number of dimensions.
-    flow_config : dict or None
+    flow_config : ``dict`` or ``None``
         Configuration of the flow. If ``None`` the default configuration used is ``dict(n_blocks=6,
         hidden_size= 3 * ndim, n_hidden=1, batch_norm=True, activation='relu', input_order='sequential',
         flow_type='maf')``
-    train_config : dict or None
+    train_config : ``dict`` or ``None``
         Training configuration for the flow. If ``None`` the default configuration used is
         ``dict(validation_split=0.2, epochs=1000, batch_size=nparticles, patience=30, monitor='val_loss',
         shuffle=True, lr=[1e-2, 1e-3, 1e-4, 1e-5], weight_decay=1e-8, clip_grad_norm=1.0, laplace_prior_scale=0.2,
@@ -295,7 +295,7 @@ class Flow:
 
         Parameters
         ----------
-        config: dict
+        config: ``dict``
             dictionary with key-value pairs to be passed to constructors of MAF or RealNVP.
         """
         allowed_keys = list(self.default_config.keys())
@@ -309,8 +309,13 @@ class Flow:
 
         Parameters
         ----------
-        config: dict
+        config: ``dict``
             dictionary with key-value pairs to be passed to constructors of MAF or RealNVP.
+
+        Returns
+        -------
+        NF : ``MAF or RealNVP``
+            Normalising flow instance.
         """
         if config is None:
             config = dict()
@@ -330,12 +335,12 @@ class Flow:
 
         Parameters
         ----------
-        x : torch.Tensor
+        x : ``torch.Tensor``
             Training data with shape (n_samples, n_dimensions).
         
         Returns
         -------
-        history: dict
+        history: ``dict``
             Training history containing logged scalars from model fitting. Each scalar has its own key and value which
             is a list of per-epoch values.
         """
@@ -375,11 +380,11 @@ class Flow:
 
         Parameters
         ----------
-        x : torch.Tensor
+        x : ``torch.Tensor``
             Samples to transform.
         Returns
         -------
-        u : torch.Tensor
+        u : ``torch.Tensor``
             Transformed samples in latent space with the same shape as the original space inputs.
         """
         x = torch_double_to_float(x)
@@ -392,11 +397,11 @@ class Flow:
         
         Parameters
         ----------
-        u : torch.Tensor
+        u : ``torch.Tensor``
             Samples to transform.
         Returns
         -------
-        x : torch.Tensor
+        x : ``torch.Tensor``
             Transformed samples in the original space with the same shape as the latent space inputs.
         """
         u = torch_double_to_float(u)
@@ -408,7 +413,7 @@ class Flow:
         
         Parameters
         ----------
-        x : torch.Tensor
+        x : ``torch.Tensor``
             Input samples
         Returns
         -------
@@ -424,12 +429,12 @@ class Flow:
 
         Parameters
         ----------
-        size : int
+        size : ``int``
             Number of samples to generate. Default: 1.
         Returns
         -------
-        samples, log_prob : tuple
-            Samples as a torch.Tensor with shape (size, n_dimensions) and log probability values with shape (size, ).
+        samples, log_prob : ``tuple``
+            Samples as a ``torch.Tensor`` with shape ``(size, n_dimensions)`` and log probability values with shape ``(size, )``.
         """
         u = torch.randn(size, self.ndim)
         x, log_abs_det_jac = self.flow.inverse(u)

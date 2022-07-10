@@ -7,11 +7,17 @@ from .tools import numpy_to_torch, torch_to_numpy
 class Pearson:
     """
     Pearson correlation coefficient.
-    TODO add description.
+    This is a measure of the linear correlation between
+    two sets of particles. This is used to adaptively
+    determine the number of MCMC steps required per iteration
+    by comparing the initial particle distribution with
+    the current particle distribution and terminating
+    MCMC once the correlation coefficient drops below
+    a threshold value.
 
     Parameters
     ----------
-    a : array of shape (nparticles, ndim)
+    a : ``np.ndarray`` of shape ``(nparticles, ndim)``
         Initial positions of particles
     """
 
@@ -26,7 +32,7 @@ class Pearson:
 
         Parameters
         ----------
-        b : array of shape (n_particles, n_dim)
+        b : ``np.ndarray`` of shape ``(n_particles, n_dim)``
             Current positions of particles
         Returns
         -------
@@ -38,14 +44,17 @@ class Pearson:
         return np.abs(ab / (self.aa * bb))
 
 
-# TODO rename to `preconditioned_metropolis`
 @torch.no_grad()
-def PreconditionedMetropolis(state_dict: dict,
-                             function_dict: dict,
-                             option_dict: dict):
+def preconditioned_metropolis(state_dict: dict,
+                              function_dict: dict,
+                              option_dict: dict):
     """
     Preconditioned Metropolis
-    TODO add description
+    Function that samples the current target distribution
+    using a simple Random-walk Metropolis algorithm on the
+    latent (i.e. uncorrelated or preconditioned) parameter
+    space. The lack of correlations renders Preconditioned
+    Metropolis more efficient that standard Metropolis.
     
     Parameters
     ----------
@@ -68,7 +77,7 @@ def PreconditionedMetropolis(state_dict: dict,
     L = torch.clone(numpy_to_torch(state_dict.get('L')))
     P = torch.clone(numpy_to_torch(state_dict.get('P')))
     beta = state_dict.get('beta')
-    Z = numpy_to_torch(logprob(torch_to_numpy(L), torch_to_numpy(P), beta))
+    Z = numpy_to_torch(log_prob(torch_to_numpy(L), torch_to_numpy(P), beta))
 
     # Get functions
     loglike = function_dict.get('loglike')
@@ -113,7 +122,7 @@ def PreconditionedMetropolis(state_dict: dict,
         # Compute log-likelihood, log-prior, and log-posterior
         L_prime = numpy_to_torch(loglike(torch_to_numpy(x_prime)))
         P_prime = numpy_to_torch(logprior(torch_to_numpy(x_prime)))
-        Z_prime = numpy_to_torch(logprob(torch_to_numpy(L_prime), torch_to_numpy(P_prime), beta))
+        Z_prime = numpy_to_torch(log_prob(torch_to_numpy(L_prime), torch_to_numpy(P_prime), beta))
 
         # Compute Metropolis factors
         alpha = torch.minimum(
@@ -175,13 +184,14 @@ def PreconditionedMetropolis(state_dict: dict,
     )
 
 
-# TODO rename to `metropolis`
-def Metropolis(state_dict: dict,
+def metropolis(state_dict: dict,
                function_dict: dict,
                option_dict: dict):
     """
     Random-walk Metropolis
-    TODO add description.
+    Function that samples the current target distribution
+    using a simple Random-walk Metropolis algorithm (i.e. 
+    Metropolis-Hastings with Normal proposal distribution).
     
     Parameters
     ----------
@@ -204,7 +214,7 @@ def Metropolis(state_dict: dict,
     L = state_dict.get('L').copy()
     P = state_dict.get('P').copy()
     beta = state_dict.get('beta')
-    Z = logprob(L, P, beta)
+    Z = log_prob(L, P, beta)
 
     # Get functions
     loglike = function_dict.get('loglike')
@@ -242,7 +252,7 @@ def Metropolis(state_dict: dict,
         # Compute log-likelihood, log-prior, and log-posterior
         L_prime = loglike(x_prime)
         P_prime = logprior(x_prime)
-        Z_prime = logprob(L_prime, P_prime, beta)
+        Z_prime = log_prob(L_prime, P_prime, beta)
 
         # Compute Metropolis factor
         alpha = np.minimum(
@@ -302,18 +312,17 @@ def Metropolis(state_dict: dict,
     )
 
 
-# TODO rename to `log_prob`
-def logprob(L, P, beta):
+def log_prob(L, P, beta):
     """
     Helper function that computes tempered log posterior.
     
     Parameters
     ----------
-    L : array
+    L : ``np.ndarray``
         Log-likelihood array
-    P : array
+    P : ``np.ndarray``
         Log-prior array
-    beta : float
+    beta : ``float``
         Beta value
     
     Returns

@@ -1,10 +1,10 @@
+import math
+import copy
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.distributions as D
-
-import math
-import copy
 
 
 def create_masks(input_size: int,
@@ -68,8 +68,7 @@ def create_masks(input_size: int,
 
 class MaskedLinear(nn.Linear):
     """
-    MADE building block layer
-    TODO add description.
+    Masked Linear Layer (MADE building block layer)
 
     Parameters
     ----------
@@ -782,7 +781,7 @@ class RealNVP(nn.Module):
         scale : float
             Scale parameter for prior.
         type : str
-            Type of prior to use. Options are ``"Laplce"`` and ``"Gaussian"``.
+            Type of prior to use. Options are ``"Laplace"`` and ``"Gaussian"``.
         Returns
         -------
         Log-prior of weights.

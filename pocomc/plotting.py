@@ -25,6 +25,11 @@ def trace(results: dict,
         Height of each subplot. Default: ``3.0``.
     kde_bins : int
         Number of bins to use for KDE. Default: ``200``.
+    
+    Returns
+    -------
+    fig : Figure
+        Trace figure.
     """
 
     import matplotlib.pyplot as plt
@@ -114,6 +119,11 @@ def corner(results: dict,
         Any additional arguments passed to ``corner.corner``.
         See here ``https://corner.readthedocs.io/en/latest/api.html``
         for a complete list.
+    
+    Returns
+    -------
+    fig : Figure
+        Corner figure.
     """
     import corner
 
@@ -145,7 +155,7 @@ def corner(results: dict,
 def run(results: dict,
         full_run: bool = True,
         width: float = 10.0,
-        height: float = 2.5):
+        height: float = 10.0):
     r"""Run plot which shows various statistics computed during the run.
 
     Parameters
@@ -157,7 +167,12 @@ def run(results: dict,
     width : float
         Width of figure. Default: ``10.0``.
     height : float
-        Height of each subplot. Default: ``2.5``.
+        Height of each subplot. Default: ``10.0``.
+    
+    Returns
+    -------
+    fig : Figure
+        Run figure.
     """
     beta = results.get("beta")
     steps = results.get("steps")
@@ -177,7 +192,7 @@ def run(results: dict,
     import matplotlib.pyplot as plt
 
     # Initialise figure
-    fig = plt.figure(figsize=(width, 4 * height))
+    fig = plt.figure(figsize=(width, height))
 
     plt.subplot(4, 1, 1)
     plt.plot(beta, 'o-', lw=2.5)

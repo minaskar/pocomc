@@ -6,6 +6,24 @@ from pocomc.input_validation import assert_array_float, assert_array_within_inte
 
 
 class Reparameterise:
+    """
+    Class that reparameterises the model using change-of-variables parameter transformations.
+
+    Parameters
+    ----------
+    ndim : int
+        Dimensionality of sampling problem
+    bounds : array or list or None
+        Parameter bounds
+    periodic : list
+        List of indices corresponding to parameters with periodic boundary conditions
+    reflective : list
+        List of indices corresponding to parameters with periodic boundary conditions
+    scale : bool
+        Rescale parameters to zero mean and unit variance (default is true)
+    diagonal : bool
+        Use diagonal transformation (i.e. ignore covariance) (default is true)
+    """
     def __init__(self,
                  ndim: int,
                  bounds: Union[np.ndarray, list] = None,
@@ -13,24 +31,7 @@ class Reparameterise:
                  reflective: List[int] = None,
                  scale: bool = True,
                  diagonal: bool = True):
-        """
-        Function that reparameterises the model using change-of-variables parameter transformations.
 
-        Parameters
-        ----------
-        ndim : int
-            Dimensionality of sampling problem
-        bounds : array or list or None
-            Parameter bounds
-        periodic : list
-            List of indices corresponding to parameters with periodic boundary conditions
-        reflective : list
-            List of indices corresponding to parameters with periodic boundary conditions
-        scale : bool
-            Rescale parameters to zero mean and unit variance (default is true)
-        diagonal : bool
-            Use diagonal transformation (i.e. ignore covariance) (default is true)
-        """
         self.ndim = ndim
 
         if bounds is None:
@@ -59,8 +60,10 @@ class Reparameterise:
     def apply_boundary_conditions(self, x: np.ndarray):
         """
         Apply boundary conditions (i.e. periodic or reflective) to input.
-        TODO add short description.
-        
+        The first kind include phase parameters that might be periodic
+        e.g. on a range ``[0,2*np.pi]``. The latter can arise in cases
+        where parameters are ratios where ``a/b`` and  ``b/a`` are equivalent.
+
         Parameters
         ----------
         x : np.ndarray
@@ -82,7 +85,8 @@ class Reparameterise:
     def _apply_periodic_boundary_conditions(self, x: np.ndarray):
         """
         Apply periodic boundary conditions to input.
-        TODO add short description.
+        This can be useful for phase parameters that might be periodic
+        e.g. on a range ``[0,2*np.pi]``
         
         Parameters
         ----------
@@ -105,8 +109,8 @@ class Reparameterise:
 
     def _apply_reflective_boundary_conditions(self, x: np.ndarray):
         """
-        Apply reflective boundary conditions to input.
-        TODO add short description.
+        Apply reflective boundary conditions to input. This can arise in cases
+        where parameters are ratios where ``a/b`` and  ``b/a`` are equivalent.
         
         Parameters
         ----------
@@ -124,7 +128,7 @@ class Reparameterise:
                     while x[j, i] > self.high[i]:
                         x[j, i] = self.high[i] - x[j, i] + self.high[i]
                     while x[j, i] < self.low[i]:
-                        x[j, i] = self.low[i] + self.low[i] - self.x[j, i]
+                        x[j, i] = self.low[i] + self.low[i] - x[j, i]
 
         return x
 
