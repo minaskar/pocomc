@@ -28,7 +28,7 @@ affiliations:
    index: 2
  - name: Physics Department, University of California and Lawrence Berkeley National Laboratory Berkeley, CA 94720, USA
    index: 3
-date: 8 July 2022
+date: 12 July 2022
 bibliography: paper.bib
 
 ---
@@ -113,7 +113,7 @@ case of `pocoMC` the path has the form:
 p_{t}(\theta) = \pi(\theta)^{1-\beta_{t}} \mathcal{P}(\theta)^{\beta_{t}}
 \end{equation}
 where $0=\beta_{1}<\beta_{2}<\dots<\beta_{T}=1$. Starting from the prior, each distribution with density $p_{t}(\theta)$ is
-sampled in turn using a collection of particles propaged by a number of MCMC steps. Prior to MCMC sampling,
+sampled in turn using a collection of particles propagated by a number of MCMC steps. Prior to MCMC sampling,
 the particles are re-weighted using importance sampling and then re-sampled to account for the transition from
 $p_{t}(\theta)$ to $p_{t+1}(\theta)$. `pocoMC` utilises the importance weights of this step to define an estimator
 for the effective sample size (ESS) of the population of particles. Maintaining a fixed value of ESS during the run
