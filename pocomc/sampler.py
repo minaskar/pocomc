@@ -1,10 +1,12 @@
 import warnings
+from typing import Union
 
 import numpy as np
 import torch
 
 from .input_validation import assert_array_2d
 from .mcmc import preconditioned_metropolis, metropolis
+from .priors import Distribution
 from .tools import resample_equal, FunctionWrapper, numpy_to_torch, compute_ess, ProgressBar
 from .scaler import Reparameterise
 from .flow import Flow
@@ -95,7 +97,7 @@ class Sampler:
                  n_particles: int,
                  n_dim: int,
                  log_likelihood: callable,
-                 log_prior: callable,
+                 log_prior: Union[callable, Distribution],
                  bounds: np.ndarray = None,
                  periodic=None,
                  reflective=None,
@@ -124,6 +126,11 @@ class Sampler:
         self.n_walkers = n_particles
         self.n_dim = n_dim
 
+        self.prior_object = log_prior
+        self.prior_object_valid = isinstance(log_prior, Distribution)
+        if self.prior_object_valid:
+            bounds = self.prior_object.bounds
+
         # Distributions
         self.log_likelihood = FunctionWrapper(
             log_likelihood,
@@ -131,7 +138,7 @@ class Sampler:
             loglikelihood_kwargs
         )
         self.log_prior = FunctionWrapper(
-            log_prior,
+            log_prior if not self.prior_object_valid else log_prior.log_prob,
             log_prior_args,
             log_prior_kwargs
         )
@@ -234,7 +241,7 @@ class Sampler:
         self.vectorize_prior = is_function_vectorized(self.log_prior, 3 if self.n_dim == 2 else 2)
 
     def run(self,
-            prior_samples: np.ndarray,
+            prior_samples: np.ndarray = None,
             ess: float = 0.95,
             gamma: float = 0.75,
             n_min: int = None,
@@ -261,6 +268,9 @@ class Sampler:
         progress : bool
             If True, print progress bar (default is ``progress=True``).
         """
+        if self.prior_object_valid and prior_samples is None:
+            prior_samples = self.prior_object.sample(self.n_walkers)
+
         assert_array_2d(prior_samples)
         if self.infer_vectorization:
             self.validate_vectorization_settings(prior_samples)  

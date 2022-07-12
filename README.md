@@ -6,12 +6,15 @@
 [![Documentation Status](https://readthedocs.org/projects/pocomc/badge/?version=latest)](https://pocomc.readthedocs.io/en/latest/?badge=latest)
 [![build](https://github.com/minaskar/pocomc/actions/workflows/setup_and_run_tests.yml/badge.svg)](https://github.com/minaskar/pocomc/actions/workflows/setup_and_run_tests.yml)
 
-
 # Getting started
 
 ## Brief introduction
 
-``pocoMC`` utilises a *Normalising Flow* in order to precondition the target distribution by removing any correlations between its parameters. The code then generates posterior samples, that can be used for parameter estimation, using a powerful adaptive *Sequential Monte Carlo* algorithm manifesting a sampling effiency that can be orders of magnitude higher than without precondition. Furthermore, ``pocoMC`` also provides an unbiased estimate of the *model evidence* that can be used for the task of *Bayesian model comparison*.
+``pocoMC`` utilises a *Normalising Flow* in order to precondition the target distribution by removing any correlations
+between its parameters. The code then generates posterior samples, that can be used for parameter estimation, using a
+powerful adaptive *Sequential Monte Carlo* algorithm manifesting a sampling effiency that can be orders of magnitude
+higher than without precondition. Furthermore, ``pocoMC`` also provides an unbiased estimate of the *model evidence*
+that can be used for the task of *Bayesian model comparison*.
 
 ## Documentation
 
@@ -35,40 +38,33 @@ python setup.py install
 
 ## Basic example
 
-For instance, if you wanted to draw samples from a 10-dimensional Rosenbrock distribution with a uniform prior, you would do something like:
+For instance, if you wanted to draw samples from a 10-dimensional Rosenbrock distribution with a uniform prior, you
+would do something like:
 
 ```python
 import pocomc as pc
 import numpy as np
+from pocomc.priors import Uniform
 
-ndim = 10  # Number of dimensions
+n_dim = 10  # Number of dimensions
 
-def log_prior(x):
-    if np.any((x < -10.0) | (x > 10.0)):  # If any dimension is out of bounds, the log prior is -infinity
-        return -np.inf 
-    else:
-        return -const
 
 def log_likelihood(x):
-    return -np.sum(10.0*(x[:,::2]**2.0 - x[:,1::2])**2.0 \
-            + (x[:,::2] - 1.0)**2.0, axis=1)
+    return -np.sum(10.0 * (x[:, ::2] ** 2.0 - x[:, 1::2]) ** 2.0 + (x[:, ::2] - 1.0) ** 2.0, axis=1)
 
 
-nwalkers = 1000
-prior_samples = np.random.uniform(size=(nwalkers, ndim), low=-10.0, high=10.0)
+n_walkers = 1000
+sampler = pc.Sampler(
+    n_walkers,
+    n_dim,
+    log_likelihood,
+    Uniform(-10, 10, n_dim),
+    vectorize_likelihood=True
+)
+sampler.run()
 
-sampler = pc.Sampler(nwalkers,
-                     ndim,
-                     log_likelihood,
-                     log_prior,
-                     vectorize_likelihood=True,
-                     bounds=(-10.0, 10.0)
-                    )
-sampler.run(prior_samples)
-
-results = sampler.results # Dictionary with results
+results = sampler.results  # Dictionary with results
 ```
-
 
 # Attribution & Citation
 
