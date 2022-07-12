@@ -217,22 +217,28 @@ class Sampler:
         x_check: np.ndarray
             Input array used to check vectorization settings.
         """
-        def is_function_vectorized(f):
+        def is_function_vectorized(f, n_test=2):
             try:
-                output_multiple = f(x_check[:2, :])
-                if output_multiple.shape == (2,):
+                output_multiple = f(x_check[:n_test, :])
+                if output_multiple.shape == (n_test,):
                     return True
                 else:
                     raise ValueError
-            except ValueError:
+            except (ValueError, AttributeError):
                 output_single = f(x_check[0])
                 if isinstance(output_single, float):
                     return False
                 else:
                     raise ValueError
 
-        self.vectorize_likelihood = is_function_vectorized(self.loglikelihood)
-        self.vectorize_prior = is_function_vectorized(self.logprior)
+        # Use three test samples if ndim = 2
+        if self.ndim == 2:
+            n_test = 3
+        else:
+            n_test = 2
+
+        self.vectorize_likelihood = is_function_vectorized(self.loglikelihood, n_test)
+        self.vectorize_prior = is_function_vectorized(self.logprior, n_test)
 
     def run(self,
             prior_samples: np.ndarray,
@@ -483,15 +489,15 @@ class Sampler:
         P = results.get('P').copy()
 
         self.scale = results.get('scale')
-        self.nsteps = results.get('steps')
+        nsteps = results.get('steps')
         self.accept = results.get('accept')
 
-        self.ncall += self.nsteps * len(x)
+        self.ncall += nsteps * len(x)
 
         self.saved_ncall.append(self.ncall)
         self.saved_accept.append(self.accept)
         self.saved_scale.append(self.scale / self.ideal_scale)
-        self.saved_steps.append(self.nsteps)
+        self.saved_steps.append(nsteps)
 
         return u, x, J, L, P
 
@@ -555,7 +561,8 @@ class Sampler:
 
         try:
             idx = resample_equal(np.arange(len(u)), w, self.random_state)
-        except:  # TODO use specific exception type
+        except IndexError:
+            warnings.warn("Systematic resampling failed. Trying multinomial resampling.")
             idx = np.random.choice(np.arange(len(u)), p=w, size=len(w))
         self.logw = 0.0
 
@@ -692,48 +699,3 @@ class Sampler:
         }
 
         return results
-
-    def _bridge_sampling(self,
-                        tolerance: float = 1e-10,
-                        maxiter: int = 1000,
-                        thin: int = 1):
-        x = self.results.get("samples")[::thin]
-        l = self.results.get("loglikelihood")[::thin]
-        p = self.results.get("logprior")[::thin]
-
-        N1 = len(x)
-        N2 = len(x)
-
-        s1 = N1 / (N1 + N2)
-        s2 = N2 / (N1 + N2)
-
-        u_prop, logg_i = self.flow.sample(size=N2)
-        x_prop, J_prop = self.scaler.inverse(torch_to_numpy(u_prop))
-        logg_i = torch_to_numpy(logg_i) + J_prop
-
-        u = self.scaler.forward(x)
-        x, J = self.scaler.inverse(u)
-        logg_j = torch_to_numpy(self.flow.logprob(numpy_to_torch(u))) - J
-
-        logp_i = self._loglike(x_prop) + self._logprior(x_prop) - J_prop
-        logp_j = p + l
-
-        logl1j = logp_j - logg_j
-        logl2i = logp_i - logg_i
-
-        lstar = max(np.max(logl1j), np.max(logl2i))
-
-        l1j = np.exp(logl1j - lstar)
-        l2i = np.exp(logl2i - lstar)
-
-        r = 1.0
-        r0 = 0.0
-        cnt = 1
-        while np.abs(r - r0) > tolerance or cnt <= maxiter:
-            r0 = r
-            A = np.mean(l2i / (s1 * l2i + s2 * r0))
-            B = np.mean(1.0 / (s1 * l1j + s2 * r0))
-            r = A / B
-            cnt += 1
-
-        return np.log(r) + lstar

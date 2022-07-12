@@ -14,7 +14,9 @@ def create_masks(input_size: int,
                  input_degrees: torch.Tensor = None):
     """
     Helper function to create masks.
-    TODO add description.
+    The masks are used to hide certain connections
+    in the neural network thus preserving the 
+    autogressive property.
     
     Parameters
     ----------
@@ -366,7 +368,7 @@ class MADE(nn.Module):
     def inverse(self,
                 u: torch.Tensor,
                 y: torch.Tensor = None,
-                sum_log_abs_det_jacobians=None):  # TODO add sum_log_abs_det_jacobians to docstring
+                sum_log_abs_det_jacobians=None):
         """
         Inverse transformation.
         Parameters
@@ -375,6 +377,9 @@ class MADE(nn.Module):
             Input data.
         y : torch.Tensor
             Conditional input data.
+        sum_log_abs_det_jacobians : torch.Tensor
+            Sum of the natural logarithm of the jacobian
+            determinant of the trasnsformation.
         Returns
         -------
         Transformed data.
