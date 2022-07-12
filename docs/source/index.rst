@@ -85,6 +85,6 @@ Copyright 2022 Minas Karamanis and contributors.
 Changelog
 =========
 
-**0.0.1 (30/04/22)**
+**0.1.0 (12/07/22)**
 
 - First version

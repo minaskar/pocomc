@@ -41,7 +41,7 @@ For instance, if you wanted to draw samples from a 10-dimensional Rosenbrock dis
 import pocomc as pc
 import numpy as np
 
-ndim = 10  # Number of dimensions
+n_dim = 10  # Number of dimensions
 
 def log_prior(x):
     if np.any((x < -10.0) | (x > 10.0)):  # If any dimension is out of bounds, the log prior is -infinity
@@ -54,11 +54,11 @@ def log_likelihood(x):
             + (x[:,::2] - 1.0)**2.0, axis=1)
 
 
-nwalkers = 1000
+n_particles = 1000
 prior_samples = np.random.uniform(size=(nwalkers, ndim), low=-10.0, high=10.0)
 
-sampler = pc.Sampler(nwalkers,
-                     ndim,
+sampler = pc.Sampler(n_particles,
+                     n_dim,
                      log_likelihood,
                      log_prior,
                      vectorize_likelihood=True,

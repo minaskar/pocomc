@@ -5,7 +5,8 @@ Examples
 This page highlights several examples on how ``pocomc``
 can be used in practice, illustrating both simple and more advanced
 aspects of the code. Jupyter notebooks containing more details are available
-`on Github <https://github.com/minaskar/pocomc/tree/examples>`_.
+`on Github <https://github.com/minaskar/pocomc/tree/examples>`_. ``seaborn`` 
+is required to be installed to generate some of the plots.
 
 Gaussian Shells
 ===============

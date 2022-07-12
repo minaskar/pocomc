@@ -23,15 +23,15 @@ something like::
     import numpy as np
 
     # Define the dimensionality of our problem.
-    ndim = 10
+    n_dim = 10
 
     # Define our 3-D correlated multivariate normal log-likelihood.
-    C = np.identity(ndim)
+    C = np.identity(n_dim)
     C[C==0] = 0.95
     Cinv = np.linalg.inv(C)
-    lnorm = -0.5 * (np.log(2 * np.pi) * ndim + np.log(np.linalg.det(C)))
+    lnorm = -0.5 * (np.log(2 * np.pi) * n_dim + np.log(np.linalg.det(C)))
 
-    def loglike(x):
+    def log_like(x):
         return -0.5 * np.dot(x, np.dot(Cinv, x)) + lnorm
 
 The inclusion of the normalisation factor ``lnorm`` is not strictly necessary as it does not depend on ``x`` and thus does 
@@ -44,7 +44,7 @@ Log-prior probability density function
 The next step is to define the *log-prior* function. Suppose that we want our prior to be uniform :math:`x\sim\mathcal{U}(-10,10)`
 in all 10 of the parameters. We can do this in Python as::
 
-    def logprior(x):
+    def log_prior(x):
         if np.any(x < -10.0) or np.any(x > 10.0):
             return - np.inf
         else:
@@ -56,14 +56,14 @@ necessary, as it doesn't vary. Instead, it is common to return `0.0` in those ca
 If Instead we required a prior that is normal/*Gaussian* on all parameters with zero-mean and a standard deviation of ``3.0``,
 e.g. :math:`x\sim\mathcal{N}(0,3^{2})`, we would do something like::
 
-    def logprior(x):
+    def log_prior(x):
         return - 0.5 * np.dot(x, x) / 3.0**2.0
 
 Alternatively, we can have priors in which not all of the paramerers have the same density a priori. For instance, suppose that 
 we want the first five parameters to have a flat/uniform prior :math:`x_{i}\sim\mathcal{U}(-10,10)` for :math:`i=0,1,\dots,4` and
 the last five to have a Gaussian/normal prior  :math:`x_{i}\sim\mathcal{N}(0,3^{2})` for :math:`i=5,6,\dots,9`, we would do::
 
-    def logprior(x):
+    def log_prior(x):
         if np.any(x[:5] < -10.0) or np.any(x[:5] > 10.0):
             return - np.inf
         else:
@@ -101,13 +101,13 @@ particles or walkers of ``pocoMC``.
 
 For instance, in the case of the half-uniform/half-normal prior that we discussed above, we can generate some prior samples as::
 
-    nparticles = 1000
+    n_particles = 1000
 
-    prior_samples = np.empty((nparticles, ndim))
-    prior_samples[:, :5] = np.random.uniform(low=-10.0, high=10.0, size=(nparticles, 5))
-    prior_samples[:, 5:] = np.random.normal(loc=0.0, scale=3.0, size=(nparticles, 5))
+    prior_samples = np.empty((n_particles, n_dim))
+    prior_samples[:, :5] = np.random.uniform(low=-10.0, high=10.0, size=(n_particles, 5))
+    prior_samples[:, 5:] = np.random.normal(loc=0.0, scale=3.0, size=(n_particles, 5))
 
-Here we chose to use ``nparticles = 1000`` as the total number of particles. In real applications, we recommend to use at least this
+Here we chose to use ``n_particles = 1000`` as the total number of particles. In real applications, we recommend to use at least this
 many particles and possibly more if you expect your distribution to be particularly nasty (e.g. high dimensional :math:`D>10`, 
 highly correlated, and/or multimodal).
 
@@ -119,17 +119,17 @@ The next step is to import ``pocoMC`` and initialise the ``Sampler`` class::
 
     import pocomc as pc
 
-    sampler = pc.Sampler(nparticles = nparticles,
-                         ndim = ndim,
-                         loglikelihood = loglike,
-                         logprior = logprior,
+    sampler = pc.Sampler(n_particles = n_particles,
+                         n_dim = n_dim,
+                         log_likelihood = log_like,
+                         log_prior = log_prior,
                          bounds = bounds,
                         )
 
 The sampler also accepts other arguments, for a full list see :doc:`api`. Those include:
  
-- Additional arguments passed to the log-likelihood using the arguments ``loglikelihood_args`` and ``loglikelihood_kwargs``,
-  or to the log-prior using the arguments ``logprior_args`` and ``logprior_kwargs``.
+- Additional arguments passed to the log-likelihood using the arguments ``log_likelihood_args`` and ``log_likelihood_kwargs``,
+  or to the log-prior using the arguments ``log_prior_args`` and ``log_prior_kwargs``.
 - The arguments ``vectorize_likelihood`` and ``vectorize_prior`` which accept boolean values allow the user to use vectorized
   log-likelihood and log-prior functions.
 - The ``periodic`` and  ``reflective`` arguments that accept a list of indeces corresponding to parameters of the model that
@@ -158,8 +158,8 @@ The sampler also accepts other arguments, for a full list see :doc:`api`. Those 
                         lr = [1e-2, 1e-3, 1e-4, 1e-5], # Learning rates. If more than one is provided then they are used as an annealing schedule.
                         weight_decay = 1e-8, # Weight decay parameter.
                         clip_grad_norm = 1.0, # Clip huge gradients to avoid training issues.
-                        l1 = 0.2, # Scale of the Laplace prior put on the weights.
-                        l2 = None, # Scale of the Gaussian prior put on the weights.
+                        laplace_prior_scale = 0.2, # Scale of the Laplace prior put on the weights.
+                        gaussian_prior_scale = None, # Scale of the Gaussian prior put on the weights.
                         device = 'cpu', # Device to use for training. Currently only 'cpu' is supported.
                        )
   
@@ -279,21 +279,21 @@ Parallelisation
 If you want to run computations in parallel, ``pocoMC`` can use a user-defined ``pool`` to execute a variety of expensive operations 
 in parallel rather than in serial. This can be done by passing the ``pool`` object to the sampler upon initialization::
 
-    sampler = pc.Sampler(nparticles = nparticles,
-                         ndim = ndim,
-                         loglikelihood = loglike,
-                         logprior = logprior,
+    sampler = pc.Sampler(n_particles = nparticles,
+                         n_dim = ndim,
+                         log_likelihood = log_like,
+                         log_prior = log_prior,
                          bounds = bounds,
                          pool = pool,
                         )
 
-By default ``pocoMC`` will use the ``pool`` to execute the calculation of the ``loglikelihood`` in parallel for the ``nparticles`` particles.
-If you also want the ``pool`` to be used for the calculation of the ``logprior`` (default is False), you can do::
+By default ``pocoMC`` will use the ``pool`` to execute the calculation of the ``log_likelihood`` in parallel for the ``n_particles`` particles.
+If you also want the ``pool`` to be used for the calculation of the ``log_prior`` (default is False), you can do::
 
-    sampler = pc.Sampler(nparticles = nparticles,
-                         ndim = ndim,
-                         loglikelihood = loglike,
-                         logprior = logprior,
+    sampler = pc.Sampler(n_particles = n_particles,
+                         n_dim = n_dim,
+                         log_likelihood = log_like,
+                         log_prior = log_prior,
                          bounds = bounds,
                          pool = pool,
                          parallelize_prior = True,
@@ -305,14 +305,14 @@ functions. The disadvantage is that it needs to be installed manually. An exampl
 
     from multiprocessing import Pool 
 
-    ncpus = 4
+    n_cpus = 4
 
-    with Pool(ncpus) as pool:
+    with Pool(n_cpus) as pool:
 
-        sampler = pc.Sampler(nparticles = nparticles,
-                         ndim = ndim,
-                         loglikelihood = loglike,
-                         logprior = logprior,
+        sampler = pc.Sampler(n_particles = n_particles,
+                         n_dim = n_dim,
+                         log_likelihood = log_like,
+                         log_prior = log_prior,
                          bounds = bounds,
                          pool = pool,
                         )
@@ -321,7 +321,7 @@ functions. The disadvantage is that it needs to be installed manually. An exampl
 
         sampler.add_samples(2000)
 
-where ``ncpus`` is the number of available CPUs in our machine. Since ``numpy`` and ``torch`` are doing some internal parallelisation
+where ``n_cpus`` is the number of available CPUs in our machine. Since ``numpy`` and ``torch`` are doing some internal parallelisation
 it is a good idea to specify how many CPUs should be used for that using::
 
     import os
@@ -333,7 +333,7 @@ at the beggining of the code. This can affect the speed of the normalising flow 
 Finally, other pools can also be used, particularly if you plan to use ``pocoMC`` is a supercomputing cluster you may want to use
 an ``mpi4py`` pool so that you can utilise multiple nodes.
 
-The speed-up offered by parallisation in ``pocoMC`` is expected to be linear in the number of particles ``nparticles``.
+The speed-up offered by parallisation in ``pocoMC`` is expected to be linear in the number of particles ``n_particles``.
 
 
 

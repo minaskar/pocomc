@@ -52,10 +52,10 @@ class Sampler:
     diagonal : bool
         Use a diagonal covariance matrix when rescaling instead
         of a full covariance. Default is ``True``.
-    loglikelihood_args : list
+    log_likelihood_args : list
         Extra arguments to be passed to log_likelihood
         (default is ``loglikelihood_args=None``).
-    loglikelihood_kwargs : dict
+    log_likelihood_kwargs : dict
         Extra arguments to be passed to log_likelihood
         (default is ``loglikelihood_kwargs=None``).
     log_prior_args : list
@@ -103,8 +103,8 @@ class Sampler:
                  scale: bool = True,
                  rescale: bool = False,
                  diagonal: bool = True,
-                 loglikelihood_args: list = None,
-                 loglikelihood_kwargs: dict = None,
+                 log_likelihood_args: list = None,
+                 log_likelihood_kwargs: dict = None,
                  log_prior_args: list = None,
                  log_prior_kwargs: dict = None,
                  vectorize_likelihood: bool = False,
@@ -127,8 +127,8 @@ class Sampler:
         # Distributions
         self.log_likelihood = FunctionWrapper(
             log_likelihood,
-            loglikelihood_args,
-            loglikelihood_kwargs
+            log_likelihood_args,
+            log_likelihood_kwargs
         )
         self.log_prior = FunctionWrapper(
             log_prior,

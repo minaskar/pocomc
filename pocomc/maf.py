@@ -281,8 +281,7 @@ class FlowSequential(nn.Sequential):
 
 
 class MADE(nn.Module):
-    r"""
-    Masked Autoregressive Density Estimator (MADE)
+    r"""Masked Autoregressive Density Estimator (MADE)
 
     Parameters
     ----------
@@ -295,8 +294,10 @@ class MADE(nn.Module):
     activation : str
         Activation function: ``"relu"`` (default) or ``"tanh"``.
     input_order : str
-        Variable order for creating the autoregressive masks: ``"sequential"`` (default) or ``"random"``.
+        Variable order for creating the autoregressive masks:
+        ``"sequential"`` (default) or ``"random"``.
     """
+
     def __init__(self,
                  input_size: int,
                  hidden_size: int,
@@ -369,8 +370,8 @@ class MADE(nn.Module):
                 u: torch.Tensor,
                 y: torch.Tensor = None,
                 sum_log_abs_det_jacobians=None):
-        """
-        Inverse transformation.
+        """Inverse transformation.
+        
         Parameters
         ----------
         u : torch.Tensor
@@ -380,6 +381,7 @@ class MADE(nn.Module):
         sum_log_abs_det_jacobians : torch.Tensor
             Sum of the natural logarithm of the jacobian
             determinant of the transformation.
+
         Returns
         -------
         Transformed data.

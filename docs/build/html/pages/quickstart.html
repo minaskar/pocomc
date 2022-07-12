@@ -418,7 +418,7 @@ title="Print to PDF"
             <span class="o">+</span> <span class="p">(</span><span class="n">x</span><span class="p">[:,::</span><span class="mi">2</span><span class="p">]</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">)</span><span class="o">**</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 
 <span class="c1"># Define our uniform prior.</span>
-<span class="k">def</span> <span class="nf">logprior</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">log_prior</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
     <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">x</span> <span class="o">&lt;</span> <span class="o">-</span><span class="mf">10.0</span><span class="p">)</span> <span class="ow">or</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">x</span> <span class="o">&gt;</span> <span class="mf">10.0</span><span class="p">):</span>
         <span class="k">return</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span>
     <span class="k">else</span><span class="p">:</span>
@@ -440,10 +440,10 @@ title="Print to PDF"
 <span class="n">nparticles</span> <span class="o">=</span> <span class="mi">1000</span>
 
 <span class="c1"># Initialise sampler</span>
-<span class="n">sampler</span> <span class="o">=</span> <span class="n">pc</span><span class="o">.</span><span class="n">Sampler</span><span class="p">(</span><span class="n">nparticles</span><span class="p">,</span>
-                     <span class="n">ndim</span><span class="p">,</span>
-                     <span class="n">loglikelihood</span><span class="o">=</span><span class="n">log_likelihood</span><span class="p">,</span>
-                     <span class="n">logprior</span><span class="o">=</span><span class="n">logprior</span><span class="p">,</span>
+<span class="n">sampler</span> <span class="o">=</span> <span class="n">pc</span><span class="o">.</span><span class="n">Sampler</span><span class="p">(</span><span class="n">n_particles</span><span class="p">,</span>
+                     <span class="n">n_dim</span><span class="p">,</span>
+                     <span class="n">log_likelihood</span><span class="o">=</span><span class="n">log_likelihood</span><span class="p">,</span>
+                     <span class="n">log_prior</span><span class="o">=</span><span class="n">log_prior</span><span class="p">,</span>
                      <span class="n">vectorize_likelihood</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
                      <span class="n">bounds</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mf">10.0</span><span class="p">,</span> <span class="mf">10.0</span><span class="p">))</span>
 </pre></div>
