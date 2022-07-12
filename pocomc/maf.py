@@ -448,20 +448,26 @@ class MAF(nn.Module):
                  batch_norm: bool = True,
                  **kwargs):
         """
-        TODO write docstring.
-
         Parameters
         ----------
-        n_blocks
-        input_size
-        hidden_size
-        n_hidden
+        n_blocks : int
+            Number of MADE blocks.
+        input_size : int
+            Input dimensionality.
+        hidden_size : int
+            Hidden dimension in MADE.
+        n_hidden : int
+            Number of hidden layers in MADE.
         cond_label_size
-        activation
+        activation : str
+            Nonlinearity type.
         input_order
-        batch_norm
+        batch_norm : bool
+            Use batch normalization.
         kwargs
         """
+        
+        # TODO write docstring.
         super().__init__()
         # base distribution for calculation of log prob under the model
         self.register_buffer('base_dist_mean', torch.zeros(input_size))
