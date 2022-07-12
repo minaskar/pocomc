@@ -38,10 +38,10 @@ class PlottingTestCase(unittest.TestCase):
         n_particles, n_dim = x.shape
 
         sampler = Sampler(
-            nparticles=n_particles,
-            ndim=n_dim,
-            loglikelihood=self.log_likelihood,
-            logprior=self.log_prior,
+            n_particles=n_particles,
+            n_dim=n_dim,
+            log_likelihood=self.log_likelihood,
+            log_prior=self.log_prior,
             vectorize_prior=True,
             vectorize_likelihood=True,
             bounds=np.array([-5.0, 5.0]),

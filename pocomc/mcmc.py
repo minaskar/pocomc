@@ -80,24 +80,24 @@ def preconditioned_metropolis(state_dict: dict,
     Z = numpy_to_torch(log_prob(torch_to_numpy(L), torch_to_numpy(P), beta))
 
     # Get functions
-    loglike = function_dict.get('loglike')
-    logprior = function_dict.get('logprior')
+    log_like = function_dict.get('loglike')
+    log_prior = function_dict.get('logprior')
     scaler = function_dict.get('scaler')
     flow = function_dict.get('flow')
 
     # Get MCMC options
-    nmin = option_dict.get('nmin')
-    nmax = option_dict.get('nmax')
+    n_min = option_dict.get('nmin')
+    n_max = option_dict.get('nmax')
     sigma = option_dict.get('sigma')
     corr_threshold = option_dict.get('corr_threshold')
     progress_bar = option_dict.get('progress_bar')
 
     # Get number of particles and parameters/dimensions
-    nwalkers, ndim = x.shape
+    n_walkers, n_dim = x.shape
 
     # Transform u to theta
-    theta, logdetJ = flow.forward(u)
-    J_flow = -logdetJ.sum(-1)
+    theta, log_det_J = flow.forward(u)
+    J_flow = -log_det_J.sum(-1)
 
     # Initialise Pearson correlation object
     corr = Pearson(torch_to_numpy(theta))
@@ -107,7 +107,7 @@ def preconditioned_metropolis(state_dict: dict,
         i += 1
 
         # Propose new points in theta space
-        theta_prime = theta + sigma * torch.randn(nwalkers, ndim)
+        theta_prime = theta + sigma * torch.randn(n_walkers, n_dim)
 
         # Transform to u space
         u_prime, logdetJ_prime = flow.inverse(theta_prime)
@@ -120,19 +120,19 @@ def preconditioned_metropolis(state_dict: dict,
         J_prime = numpy_to_torch(J_prime)
 
         # Compute log-likelihood, log-prior, and log-posterior
-        L_prime = numpy_to_torch(loglike(torch_to_numpy(x_prime)))
-        P_prime = numpy_to_torch(logprior(torch_to_numpy(x_prime)))
+        L_prime = numpy_to_torch(log_like(torch_to_numpy(x_prime)))
+        P_prime = numpy_to_torch(log_prior(torch_to_numpy(x_prime)))
         Z_prime = numpy_to_torch(log_prob(torch_to_numpy(L_prime), torch_to_numpy(P_prime), beta))
 
         # Compute Metropolis factors
         alpha = torch.minimum(
-            torch.ones(nwalkers),
+            torch.ones(n_walkers),
             torch.exp(Z_prime - Z + J_prime - J + J_flow_prime - J_flow)
         )
         alpha[torch.isnan(alpha)] = 0.0
 
         # Metropolis criterion
-        mask = torch.rand(nwalkers) < alpha
+        mask = torch.rand(n_walkers) < alpha
 
         # Accept new points
         theta[mask] = theta_prime[mask]
@@ -156,20 +156,20 @@ def preconditioned_metropolis(state_dict: dict,
         if progress_bar is not None:
             progress_bar.update_stats(
                 dict(
-                    calls=progress_bar.info['calls'] + nwalkers,
+                    calls=progress_bar.info['calls'] + n_walkers,
                     accept=torch.mean(alpha).item(),
                     N=i,
-                    scale=sigma.item() / (2.38 / np.sqrt(ndim)),
+                    scale=sigma.item() / (2.38 / np.sqrt(n_dim)),
                     corr=np.mean(cc_prime)
                 )
             )
 
         # Loop termination criteria:
-        if corr_threshold is None and i >= int(nmin * ((2.38 / np.sqrt(ndim)) / sigma.item()) ** 2):
+        if corr_threshold is None and i >= int(n_min * ((2.38 / np.sqrt(n_dim)) / sigma.item()) ** 2):
             break
-        elif np.mean(cc_prime) < corr_threshold and i >= nmin:
+        elif np.mean(cc_prime) < corr_threshold and i >= n_min:
             break
-        elif i >= nmax:
+        elif i >= n_max:
             break
 
     return dict(
@@ -217,19 +217,19 @@ def metropolis(state_dict: dict,
     Z = log_prob(L, P, beta)
 
     # Get functions
-    loglike = function_dict.get('loglike')
-    logprior = function_dict.get('logprior')
+    log_like = function_dict.get('loglike')
+    log_prior = function_dict.get('logprior')
     scaler = function_dict.get('scaler')
 
     # Get MCMC options
-    nmin = option_dict.get('nmin')
-    nmax = option_dict.get('nmax')
+    n_min = option_dict.get('nmin')
+    n_max = option_dict.get('nmax')
     sigma = option_dict.get('sigma')
     corr_threshold = option_dict.get('corr_threshold')
     progress_bar = option_dict.get('progress_bar')
 
     # Get number of particles and parameters/dimensions
-    nwalkers, ndim = x.shape
+    n_walkers, n_dim = x.shape
 
     # Compute proposal sample covariance and lower triangular Cholesky in u-space
     cov = np.cov(u.T)
@@ -243,15 +243,15 @@ def metropolis(state_dict: dict,
         i += 1
 
         # Propose new points in u space
-        u_prime = u + sigma * np.dot(L_triangular, np.random.randn(nwalkers, ndim).T).T
+        u_prime = u + sigma * np.dot(L_triangular, np.random.randn(n_walkers, n_dim).T).T
 
         # Transform to x space
         x_prime, J_prime = scaler.inverse(u_prime)
         x_prime = scaler.apply_boundary_conditions(x_prime)
 
         # Compute log-likelihood, log-prior, and log-posterior
-        L_prime = loglike(x_prime)
-        P_prime = logprior(x_prime)
+        L_prime = log_like(x_prime)
+        P_prime = log_prior(x_prime)
         Z_prime = log_prob(L_prime, P_prime, beta)
 
         # Compute Metropolis factor
@@ -262,7 +262,7 @@ def metropolis(state_dict: dict,
         alpha[np.isnan(alpha)] = 0.0
 
         # Metropolis criterion
-        mask = np.random.rand(nwalkers) < alpha
+        mask = np.random.rand(n_walkers) < alpha
 
         # Accept new points
         u[mask] = u_prime[mask]
@@ -287,17 +287,17 @@ def metropolis(state_dict: dict,
                     calls=progress_bar.info['calls'] + len(u),
                     accept=np.mean(alpha),
                     N=i,
-                    scale=sigma / (2.38 / np.sqrt(ndim)),
+                    scale=sigma / (2.38 / np.sqrt(n_dim)),
                     corr=np.mean(cc_prime),
                 )
             )
 
         # Termination criteria:
-        if corr_threshold is None and i >= int(nmin * ((2.38 / np.sqrt(ndim)) / sigma) ** 2):
+        if corr_threshold is None and i >= int(n_min * ((2.38 / np.sqrt(n_dim)) / sigma) ** 2):
             break
-        elif np.mean(cc_prime) < corr_threshold and i >= nmin:
+        elif np.mean(cc_prime) < corr_threshold and i >= n_min:
             break
-        elif i >= nmax:
+        elif i >= n_max:
             break
 
     return dict(

@@ -46,10 +46,10 @@ class SamplerTestCase(unittest.TestCase):
         n_particles, n_dim = x.shape
 
         sampler = Sampler(
-            nparticles=n_particles,
-            ndim=n_dim,
-            loglikelihood=self.log_likelihood_vectorized,
-            logprior=self.log_prior_vectorized,
+            n_particles=n_particles,
+            n_dim=n_dim,
+            log_likelihood=self.log_likelihood_vectorized,
+            log_prior=self.log_prior_vectorized,
             vectorize_prior=True,
             vectorize_likelihood=True,
             bounds=np.array([-5.0, 5.0]),
@@ -63,10 +63,10 @@ class SamplerTestCase(unittest.TestCase):
         n_particles, n_dim = x.shape
 
         sampler = Sampler(
-            nparticles=n_particles,
-            ndim=n_dim,
-            loglikelihood=self.log_likelihood_vectorized,
-            logprior=self.log_prior_vectorized,
+            n_particles=n_particles,
+            n_dim=n_dim,
+            log_likelihood=self.log_likelihood_vectorized,
+            log_prior=self.log_prior_vectorized,
             vectorize_prior=False,
             vectorize_likelihood=True,
             bounds=np.array([-5.0, 5.0]),
@@ -80,10 +80,10 @@ class SamplerTestCase(unittest.TestCase):
         n_particles, n_dim = x.shape
 
         sampler = Sampler(
-            nparticles=n_particles,
-            ndim=n_dim,
-            loglikelihood=self.log_likelihood_vectorized,
-            logprior=self.log_prior_vectorized,
+            n_particles=n_particles,
+            n_dim=n_dim,
+            log_likelihood=self.log_likelihood_vectorized,
+            log_prior=self.log_prior_vectorized,
             vectorize_prior=True,
             vectorize_likelihood=False,
             bounds=np.array([-5.0, 5.0]),
@@ -97,10 +97,10 @@ class SamplerTestCase(unittest.TestCase):
         n_particles, n_dim = x.shape
 
         sampler = Sampler(
-            nparticles=n_particles,
-            ndim=n_dim,
-            loglikelihood=self.log_likelihood_single,
-            logprior=self.log_prior_vectorized,
+            n_particles=n_particles,
+            n_dim=n_dim,
+            log_likelihood=self.log_likelihood_single,
+            log_prior=self.log_prior_vectorized,
             vectorize_likelihood=True,
             vectorize_prior=True,
             bounds=np.array([-5.0, 5.0]),
@@ -114,10 +114,10 @@ class SamplerTestCase(unittest.TestCase):
         n_particles, n_dim = x.shape
 
         sampler = Sampler(
-            nparticles=n_particles,
-            ndim=n_dim,
-            loglikelihood=self.log_likelihood_vectorized,
-            logprior=self.log_prior_single,
+            n_particles=n_particles,
+            n_dim=n_dim,
+            log_likelihood=self.log_likelihood_vectorized,
+            log_prior=self.log_prior_single,
             vectorize_likelihood=True,
             vectorize_prior=True,
             bounds=np.array([-5.0, 5.0]),

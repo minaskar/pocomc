@@ -9,7 +9,7 @@ def trace(results: dict,
           width: float = 10.0,
           height: float = 3.0,
           kde_bins: int = 200):
-    r""" Plot particle traces and 1-D marginal posteriors.
+    r"""Plot particle traces and 1-D marginal posteriors.
 
     Parameters
     ----------
@@ -68,11 +68,13 @@ def trace(results: dict,
         # Left column -- beta plots
         plt.subplot(n_dim, 2, 2 * i + 1)
         for j in range(n_beta):
-            plt.scatter(np.full(n_particles, beta[j]),
-                        samples[j, :, p],
-                        s=5,
-                        c='C0',
-                        alpha=0.1 * weights[j] / np.max(weights[j]))
+            plt.scatter(
+                np.full(n_particles, beta[j]),
+                samples[j, :, p],
+                s=5,
+                c='C0',
+                alpha=0.1 * weights[j] / np.max(weights[j])
+            )
         plt.xscale('log')
         plt.xlabel(r'$\beta$', fontsize=14)
         plt.ylabel(labels[i], fontsize=14)
@@ -99,10 +101,8 @@ def corner(results: dict,
            labels: List = None,
            dims: Union[List, np.ndarray] = None,
            color: str = None,
-           **corner_kwargs,
-           ):
-    r"""
-        Corner plot of the 1-D and 2-D marginal posteriors.
+           **corner_kwargs):
+    r"""Corner plot of the 1-D and 2-D marginal posteriors.
 
     Parameters
     ----------
@@ -163,7 +163,7 @@ def run(results: dict,
     results : dict
         Result dictionary produced using ``pocoMC``.
     full_run : bool
-        Whether or not to include run diagnostics beyond the basic run. Default: ``True``.
+        If True, include run diagnostics beyond the basic run. Default: ``True``.
     width : float
         Width of figure. Default: ``10.0``.
     height : float

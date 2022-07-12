@@ -50,8 +50,8 @@ class Reparameterise:
         self.sigma = None
         self.cov = None
         self.L = None
-        self.Linv = None
-        self.logdetL = None
+        self.L_inv = None
+        self.log_det_L = None
         self.scale = scale
         self.diagonal = diagonal
 
@@ -150,8 +150,8 @@ class Reparameterise:
         else:
             self.cov = np.cov(u.T)
             self.L = np.linalg.cholesky(self.cov)
-            self.Linv = np.linalg.inv(self.L)
-            self.logdetL = np.linalg.slogdet(self.L)[1]
+            self.L_inv = np.linalg.inv(self.L)
+            self.log_det_L = np.linalg.slogdet(self.L)[1]
 
     def forward(self, x: np.ndarray):
         """
@@ -186,17 +186,17 @@ class Reparameterise:
         -------
         x : np.ndarray
             Transformed input data
-        logdetJ : np.array
+        log_det_J : np.array
             Logarithm of determinant of Jacobian matrix transformation.
         """
         if self.scale:
-            x, logdetJ = self._inverse_affine(u)
-            x, logdetJ_prime = self._inverse(x)
-            logdetJ += logdetJ_prime
+            x, log_det_J = self._inverse_affine(u)
+            x, log_det_J_prime = self._inverse(x)
+            log_det_J += log_det_J_prime
         else:
-            x, logdetJ = self._inverse(u)
+            x, log_det_J = self._inverse(u)
 
-        return x, logdetJ
+        return x, log_det_J
 
     def _forward(self, x: np.ndarray):
         """
@@ -231,7 +231,7 @@ class Reparameterise:
         -------
         x : np.ndarray
             Transformed input data
-        logdetJ : np.array
+        log_det_J : np.array
             Logarithm of determinant of Jacobian matrix transformation.
         """
         x = np.empty(u.shape)
@@ -242,9 +242,9 @@ class Reparameterise:
         x[:, self.mask_right], J[:, self.mask_right] = self._inverse_right(u)
         x[:, self.mask_both], J[:, self.mask_both] = self._inverse_both(u)
 
-        logdetJ = np.array([np.linalg.slogdet(Ji * np.identity(len(Ji)))[1] for Ji in J])
+        log_det_J = np.array([np.linalg.slogdet(Ji * np.identity(len(Ji)))[1] for Ji in J])
 
-        return x, logdetJ
+        return x, log_det_J
 
     def _forward_affine(self, x: np.ndarray):
         """
@@ -261,7 +261,7 @@ class Reparameterise:
         if self.diagonal:
             return (x - self.mu) / self.sigma
         else:
-            return np.array([np.dot(self.Linv, xi - self.mu) for xi in x])
+            return np.array([np.dot(self.L_inv, xi - self.mu) for xi in x])
 
     def _inverse_affine(self, u: np.ndarray):
         """
@@ -280,11 +280,11 @@ class Reparameterise:
         """
         if self.diagonal:
             J = self.sigma
-            logdetJ = np.linalg.slogdet(J * np.identity(len(J)))[1]
-            return self.mu + self.sigma * u, logdetJ * np.ones(len(u))
+            log_det_J = np.linalg.slogdet(J * np.identity(len(J)))[1]
+            return self.mu + self.sigma * u, log_det_J * np.ones(len(u))
         else:
             x = self.mu + np.array([np.dot(self.L, ui) for ui in u])
-            return x, self.logdetL * np.ones(len(u))
+            return x, self.log_det_L * np.ones(len(u))
 
     def _forward_left(self, x: np.ndarray):
         """
@@ -415,7 +415,7 @@ class Reparameterise:
         -------
         x : np.ndarray
             Transformed input data
-        logdetJ : np.array
+        log_det_J : np.array
             Logarithm of determinant of Jacobian matrix transformation.
         """
         return u[:, self.mask_none], np.ones(u.shape)[:, self.mask_none]

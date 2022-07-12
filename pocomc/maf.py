@@ -16,7 +16,7 @@ def create_masks(input_size: int,
     Helper function to create masks.
     The masks are used to hide certain connections
     in the neural network thus preserving the 
-    autogressive property.
+    autoregressive property.
     
     Parameters
     ----------
@@ -42,7 +42,7 @@ def create_masks(input_size: int,
     # degrees of connections between layers -- ensure at most in_degree - 1 connections
     degrees = []
 
-    # set input degrees to what is provided in args (the flipped order of the previous layer in a stack of mades);
+    # set input degrees to what is provided in args (the flipped order of the previous layer in a stack of MADEs);
     # else init input degrees based on strategy in input_order (sequential or random)
     if input_order == 'sequential':
         degrees += [torch.arange(input_size)] if input_degrees is None else [input_degrees]
@@ -379,7 +379,7 @@ class MADE(nn.Module):
             Conditional input data.
         sum_log_abs_det_jacobians : torch.Tensor
             Sum of the natural logarithm of the jacobian
-            determinant of the trasnsformation.
+            determinant of the transformation.
         Returns
         -------
         Transformed data.
@@ -552,7 +552,7 @@ class MAF(nn.Module):
         scale : float
             Scale parameter for prior.
         type : str
-            Type of prior to use. Options are ``"Laplce"`` and ``"Gaussian"``.
+            Type of prior to use. Options are ``"Laplace"`` and ``"Gaussian"``.
         Returns
         -------
         Log-prior of weights.
