@@ -5,7 +5,7 @@ import torch
 
 from .input_validation import assert_array_2d
 from .mcmc import preconditioned_metropolis, metropolis
-from .tools import resample_equal, FunctionWrapper, numpy_to_torch, compute_ess, ProgressBar
+from .tools import resample_equal, FunctionWrapper, numpy_to_torch, compute_ess, increment_logz, ProgressBar
 from .scaler import Reparameterise
 from .flow import Flow
 
@@ -555,7 +555,7 @@ class Sampler:
         try:
             idx = resample_equal(np.arange(len(u)), w, self.random_state)
         except IndexError:
-            warnings.warn("Systematic resampling failed. Trying multinomial resampling.")
+            #warnings.warn("Systematic resampling failed. Trying multinomial resampling.")
             idx = np.random.choice(np.arange(len(u)), p=w, size=len(w))
         self.logw = 0.0
 
@@ -594,7 +594,7 @@ class Sampler:
                 self.beta = beta
                 self.pbar.update_stats(dict(beta=self.beta, ESS=ess_est))
                 # Update evidence 
-                self.logz += np.mean(self.logw)
+                self.logz += increment_logz(self.logw)
                 self.saved_logz.append(self.logz)
                 self.pbar.update_stats(dict(logZ=self.logz))
                 break
