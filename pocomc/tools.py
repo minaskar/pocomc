@@ -28,6 +28,26 @@ def compute_ess(logw: np.ndarray):
     return 1.0 / np.sum(weights * weights) / len(weights)
 
 
+def increment_logz(logw: np.ndarray):
+    r"""
+        Compute log evidence increment factor.
+
+    Parameters
+    ----------
+    logw : ``np.ndarray``
+        Log-weights.
+    Returns
+    -------
+    ess : float
+        logZ increment.
+    """
+    logw_max = np.max(logw)
+    logw_normed = logw - logw_max
+    N = len(logw)
+
+    return logw_max + np.logaddexp.reduce(logw_normed) - np.log(N)
+
+
 def resample_equal(samples: np.ndarray,
                    weights: np.ndarray,
                    random_state: int = None):
