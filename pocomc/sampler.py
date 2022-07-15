@@ -1,5 +1,9 @@
+import time
 import warnings
+from pathlib import Path
+from typing import Union
 
+import dill
 import numpy as np
 import torch
 
@@ -91,6 +95,7 @@ class Sampler:
     random_state : int or ``None``
         Initial random seed.
     """
+
     def __init__(self,
                  n_particles: int,
                  n_dim: int,
@@ -115,7 +120,7 @@ class Sampler:
                  flow_config: dict = None,
                  train_config: dict = None,
                  random_state: int = None):
-        
+
         if random_state is not None:
             np.random.seed(random_state)
             torch.manual_seed(random_state)
@@ -215,6 +220,7 @@ class Sampler:
         x_check: np.ndarray
             Input array used to check vectorization settings.
         """
+
         def is_function_vectorized(f, n_test=2):
             try:
                 output_multiple = f(x_check[:n_test, :])
@@ -234,12 +240,14 @@ class Sampler:
         self.vectorize_prior = is_function_vectorized(self.log_prior, 3 if self.n_dim == 2 else 2)
 
     def run(self,
-            prior_samples: np.ndarray,
+            prior_samples: np.ndarray = None,
             ess: float = 0.95,
             gamma: float = 0.75,
             n_min: int = None,
             n_max: int = None,
-            progress: bool = True):
+            progress: bool = True,
+            load_state_path: Union[str, Path] = None,
+            save_every: float = None):  # Save every save_every seconds
         r"""Run Preconditioned Monte Carlo.
 
         Parameters
@@ -261,50 +269,59 @@ class Sampler:
         progress : bool
             If True, print progress bar (default is ``progress=True``).
         """
-        assert_array_2d(prior_samples)
-        if self.infer_vectorization:
-            self.validate_vectorization_settings(prior_samples)  
-
-        # Run parameters
-        self.ess = ess
-        self.gamma = gamma
-        if n_min is None:
-            self.n_min = self.n_dim // 2
+        if load_state_path is not None:
+            self.load_state(load_state_path)
         else:
-            self.n_min = int(n_min)
-        if n_max is None:
-            self.n_max = int(10 * self.n_dim)
-        else:
-            self.n_max = int(n_max)
-        self.progress = progress
+            if prior_samples is None:
+                raise ValueError(
+                    f"Prior samples not provided. You can only omit these if you load an existing PMC state by "
+                    f"specifying load_state_path."
+                )
 
-        # Set state parameters
-        self.x = np.copy(prior_samples)
-        self.scaler.fit(self.x)
-        self.u = self.scaler.forward(self.x)
-        self.J = self.scaler.inverse(self.u)[1]
-        self.P = self._log_prior(self.x)
-        self.L = self._log_like(self.x)
-        self.n_call += len(self.x)
+            assert_array_2d(prior_samples)
+            if self.infer_vectorization:
+                self.validate_vectorization_settings(prior_samples)
 
-        # Pre-train flow if required
-        if self.threshold >= 1.0:
-            self.use_flow = True
-            self._train(self.u)
+                # Run parameters
+            self.ess = ess
+            self.gamma = gamma
+            if n_min is None:
+                self.n_min = self.n_dim // 2
+            else:
+                self.n_min = int(n_min)
+            if n_max is None:
+                self.n_max = int(10 * self.n_dim)
+            else:
+                self.n_max = int(n_max)
+            self.progress = progress
 
-        # Save state
-        self.saved_samples.append(self.x)
-        self.saved_logl.append(self.L)
-        self.saved_logp.append(self.P)
-        self.saved_iter.append(self.t)
-        self.saved_beta.append(self.beta)
-        self.saved_logw.append(np.zeros(self.n_walkers))
-        self.saved_logz.append(self.logz)
-        self.saved_ess.append(self.ess)
-        self.saved_n_call.append(self.n_call)
-        self.saved_accept.append(self.accept)
-        self.saved_scale.append(self.scale / self.ideal_scale)
-        self.saved_steps.append(0)
+            # Set state parameters
+            self.x = np.copy(prior_samples)
+            self.scaler.fit(self.x)
+            self.u = self.scaler.forward(self.x)
+            self.J = self.scaler.inverse(self.u)[1]
+            self.P = self._log_prior(self.x)
+            self.L = self._log_like(self.x)
+            self.n_call += len(self.x)
+
+            # Pre-train flow if required
+            if self.threshold >= 1.0:
+                self.use_flow = True
+                self._train(self.u)
+
+            # Save state
+            self.saved_samples.append(self.x)
+            self.saved_logl.append(self.L)
+            self.saved_logp.append(self.P)
+            self.saved_iter.append(self.t)
+            self.saved_beta.append(self.beta)
+            self.saved_logw.append(np.zeros(self.n_walkers))
+            self.saved_logz.append(self.logz)
+            self.saved_ess.append(self.ess)
+            self.saved_n_call.append(self.n_call)
+            self.saved_accept.append(self.accept)
+            self.saved_scale.append(self.scale / self.ideal_scale)
+            self.saved_steps.append(0)
 
         # Initialise progress bar
         self.pbar = ProgressBar(self.progress)
@@ -320,8 +337,15 @@ class Sampler:
             )
         )
 
+        t0 = time.time()
+
         # Run Sequential Monte Carlo
         while 1.0 - self.beta >= 1e-4:
+            if save_every is not None:
+                t1 = time.time()
+                if t1 - t0 > save_every:
+                    t0 = t1
+                    self.save_state(f'pmc-{self.beta}.state')
 
             # Choose next beta based on CV of weights
             self._update_beta()
@@ -690,3 +714,15 @@ class Sampler:
             'scale': np.array(self.saved_scale),
             'steps': np.array(self.saved_steps)
         }
+
+    def save_state(self, path: Union[str, Path]):
+        print(f'Saving PMC state to {path}')
+        with open(path, 'wb') as f:
+            state = self.__dict__.copy()
+            del state['pbar']  # Cannot be pickled
+            dill.dump(file=f, obj=state)
+
+    def load_state(self, path: Union[str, Path]):
+        with open(path, 'rb') as f:
+            state = dill.load(file=f)
+        self.__dict__ = {**self.__dict__, **state}
