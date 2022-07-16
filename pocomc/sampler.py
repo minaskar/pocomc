@@ -1,3 +1,4 @@
+import os
 import time
 import warnings
 from pathlib import Path
@@ -119,6 +120,8 @@ class Sampler:
                  parallelize_prior: bool = False,
                  flow_config: dict = None,
                  train_config: dict = None,
+                 output_dir: str = None,
+                 output_label: str = None,
                  random_state: int = None):
 
         if random_state is not None:
@@ -199,6 +202,18 @@ class Sampler:
         self.accept = 0.234
         self.target_accept = 0.234
 
+        # Output
+        if output_dir is None:
+            self.output_dir = "states"
+        elif output_dir[-1] == "/":
+            self.output_dir = output_dir[:-1]
+        else:
+            self.output_dir = output_dir
+        if output_label is None:
+            self.output_label = "pmc"
+        else:
+            self.output_label = output_label
+
         # Other
         self.ess = None
         self.gamma = None
@@ -246,8 +261,8 @@ class Sampler:
             n_min: int = None,
             n_max: int = None,
             progress: bool = True,
-            load_state_path: Union[str, Path] = None,
-            save_every: float = None):  # Save every save_every seconds
+            resume_state_path: Union[str, Path] = None,
+            save_every: int = None):
         r"""Run Preconditioned Monte Carlo.
 
         Parameters
@@ -269,8 +284,8 @@ class Sampler:
         progress : bool
             If True, print progress bar (default is ``progress=True``).
         """
-        if load_state_path is not None:
-            self.load_state(load_state_path)
+        if resume_state_path is not None:
+            self.load_state(resume_state_path)
         else:
             if prior_samples is None:
                 raise ValueError(
@@ -337,15 +352,12 @@ class Sampler:
             )
         )
 
-        t0 = time.time()
-
+        self.t_0 = self.t
         # Run Sequential Monte Carlo
         while 1.0 - self.beta >= 1e-4:
             if save_every is not None:
-                t1 = time.time()
-                if t1 - t0 > save_every:
-                    t0 = t1
-                    self.save_state(f'pmc-{self.beta}.state')
+                if (self.t - self.t_0) % int(save_every) == 0 and self.t != self.t_0:
+                    self.save_state(f'{self.output_dir}/{self.output_label}_{self.t}.state')
 
             # Choose next beta based on CV of weights
             self._update_beta()
@@ -717,9 +729,20 @@ class Sampler:
 
     def save_state(self, path: Union[str, Path]):
         print(f'Saving PMC state to {path}')
+        os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, 'wb') as f:
             state = self.__dict__.copy()
             del state['pbar']  # Cannot be pickled
+            try:
+            # remove random module
+            # del state['rstate']
+
+            # deal with pool
+                if state['pool'] is not None:
+                    del state['pool']  # remove pool
+                    del state['distribute']  # remove `pool.map` function hook
+            except:
+                pass
             dill.dump(file=f, obj=state)
 
     def load_state(self, path: Union[str, Path]):

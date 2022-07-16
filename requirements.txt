@@ -4,3 +4,4 @@ tqdm
 matplotlib
 scipy
 corner
+dill

@@ -43,19 +43,19 @@ class SamplerStateTestCase(unittest.TestCase):
         np.random.seed(0)
         prior_samples = np.random.randn(100, 2)
         s = Sampler(100, 2, self.log_likelihood_vectorized, self.log_prior_vectorized, random_state=0)
-        s.run(prior_samples, save_every=1.0)  # Save every 2 seconds
+        s.run(prior_samples, save_every=1)  # Save every iteration
 
         # At this point, we would look at the directory and choose the file we want to load. In this example, we select
         # "pmc-0.2890625.state". Now we rerun the sampler starting from this path. We will not get the exact same
         # results due to RNG.
 
         s = Sampler(100, 2, self.log_likelihood_vectorized, self.log_prior_vectorized, random_state=0)
-        s.run(load_state_path="pmc-0.2890625.state")
+        s.run(resume_state_path="pmc_1.state")
 
         # Remove the generated state files
-        Path("pmc-0.2890625.state").unlink()
-        Path("pmc-0.5223388671875.state").unlink()
-        Path("pmc-0.7686328887939453.state").unlink()
+        Path("pmc_1.state").unlink()
+        Path("pmc_2.state").unlink()
+        Path("pmc_3.state").unlink()
 
     def test_alter_variable(self):
         # Recover old gamma after saving the state to a file
