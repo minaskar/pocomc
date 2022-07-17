@@ -46,16 +46,21 @@ class SamplerStateTestCase(unittest.TestCase):
         s.run(prior_samples, save_every=1)  # Save every iteration
 
         # At this point, we would look at the directory and choose the file we want to load. In this example, we select
-        # "pmc-0.2890625.state". Now we rerun the sampler starting from this path. We will not get the exact same
+        # "pmc_1.state". Now we rerun the sampler starting from this path. We will not get the exact same
         # results due to RNG.
 
+        self.assertTrue(Path("states/pmc_1.state").exists())
+        self.assertTrue(Path("states/pmc_2.state").exists())
+        self.assertTrue(Path("states/pmc_3.state").exists())
+
         s = Sampler(100, 2, self.log_likelihood_vectorized, self.log_prior_vectorized, random_state=0)
-        s.run(resume_state_path="pmc_1.state")
+        s.run(resume_state_path="states/pmc_1.state")
 
         # Remove the generated state files
-        Path("pmc_1.state").unlink()
-        Path("pmc_2.state").unlink()
-        Path("pmc_3.state").unlink()
+        Path("states/pmc_1.state").unlink()
+        Path("states/pmc_2.state").unlink()
+        Path("states/pmc_3.state").unlink()
+        Path("states").rmdir()
 
     def test_alter_variable(self):
         # Recover old gamma after saving the state to a file

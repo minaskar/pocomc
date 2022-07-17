@@ -1,5 +1,3 @@
-import os
-import time
 import warnings
 from pathlib import Path
 from typing import Union
@@ -204,9 +202,7 @@ class Sampler:
 
         # Output
         if output_dir is None:
-            self.output_dir = "states"
-        elif output_dir[-1] == "/":
-            self.output_dir = output_dir[:-1]
+            self.output_dir = Path("states")
         else:
             self.output_dir = output_dir
         if output_label is None:
@@ -352,12 +348,12 @@ class Sampler:
             )
         )
 
-        self.t_0 = self.t
+        t0 = self.t
         # Run Sequential Monte Carlo
         while 1.0 - self.beta >= 1e-4:
             if save_every is not None:
-                if (self.t - self.t_0) % int(save_every) == 0 and self.t != self.t_0:
-                    self.save_state(f'{self.output_dir}/{self.output_label}_{self.t}.state')
+                if (self.t - t0) % int(save_every) == 0 and self.t != t0:
+                    self.save_state(Path(self.output_dir) / f'{self.output_label}_{self.t}.state')
 
             # Choose next beta based on CV of weights
             self._update_beta()
@@ -729,20 +725,17 @@ class Sampler:
 
     def save_state(self, path: Union[str, Path]):
         print(f'Saving PMC state to {path}')
-        os.makedirs(os.path.dirname(path), exist_ok=True)
+        Path(path).parent.mkdir(exist_ok=True)
         with open(path, 'wb') as f:
             state = self.__dict__.copy()
             del state['pbar']  # Cannot be pickled
             try:
-            # remove random module
-            # del state['rstate']
-
-            # deal with pool
+                # deal with pool
                 if state['pool'] is not None:
                     del state['pool']  # remove pool
                     del state['distribute']  # remove `pool.map` function hook
-            except:
-                pass
+            except BaseException as e:
+                print(e)
             dill.dump(file=f, obj=state)
 
     def load_state(self, path: Union[str, Path]):
