@@ -91,6 +91,16 @@ class Sampler:
     train_config : dict or ``None``
         Configuration for training the normalizing flow
         (default is ``train_config=None``).
+    output_dir : ``str`` or ``None``
+        Output directory for storing the state files of the
+        sampler. Default is ``None`` which creates a ``states``
+        directory. Output files can be used to resume a run.
+    output_label : ``str`` or ``None``
+        Label used in state files. Defaullt is ``None`` which
+        corresponds to ``"pmc"``. The saved states are named
+        as ``"{output_dir}/{output_label}_{i}.state"`` where
+        ``i`` is the iteration index.  Output files can be
+        used to resume a run.
     random_state : int or ``None``
         Initial random seed.
     """
@@ -279,6 +289,14 @@ class Sampler:
             The maximum number of MCMC steps per iteration  (default is ``n_min = int(10 * n_dim)``).
         progress : bool
             If True, print progress bar (default is ``progress=True``).
+        resume_state_path : ``Union[str, Path]``
+            Path of state file used to resume a run. Default is ``None`` in which case
+            the sampler does not load any previously saved states. An example of using
+            this option to resume or continue a run is e.g. ``resume_state_path = "states/pmc_1.state"``.
+        save_every : ``int`` or ``None``
+            Argument which determines how often (i.e. every how many iterations) ``pocoMC`` saves
+            state files to the ``output_dir`` directory. Default is ``None`` in which case no state
+            files are stored during the run.
         """
         if resume_state_path is not None:
             self.load_state(resume_state_path)
@@ -724,6 +742,13 @@ class Sampler:
         }
 
     def save_state(self, path: Union[str, Path]):
+        """Save current state of sampler to file.
+
+        Parameters
+        ----------
+        path : ``Union[str, Path]``
+            Path to save state.
+        """
         print(f'Saving PMC state to {path}')
         Path(path).parent.mkdir(exist_ok=True)
         with open(path, 'wb') as f:
@@ -739,6 +764,13 @@ class Sampler:
             dill.dump(file=f, obj=state)
 
     def load_state(self, path: Union[str, Path]):
+        """Load state of sampler from file.
+
+        Parameters
+        ----------
+        path : ``Union[str, Path]``
+            Path from which to load state.
+        """
         with open(path, 'rb') as f:
             state = dill.load(file=f)
         self.__dict__ = {**self.__dict__, **state}

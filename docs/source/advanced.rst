@@ -336,4 +336,44 @@ an ``mpi4py`` pool so that you can utilise multiple nodes.
 The speed-up offered by parallisation in ``pocoMC`` is expected to be linear in the number of particles ``n_particles``.
 
 
+Saving and resuming runs
+------------------------
 
+A useful option, especially for long runs, is to be able to store the state of ``pocoMC`` in a file and also the to use
+that file in order to later continue the same run. This can help avoid disastrous situations in which a run is interupted
+or terminated prematurely (e.g. due to time limititation in computing clusters or possible crashes).
+
+Fortunately, ``pocoMC`` offers both options to save and load a previous state of the sampler.
+
+Saving the state of the sampler
+"""""""""""""""""""""""""""""""
+
+In order to save the state of the sampler during the run, one has to specify how often to save the state in a file. This is
+done using the ``save_every`` argument in the ``run`` method. The default is ``save_every=None`` which means that no state
+is saved during the run. If instead we want to store the state of ``pocoMC`` every e.g. ``3`` iterations, we would do
+something like::
+
+    sampler.run(
+        prior_samples = prior_samples,
+        save_every = 3,
+    )
+
+The default directory in which the state files are saved is a folder named ``states`` in the current directory. One can change
+this using the ``output_dir`` argument when initialising the sampler (e.g. ``output_dir = "new_run"``). By default, the state
+files follow the naming convention ``pmc_{i}.state`` where ``i`` is the iteration index. For instance, if ``save_every=3`` was 
+specified then the ``output_dir`` directory will incliude the files ``pmc_3.state``, ``pmc_6.state``, etc. One can also change
+the label from ``pmc`` to anything else by using the ``output_label`` argument when initialising the sampler (e.g. 
+``output_label="grav_waves"``).
+
+Loading the state of the sampler
+""""""""""""""""""""""""""""""""
+
+Loading a previous state of the sampler and resuming the run from that point requires to provide the path to the specific state
+file to the ``run`` method using the ``resume_state_path`` argument. For instance, if we want to continue the run from the 
+``pmc_3.state`` which is in the ``states`` directory, we would do::
+
+    sampler.run(
+        resume_state_path = "states/pmc_3.state"
+    )
+
+Notice that no prior samples are required to be provided in this case.
