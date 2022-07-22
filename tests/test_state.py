@@ -57,9 +57,13 @@ class SamplerStateTestCase(unittest.TestCase):
         s.run(resume_state_path="states/pmc_1.state")
 
         # Remove the generated state files
-        Path("states/pmc_1.state").unlink()
-        Path("states/pmc_2.state").unlink()
-        Path("states/pmc_3.state").unlink()
+        #Path("states/pmc_1.state").unlink()
+        #Path("states/pmc_2.state").unlink()
+        #Path("states/pmc_3.state").unlink()
+        p = Path("states").glob('**/*')
+        files = [x for x in p if x.is_file()]
+        for f in files:
+            f.unlink()
         Path("states").rmdir()
 
     def test_alter_variable(self):
