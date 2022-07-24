@@ -93,7 +93,7 @@ def resample_equal(samples: np.ndarray,
 
     if abs(np.sum(weights) - 1.) > SQRTEPS:  # same tol as in np.random.choice.
         # Guarantee that the weights will sum to 1.
-        warnings.warn("Weights do not sum to 1 and have been renormalized.")
+        #warnings.warn("Weights do not sum to 1 and have been renormalized.")
         weights = np.array(weights) / np.sum(weights)
 
     # Make N subdivisions and choose positions with a consistent random offset.

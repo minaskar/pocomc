@@ -39,6 +39,9 @@ class Sampler:
     reflective : list
         List of indices that correspond to parameters with
         reflective boundary conditions.
+    transform : ``str``
+        Type of transform to use for bounded parameters. Options are ``"probit"``
+        (default) and ``"logit"``.
     threshold : float
         The threshold value for the (normalised) proposal
         scale parameter below which normalising flow
@@ -113,6 +116,7 @@ class Sampler:
                  bounds: np.ndarray = None,
                  periodic=None,
                  reflective=None,
+                 transform="probit",
                  threshold: float = 1.0,
                  scale: bool = True,
                  rescale: bool = False,
@@ -201,7 +205,15 @@ class Sampler:
         self.use_flow = False
 
         # Scaler
-        self.scaler = Reparameterise(self.n_dim, bounds, periodic, reflective, scale, diagonal)
+        self.scaler = Reparameterise(
+            n_dim=self.n_dim,
+            bounds=bounds,
+            periodic=periodic, 
+            reflective=reflective,
+            transform=transform,
+            scale=scale,
+            diagonal=diagonal
+        )
         self.rescale = rescale
 
         # MCMC parameters

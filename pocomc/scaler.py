@@ -1,6 +1,8 @@
+import imp
 from typing import Union, List
 
 import numpy as np
+from scipy.special import erf, erfinv
 
 from pocomc.input_validation import assert_array_float, assert_array_within_interval
 
@@ -11,28 +13,32 @@ class Reparameterise:
 
     Parameters
     ----------
-    ndim : int
+    n_dim : ``int``
         Dimensionality of sampling problem
-    bounds : array or list or None
+    bounds : ``np.ndarray`` or ``list`` or ``None``
         Parameter bounds
-    periodic : list
+    periodic : ``list``
         List of indices corresponding to parameters with periodic boundary conditions
-    reflective : list
+    reflective : ``list``
         List of indices corresponding to parameters with periodic boundary conditions
-    scale : bool
+    transform : ``str``
+        Type of transform to use for bounded parameters. Options are ``"probit"``
+        (default) and ``"logit"``.
+    scale : ``bool``
         Rescale parameters to zero mean and unit variance (default is true)
-    diagonal : bool
+    diagonal : ``bool``
         Use diagonal transformation (i.e. ignore covariance) (default is true)
     """
     def __init__(self,
-                 ndim: int,
+                 n_dim: int,
                  bounds: Union[np.ndarray, list] = None,
                  periodic: List[int] = None,
                  reflective: List[int] = None,
+                 transform: str = "probit",
                  scale: bool = True,
                  diagonal: bool = True):
 
-        self.ndim = ndim
+        self.ndim = n_dim
 
         if bounds is None:
             bounds = np.full((self.ndim, 2), np.nan)
@@ -45,6 +51,11 @@ class Reparameterise:
 
         self.periodic = periodic
         self.reflective = reflective
+
+        if transform not in ["logit", "probit"]:
+            raise ValueError("Please provide a valid transformation function (e.g. logit or probit)")
+        else:
+            self.transform = transform
 
         self.mu = None
         self.sigma = None
@@ -155,7 +166,7 @@ class Reparameterise:
 
     def forward(self, x: np.ndarray):
         """
-        Forward transformation (both logit for bounds and affine for all parameters).
+        Forward transformation (both logit/probit for bounds and affine for all parameters).
 
         Parameters
         ----------
@@ -176,7 +187,7 @@ class Reparameterise:
 
     def inverse(self, u: np.ndarray):
         """
-        Inverse transformation (both logit^-1 for bounds and affine for all parameters).
+        Inverse transformation (both logit^-1/probit^-1 for bounds and affine for all parameters).
 
         Parameters
         ----------
@@ -200,7 +211,7 @@ class Reparameterise:
 
     def _forward(self, x: np.ndarray):
         """
-        Forward transformation (only logit for bounds).
+        Forward transformation (only logit/probit for bounds).
 
         Parameters
         ----------
@@ -221,7 +232,7 @@ class Reparameterise:
 
     def _inverse(self, u: np.ndarray):
         """
-        Inverse transformation (only logit^-1 for bounds).
+        Inverse transformation (only logit^-1/probit^-1 for bounds).
 
         Parameters
         ----------
@@ -365,8 +376,14 @@ class Reparameterise:
         Transformed input data
         """
         p = (x[:, self.mask_both] - self.low[self.mask_both]) / (self.high[self.mask_both] - self.low[self.mask_both])
+        np.clip(p, 1e-13, 1.0 - 1e-13)
 
-        return np.log(p / (1 - p))
+        if self.transform == "logit":
+            u = np.log(p / (1.0 - p))
+        elif self.transform == "probit":
+            u = np.sqrt(2.0) * erfinv(2.0 * p - 1.0)
+
+        return u
 
     def _inverse_both(self, u: np.ndarray):
         """
@@ -383,9 +400,14 @@ class Reparameterise:
         J : np.array
             Diagonal of Jacobian matrix.
         """
-        p = np.exp(-np.logaddexp(0, -u[:, self.mask_both]))
-        x = p * (self.high[self.mask_both] - self.low[self.mask_both]) + self.low[self.mask_both]
-        J = (self.high[self.mask_both] - self.low[self.mask_both]) * p * (1.0 - p)
+        if self.transform == "logit":
+            p = np.exp(-np.logaddexp(0, -u[:, self.mask_both]))
+            x = p * (self.high[self.mask_both] - self.low[self.mask_both]) + self.low[self.mask_both]
+            J = (self.high[self.mask_both] - self.low[self.mask_both]) * p * (1.0 - p)
+        elif self.transform == "probit":
+            p = ( erf(u[:, self.mask_both] / np.sqrt(2.0)) + 1.0 ) / 2.0
+            x = p * (self.high[self.mask_both] - self.low[self.mask_both]) + self.low[self.mask_both]
+            J = (self.high[self.mask_both] - self.low[self.mask_both]) * np.exp(-u[:, self.mask_both]**2.0 / 2.0) / np.sqrt(2.0 * np.pi)
         return x, J
 
     def _forward_none(self, x:np.ndarray):
