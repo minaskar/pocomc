@@ -137,6 +137,11 @@
      Comparing two models
     </a>
    </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../tutorials/bridge_sampling.html">
+     Estimating the Model Evidence using Bridge Sampling
+    </a>
+   </li>
   </ul>
  </li>
  <li class="toctree-l1">
@@ -415,6 +420,35 @@ used to resume a run.</p></li>
 <li><p><strong>retrain</strong> (<em>bool</em>) – If True, retrain the normalising flow preconditioner between iterations. Default: <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
 <li><p><strong>progress</strong> (<em>bool</em>) – If True, show progress bar. Default: <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></li>
 </ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pocomc.Sampler.bridge_sampling">
+<span class="sig-name descname"><span class="pre">bridge_sampling</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">maxiter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rtol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-13</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xtol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-13</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thin</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pocomc.Sampler.bridge_sampling" title="Permalink to this definition">#</a></dt>
+<dd><blockquote>
+<div><p>Bridge Sampling estimator for the log model evidence.
+This implements the Gaussianised Bridge Sampling
+algorithm <a class="reference external" href="https://arxiv.org/abs/1912.06073">https://arxiv.org/abs/1912.06073</a> which
+utilises a normalising flow as the auxiliary distribution.</p>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>maxiter</strong> (<code class="docutils literal notranslate"><span class="pre">int</span></code>) – Maximum number of iterations of root-finding procedure.</p></li>
+<li><p><strong>rtol</strong> (<code class="docutils literal notranslate"><span class="pre">float</span></code>) – Relative numerical tolerance of root-finding procedure.</p></li>
+<li><p><strong>xtol</strong> (<code class="docutils literal notranslate"><span class="pre">float</span></code>) – Absolute numerical tolerance of root-finding procedure.</p></li>
+<li><p><strong>thin</strong> (<code class="docutils literal notranslate"><span class="pre">int</span></code>) – Thin the samples by a integer factor. Default is <code class="docutils literal notranslate"><span class="pre">thin=1</span></code>
+(no thinning).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>logr</strong> (<code class="docutils literal notranslate"><span class="pre">float</span></code>) – Estimate of log model evidence.</p></li>
+<li><p><strong>logr_err</strong> (<code class="docutils literal notranslate"><span class="pre">float</span></code>) – Estimate of the 1-sigma uncertainty of the log model evidence.</p></li>
+</ul>
+</p>
 </dd>
 </dl>
 </dd></dl>

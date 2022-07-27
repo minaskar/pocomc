@@ -6,7 +6,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
 
-    <title>Evidence estimation &#8212; pocoMC</title>
+    <title>Estimating the Model Evidence using Bridge Sampling &#8212; pocoMC</title>
     
   <!-- Loaded before other Sphinx assets -->
   <link href="../_static/styles/theme.css?digest=1999514e3f237ded88cf" rel="stylesheet">
@@ -38,10 +38,12 @@
     <script src="../_static/togglebutton.js"></script>
     <script src="../_static/scripts/sphinx-book-theme.js?digest=f31d14ad54b65d19161ba51d4ffff3a77ae00456"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+    <script>window.MathJax = {"options": {"processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+    <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Examples" href="../examples.html" />
-    <link rel="prev" title="Advanced example" href="advanced_example.html" />
+    <link rel="prev" title="Comparing two models" href="model_comparison.html" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="docsearch:language" content="None">
     
@@ -112,6 +114,11 @@
    Background
   </a>
  </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="../advanced.html">
+   Advanced Guide
+  </a>
+ </li>
  <li class="toctree-l1 current active has-children">
   <a class="reference internal" href="../tutorials.html">
    Tutorials
@@ -123,13 +130,18 @@
   </label>
   <ul class="current">
    <li class="toctree-l2">
-    <a class="reference internal" href="advanced_example.html">
-     Advanced example
+    <a class="reference internal" href="fitting.html">
+     Fitting a model to data
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="model_comparison.html">
+     Comparing two models
     </a>
    </li>
    <li class="toctree-l2 current active">
     <a class="current reference internal" href="#">
-     Evidence estimation
+     Estimating the Model Evidence using Bridge Sampling
     </a>
    </li>
   </ul>
@@ -160,8 +172,28 @@
     </a>
    </li>
    <li class="toctree-l2">
+    <a class="reference internal" href="../api/flow.html">
+     Flow
+    </a>
+   </li>
+   <li class="toctree-l2">
     <a class="reference internal" href="../api/plotting.html">
      Plotting
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../api/tools.html">
+     Tools
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../api/mcmc.html">
+     MCMC
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../api/scaler.html">
+     Scaler
     </a>
    </li>
   </ul>
@@ -281,23 +313,90 @@ title="Print to PDF"
     </ul>
   </div>
 </div>
+<label for="__page-toc"
+  class="headerbtn headerbtn-page-toc"
+  
+>
+  
+
+<span class="headerbtn__icon-container">
+  <i class="fas fa-list"></i>
+  </span>
+
+</label>
 
     </div>
 </div>
 
 <!-- Table of contents -->
 <div class="col-md-3 bd-toc show noprint">
+    <div class="tocsection onthispage pt-5 pb-3">
+        <i class="fas fa-list"></i> Contents
+    </div>
+    <nav id="bd-toc-nav" aria-label="Page">
+        <ul class="visible nav section-nav flex-column">
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#background">
+   Background
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#defining-the-likelihood-and-prior">
+   Defining the likelihood and prior
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#running-pmc">
+   Running PMC
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#bridge-sampling">
+   Bridge Sampling
+  </a>
+ </li>
+</ul>
+
+    </nav>
 </div>
     </div>
     <div class="article row">
         <div class="col pl-md-3 pl-lg-5 content-container">
             <!-- Table of contents that is only displayed when printing the page -->
             <div id="jb-print-docs-body" class="onlyprint">
-                <h1>Evidence estimation</h1>
+                <h1>Estimating the Model Evidence using Bridge Sampling</h1>
                 <!-- Table of contents -->
                 <div id="print-main-content">
                     <div id="jb-print-toc">
                         
+                        <div>
+                            <h2> Contents </h2>
+                        </div>
+                        <nav aria-label="Page">
+                            <ul class="visible nav section-nav flex-column">
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#background">
+   Background
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#defining-the-likelihood-and-prior">
+   Defining the likelihood and prior
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#running-pmc">
+   Running PMC
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#bridge-sampling">
+   Bridge Sampling
+  </a>
+ </li>
+</ul>
+
+                        </nav>
                     </div>
                 </div>
             </div>
@@ -305,8 +404,116 @@ title="Print to PDF"
                 
               <div>
                 
-  <section class="tex2jax_ignore mathjax_ignore" id="evidence-estimation">
-<h1>Evidence estimation<a class="headerlink" href="#evidence-estimation" title="Permalink to this headline">#</a></h1>
+  <section class="tex2jax_ignore mathjax_ignore" id="estimating-the-model-evidence-using-bridge-sampling">
+<h1>Estimating the Model Evidence using Bridge Sampling<a class="headerlink" href="#estimating-the-model-evidence-using-bridge-sampling" title="Permalink to this headline">#</a></h1>
+<section id="background">
+<h2>Background<a class="headerlink" href="#background" title="Permalink to this headline">#</a></h2>
+<p>In the previous tutorial we showed how one can esstimate the <strong>model evidence</strong> <span class="math notranslate nohighlight">\(\mathcal{Z}\)</span> for two models in order to perform <strong>Bayesian model comparison</strong>. To this end, we computed the <strong>Bayes factor</strong> as the ratio of the two model evidences (i.e. one for each model). The estimates of <span class="math notranslate nohighlight">\(\mathcal{Z}\)</span> which we used were the ones provided by <code class="docutils literal notranslate"><span class="pre">pocoMC</span></code> at the end of the <em>PMC</em> run.</p>
+<p><strong>There is however another way of estimating the model evidence <span class="math notranslate nohighlight">\(\mathcal{Z}\)</span>, called Bridge Sampling, that is much more accurate.</strong></p>
+<p>Bridge sampling estimates the model evidence <span class="math notranslate nohighlight">\(\mathcal{Z}\)</span> using an auxiliary distribution <span class="math notranslate nohighlight">\(\mathcal{Q}(\theta)\)</span>, in addition to the posterior distribution <span class="math notranslate nohighlight">\(\mathcal{P}(\theta)\)</span>. The basic idea is to use samples from both the auxiliary and the posterior distribution in order to get the evidence:</p>
+<div class="math notranslate nohighlight">
+\[
+\mathcal{Z}_{\mathcal{P}} = \frac{\mathbb{E}_{\mathcal{Q}}[\alpha(\theta)\mathcal{P}(\theta)]}{\mathbb{E}_{\mathcal{P}}[\alpha(\theta)\mathcal{Q}(\theta)]}\mathcal{Z}_{\mathcal{Q}}
+\]</div>
+<p>where <span class="math notranslate nohighlight">\(\alpha(\theta)\)</span> is an arbitrary function, called *bridge function, which controls the efficiency of the estimator. The use of samples from both distributions is characteristic of Bridge Sampling, unlike other estimators (e.g. Importance Sampling, Harmonic Mean, Nested Sampling, etc.) which rely on a single distribution. This important difference allows Bridge Sampling to constrain <span class="math notranslate nohighlight">\(\mathcal{Z}\)</span> both from above and below thus resulting in very accurate and unbiased estimates.</p>
+<p>In <code class="docutils literal notranslate"><span class="pre">pocoMC</span></code> we implement the powerful <a class="reference external" href="https://arxiv.org/abs/1912.06073"><strong>Gaussianised Bridge Sampling</strong></a> algorithm which utilises the <em>Normalising Flow (NF)</em> as the auxiliary distribution. Furthermore, the bridge function <span class="math notranslate nohighlight">\(\alpha(\theta)\)</span> has been chosen such that the estimate of <span class="math notranslate nohighlight">\(\mathcal{Z}\)</span> is optimal (i.e. lowest variance).</p>
+</section>
+<section id="defining-the-likelihood-and-prior">
+<h2>Defining the likelihood and prior<a class="headerlink" href="#defining-the-likelihood-and-prior" title="Permalink to this headline">#</a></h2>
+<p>For this example we will use a simple 2-D Rosenbrock (banana) distribution with a uniform prior <span class="math notranslate nohighlight">\(\mathcal{U}(-5,5)\)</span>. The reason for this is that we know the analytical value of <span class="math notranslate nohighlight">\(\log\mathcal{Z}_{an} = -5.804\)</span>. Of course the method of Bridge Sampling can be applied to any posterior distribution with a proper prior.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="kn">import</span> <span class="nn">pocomc</span> <span class="k">as</span> <span class="nn">pc</span>
+<span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="mi">42</span><span class="p">)</span>
+
+<span class="n">n_dim</span> <span class="o">=</span> <span class="mi">2</span>
+
+<span class="n">low</span> <span class="o">=</span> <span class="o">-</span><span class="mf">5.0</span>
+<span class="n">high</span> <span class="o">=</span> <span class="mf">5.0</span>
+
+<span class="n">lower</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">n_dim</span><span class="p">,</span> <span class="n">low</span><span class="p">)</span> <span class="c1"># lower bound of the prior</span>
+<span class="n">upper</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">n_dim</span><span class="p">,</span> <span class="n">high</span><span class="p">)</span> <span class="c1"># upper bound of the prior</span>
+<span class="n">bound</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((</span><span class="n">lower</span><span class="p">,</span> <span class="n">upper</span><span class="p">))</span><span class="o">.</span><span class="n">T</span>
+<span class="n">diff</span> <span class="o">=</span> <span class="n">bound</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">bound</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+<span class="n">const</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">diff</span><span class="p">))</span>
+
+<span class="k">def</span> <span class="nf">log_prior</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">x</span><span class="o">&gt;</span><span class="n">high</span><span class="p">)</span> <span class="ow">or</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">x</span><span class="o">&lt;</span><span class="n">low</span><span class="p">):</span>
+        <span class="k">return</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span> 
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="o">-</span><span class="n">const</span>
+
+<span class="c1"># vectorised loglikelihood</span>
+<span class="k">def</span> <span class="nf">log_like_vec</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+
+    <span class="n">f</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="mf">100.0</span><span class="o">*</span><span class="p">(</span><span class="n">x</span><span class="p">[:,::</span><span class="mi">2</span><span class="p">]</span><span class="o">**</span><span class="mf">2.0</span> <span class="o">-</span> <span class="n">x</span><span class="p">[:,</span><span class="mi">1</span><span class="p">::</span><span class="mi">2</span><span class="p">])</span><span class="o">**</span><span class="mf">2.0</span> <span class="o">+</span> <span class="p">(</span><span class="n">x</span><span class="p">[:,::</span><span class="mi">2</span><span class="p">]</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">)</span><span class="o">**</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="o">-</span> <span class="n">f</span>
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="running-pmc">
+<h2>Running PMC<a class="headerlink" href="#running-pmc" title="Permalink to this headline">#</a></h2>
+<p>The next step is to actually sample from the posterior using PMC as usual.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">n_particles</span> <span class="o">=</span> <span class="mi">1000</span>
+
+<span class="n">prior_samples</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">low</span><span class="p">,</span> <span class="n">high</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">n_particles</span><span class="p">,</span> <span class="n">n_dim</span><span class="p">))</span>
+
+<span class="n">sampler</span> <span class="o">=</span> <span class="n">pc</span><span class="o">.</span><span class="n">Sampler</span><span class="p">(</span><span class="n">n_particles</span><span class="p">,</span>
+                     <span class="n">n_dim</span><span class="p">,</span> 
+                     <span class="n">log_like_vec</span><span class="p">,</span> 
+                     <span class="n">log_prior</span><span class="p">,</span> 
+                     <span class="n">bounds</span><span class="o">=</span><span class="n">bound</span><span class="p">,</span>
+                     <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span>
+                     <span class="p">)</span>
+
+<span class="n">sampler</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">prior_samples</span><span class="p">)</span>
+
+<span class="n">sampler</span><span class="o">.</span><span class="n">add_samples</span><span class="p">(</span><span class="mi">9000</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;logZ estimated using PMC : &quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">sampler</span><span class="o">.</span><span class="n">results</span><span class="p">[</span><span class="s2">&quot;logz&quot;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span><span class="mi">3</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Iter: 28it [01:56,  4.15s/it, beta=1, calls=57000, ESS=0.959, logZ=-5.77, accept=0.258, N=2, scale=1.27, corr=0.637]      
+Iter: 9it [00:00, 10.60it/s, beta=1, calls=75000, ESS=0.95, logZ=-5.77, accept=0.238, N=2, scale=1.34, corr=0.656]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>logZ estimated using PMC :  -5.768
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="bridge-sampling">
+<h2>Bridge Sampling<a class="headerlink" href="#bridge-sampling" title="Permalink to this headline">#</a></h2>
+<p>Now that we have successfuly sampled the posterior, we can move on to estimate the log model evidence <span class="math notranslate nohighlight">\(\log\mathcal{Z}\)</span> using Bridge Sampling.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">logz_bs</span><span class="p">,</span> <span class="n">logz_bs_error</span> <span class="o">=</span> <span class="n">sampler</span><span class="o">.</span><span class="n">bridge_sampling</span><span class="p">()</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;logZ estimated using Bridge Sampling : &quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">logz_bs</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span> <span class="s2">&quot; +- &quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">logz_bs_error</span><span class="p">,</span><span class="mi">3</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>logZ estimated using Bridge Sampling :  -5.801  +-  0.003
+</pre></div>
+</div>
+</div>
+</div>
+<p>The Bridge Sampling estimate is much closer to the true value of <span class="math notranslate nohighlight">\(\log\mathcal{Z}_{a}-5.804\)</span> and the error-bar looks reasonable. Although the difference between the two methods is small in this example, this is not generally the case. In particular, for higher dimensional problems,  Bridge Sampling should always be preferred!</p>
+</section>
 </section>
 
 
@@ -317,11 +524,11 @@ title="Print to PDF"
                 
     <!-- Previous / next buttons -->
 <div class='prev-next-area'>
-    <a class='left-prev' id="prev-link" href="advanced_example.html" title="previous page">
+    <a class='left-prev' id="prev-link" href="model_comparison.html" title="previous page">
         <i class="fas fa-angle-left"></i>
         <div class="prev-next-info">
             <p class="prev-next-subtitle">previous</p>
-            <p class="prev-next-title">Advanced example</p>
+            <p class="prev-next-title">Comparing two models</p>
         </div>
     </a>
     <a class='right-next' id="next-link" href="../examples.html" title="next page">
