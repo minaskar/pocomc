@@ -5,10 +5,12 @@ from typing import Union
 import dill
 import numpy as np
 import torch
+from scipy.special import logsumexp
+from scipy.optimize import root_scalar
 
 from .input_validation import assert_array_2d
 from .mcmc import preconditioned_metropolis, metropolis
-from .tools import resample_equal, FunctionWrapper, numpy_to_torch, compute_ess, increment_logz, ProgressBar
+from .tools import resample_equal, FunctionWrapper, numpy_to_torch, torch_to_numpy, compute_ess, increment_logz, ProgressBar
 from .scaler import Reparameterise
 from .flow import Flow
 
@@ -39,6 +41,9 @@ class Sampler:
     reflective : list
         List of indices that correspond to parameters with
         reflective boundary conditions.
+    transform : ``str``
+        Type of transform to use for bounded parameters. Options are ``"probit"``
+        (default) and ``"logit"``.
     threshold : float
         The threshold value for the (normalised) proposal
         scale parameter below which normalising flow
@@ -113,6 +118,7 @@ class Sampler:
                  bounds: np.ndarray = None,
                  periodic=None,
                  reflective=None,
+                 transform="probit",
                  threshold: float = 1.0,
                  scale: bool = True,
                  rescale: bool = False,
@@ -201,7 +207,15 @@ class Sampler:
         self.use_flow = False
 
         # Scaler
-        self.scaler = Reparameterise(self.n_dim, bounds, periodic, reflective, scale, diagonal)
+        self.scaler = Reparameterise(
+            n_dim=self.n_dim,
+            bounds=bounds,
+            periodic=periodic, 
+            reflective=reflective,
+            transform=transform,
+            scale=scale,
+            diagonal=diagonal
+        )
         self.rescale = rescale
 
         # MCMC parameters
@@ -774,3 +788,79 @@ class Sampler:
         with open(path, 'rb') as f:
             state = dill.load(file=f)
         self.__dict__ = {**self.__dict__, **state}
+
+    def bridge_sampling(self, maxiter=2000, rtol=1e-13, xtol=1e-13, thin=1):
+        r"""
+            Bridge Sampling estimator for the log model evidence.
+            This implements the Gaussianised Bridge Sampling 
+            algorithm https://arxiv.org/abs/1912.06073 which
+            utilises a normalising flow as the auxiliary distribution.
+
+        Parameters
+        ----------
+        maxiter : ``int``
+            Maximum number of iterations of root-finding procedure.
+        rtol : ``float``
+            Relative numerical tolerance of root-finding procedure.
+        xtol : ``float``
+            Absolute numerical tolerance of root-finding procedure.
+        thin : ``int``
+            Thin the samples by a integer factor. Default is ``thin=1``
+            (no thinning).
+        Returns
+        -------
+        logr : ``float``
+            Estimate of log model evidence.
+        logr_err : ``float``
+            Estimate of the 1-sigma uncertainty of the log model evidence.
+        """
+
+        x = self.results.get("samples")[::thin]
+        l = self.results.get("loglikelihood")[::thin]
+        p = self.results.get("logprior")[::thin]
+        ess = self.ess
+        
+        N1 = len(x)
+        N2 = len(x)
+
+        s1 = N1 / (N1+N2)
+        s2 = N2 / (N1+N2)
+
+        theta_prop = torch.randn((N2, self.n_dim))
+        u_prop, log_abs_det_jac = self.flow.inverse(theta_prop)
+        logg_i = torch.sum(self.flow.flow.base_dist.log_prob(theta_prop) - log_abs_det_jac, dim=1)
+        u_prop = torch_to_numpy(u_prop)
+        x_prop, J_prop = self.scaler.inverse(u_prop)
+        logg_i = torch_to_numpy(logg_i) - J_prop
+
+        u = self.scaler.forward(x)
+        x, J = self.scaler.inverse(u)
+        logg_j = torch_to_numpy(self.flow.logprob(numpy_to_torch(u))) - J
+
+        logp_i = self._log_like(x_prop) + self._log_prior(x_prop)
+        logp_j = p + l
+
+        _a = logg_j - logp_j - np.log(N1 / N2)
+        _b = logp_i - logg_i + np.log(N1 / N2)
+
+        def score(logr):
+            _c = logsumexp(logr + _a - logsumexp(np.array((logr + _a,
+                        np.zeros_like(_a))), axis=0))
+            _d = logsumexp(-logr + _b - logsumexp(np.array((-logr + _b,
+                        np.zeros_like(_b))), axis=0))
+            return _c - _d
+
+        logr = root_scalar(score, x0=0, x1=5, maxiter=maxiter, rtol=rtol, xtol=xtol).root
+
+        # Uncertainty
+        f1 = np.exp(logp_i - logr - logsumexp(np.array((logp_i - logr +
+                    np.log(s1), logg_i + np.log(s2))), axis=0))
+        f2 = np.exp(logg_j - logsumexp(np.array((logp_j - logr +
+                    np.log(s1), logg_j + np.log(s2))), axis=0))
+        re2_q = np.var(f1) / np.mean(f1)**2 / N2
+
+        tau = 1.0 / ess
+        re2_p = tau * np.var(f2) / np.mean(f2)**2 / N1
+        logr_err = (re2_p + re2_q)**0.5
+
+        return logr, logr_err

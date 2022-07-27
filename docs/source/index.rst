@@ -85,6 +85,11 @@ Copyright 2022 Minas Karamanis and contributors.
 Changelog
 =========
 
+**0.1.2 (27/07/22)**
+
+- Bridge sampling estimator for the model evidence.
+- Added probit transform for bounded parameters.
+
 **0.1.11 (12/07/22)**
 
 - Include saving and loading the state of the sampler. Useful for resuming runs from files.
