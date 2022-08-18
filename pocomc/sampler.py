@@ -210,7 +210,7 @@ class Sampler:
         self.scaler = Reparameterise(
             n_dim=self.n_dim,
             bounds=bounds,
-            periodic=periodic, 
+            periodic=periodic,
             reflective=reflective,
             transform=transform,
             scale=scale,
@@ -344,8 +344,10 @@ class Sampler:
             self.u = self.scaler.forward(self.x)
             self.J = self.scaler.inverse(self.u)[1]
             self.P = self._log_prior(self.x)
-            self.L = self._log_like(self.x)
-            self.n_call += len(self.x)
+            finite_prior_mask = np.isfinite(self.P)
+            self.L = np.full((len(self.x),), -np.inf)
+            self.L[finite_prior_mask] = self._log_like(self.x[finite_prior_mask])
+            self.n_call += sum(finite_prior_mask)
 
             # Pre-train flow if required
             if self.threshold >= 1.0:
@@ -549,7 +551,7 @@ class Sampler:
         n_steps = results.get('steps')
         self.accept = results.get('accept')
 
-        self.n_call += n_steps * len(x)
+        self.n_call += results.get('calls')
 
         self.saved_n_call.append(self.n_call)
         self.saved_accept.append(self.accept)
@@ -819,7 +821,7 @@ class Sampler:
         l = self.results.get("loglikelihood")[::thin]
         p = self.results.get("logprior")[::thin]
         ess = self.ess
-        
+
         N1 = len(x)
         N2 = len(x)
 
@@ -837,7 +839,11 @@ class Sampler:
         x, J = self.scaler.inverse(u)
         logg_j = torch_to_numpy(self.flow.logprob(numpy_to_torch(u))) - J
 
-        logp_i = self._log_like(x_prop) + self._log_prior(x_prop)
+        log_prior_tmp = self._log_prior(x_prop)
+        finite_prior_mask = np.isfinite(self._log_like(x_prop))
+        log_like_tmp = np.full((len(x_prop), ), -np.inf)
+        log_like_tmp[finite_prior_mask] = self._log_prior(x_prop[finite_prior_mask])
+        logp_i = log_prior_tmp + log_like_tmp
         logp_j = p + l
 
         _a = logg_j - logp_j - np.log(N1 / N2)

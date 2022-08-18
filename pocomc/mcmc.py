@@ -69,6 +69,8 @@ def preconditioned_metropolis(state_dict: dict,
     -------
     Results dictionary
     """
+    # Likelihood call counter
+    n_calls = 0
 
     # Clone state variables
     u = torch.clone(numpy_to_torch(state_dict.get('u')))
@@ -120,8 +122,11 @@ def preconditioned_metropolis(state_dict: dict,
         J_prime = numpy_to_torch(J_prime)
 
         # Compute log-likelihood, log-prior, and log-posterior
-        L_prime = numpy_to_torch(log_like(torch_to_numpy(x_prime)))
         P_prime = numpy_to_torch(log_prior(torch_to_numpy(x_prime)))
+        finite_prior_mask = torch.isfinite(P_prime)
+        L_prime = torch.full((len(x_prime),), -torch.inf)
+        L_prime[finite_prior_mask] = numpy_to_torch(log_like(torch_to_numpy(x_prime[finite_prior_mask])))
+        n_calls += sum(finite_prior_mask)
         Z_prime = numpy_to_torch(log_prob(torch_to_numpy(L_prime), torch_to_numpy(P_prime), beta))
 
         # Compute Metropolis factors
@@ -180,7 +185,8 @@ def preconditioned_metropolis(state_dict: dict,
         P=torch_to_numpy(P),
         scale=sigma.item(),
         accept=torch.mean(alpha).item(),
-        steps=i
+        steps=i,
+        calls=n_calls
     )
 
 
@@ -206,6 +212,8 @@ def metropolis(state_dict: dict,
     -------
     Results dictionary
     """
+    # Likelihood call counter
+    n_calls = 0
 
     # Clone state variables
     u = state_dict.get('u').copy()
@@ -250,9 +258,12 @@ def metropolis(state_dict: dict,
         x_prime = scaler.apply_boundary_conditions(x_prime)
 
         # Compute log-likelihood, log-prior, and log-posterior
-        L_prime = log_like(x_prime)
         P_prime = log_prior(x_prime)
+        finite_prior_mask = np.isfinite(P_prime)
+        L_prime = np.full((len(x_prime),), -np.inf)
+        L_prime[finite_prior_mask] = log_like(x_prime[finite_prior_mask])
         Z_prime = log_prob(L_prime, P_prime, beta)
+        n_calls += sum(finite_prior_mask)
 
         # Compute Metropolis factor
         alpha = np.minimum(
@@ -308,7 +319,8 @@ def metropolis(state_dict: dict,
         P=P,
         scale=sigma,
         accept=np.mean(alpha),
-        steps=i
+        steps=i,
+        calls=n_calls
     )
 
 
