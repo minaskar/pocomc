@@ -551,7 +551,7 @@ class Sampler:
         n_steps = results.get('steps')
         self.accept = results.get('accept')
 
-        self.n_call += n_steps * len(x)
+        self.n_call += results.get('calls')
 
         self.saved_n_call.append(self.n_call)
         self.saved_accept.append(self.accept)
