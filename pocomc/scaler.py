@@ -290,8 +290,7 @@ class Reparameterise:
             Diagonal of Jacobian matrix.
         """
         if self.diagonal:
-            J = self.sigma
-            log_det_J = np.linalg.slogdet(J * np.identity(len(J)))[1]
+            log_det_J = np.sum(np.log(self.sigma))
             return self.mu + self.sigma * u, log_det_J * np.ones(len(u))
         else:
             x = self.mu + np.array([np.dot(self.L, ui) for ui in u])
