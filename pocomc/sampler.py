@@ -840,9 +840,9 @@ class Sampler:
         logg_j = torch_to_numpy(self.flow.logprob(numpy_to_torch(u))) - J
 
         log_prior_tmp = self._log_prior(x_prop)
-        finite_prior_mask = np.isfinite(self._log_like(x_prop))
+        finite_prior_mask = np.isfinite(log_prior_tmp)
         log_like_tmp = np.full((len(x_prop), ), -np.inf)
-        log_like_tmp[finite_prior_mask] = self._log_prior(x_prop[finite_prior_mask])
+        log_like_tmp[finite_prior_mask] = self._log_like(x_prop[finite_prior_mask])
         logp_i = log_prior_tmp + log_like_tmp
         logp_j = p + l
 
