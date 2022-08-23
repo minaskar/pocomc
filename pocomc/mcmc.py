@@ -126,7 +126,7 @@ def preconditioned_metropolis(state_dict: dict,
         finite_prior_mask = torch.isfinite(P_prime)
         L_prime = torch.full((len(x_prime),), -torch.inf)
         L_prime[finite_prior_mask] = numpy_to_torch(log_like(torch_to_numpy(x_prime[finite_prior_mask])))
-        n_calls += sum(finite_prior_mask)
+        n_calls += sum(finite_prior_mask).item()
         Z_prime = numpy_to_torch(log_prob(torch_to_numpy(L_prime), torch_to_numpy(P_prime), beta))
 
         # Compute Metropolis factors
@@ -161,7 +161,7 @@ def preconditioned_metropolis(state_dict: dict,
         if progress_bar is not None:
             progress_bar.update_stats(
                 dict(
-                    calls=progress_bar.info['calls'] + n_walkers,
+                    calls=progress_bar.info['calls'] + sum(finite_prior_mask).item(),
                     accept=torch.mean(alpha).item(),
                     N=i,
                     scale=sigma.item() / (2.38 / np.sqrt(n_dim)),
@@ -295,7 +295,7 @@ def metropolis(state_dict: dict,
         if progress_bar is not None:
             progress_bar.update_stats(
                 dict(
-                    calls=progress_bar.info['calls'] + len(u),
+                    calls=progress_bar.info['calls'] + sum(finite_prior_mask),
                     accept=np.mean(alpha),
                     N=i,
                     scale=sigma / (2.38 / np.sqrt(n_dim)),
