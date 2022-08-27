@@ -47,7 +47,7 @@ def log_prior(x):
     if np.any((x < -10.0) | (x > 10.0)):  # If any dimension is out of bounds, the log prior is -infinity
         return -np.inf 
     else:
-        return -const
+        return 0.0
 
 def log_likelihood(x):
     return -np.sum(10.0*(x[:,::2]**2.0 - x[:,1::2])**2.0 \
@@ -55,15 +55,16 @@ def log_likelihood(x):
 
 
 n_particles = 1000
-prior_samples = np.random.uniform(size=(nwalkers, ndim), low=-10.0, high=10.0)
+prior_samples = np.random.uniform(size=(n_particles, n_dim), low=-10.0, high=10.0)
 
-sampler = pc.Sampler(n_particles,
-                     n_dim,
-                     log_likelihood,
-                     log_prior,
-                     vectorize_likelihood=True,
-                     bounds=(-10.0, 10.0)
-                    )
+sampler = pc.Sampler(
+    n_particles,
+    n_dim,
+    log_likelihood,
+    log_prior,
+    vectorize_likelihood=True,
+    bounds=(-10.0, 10.0)
+)
 sampler.run(prior_samples)
 
 results = sampler.results # Dictionary with results
