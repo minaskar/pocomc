@@ -17,7 +17,7 @@ If you are not familiar with these terms I encourage you to visit the :doc:`back
 
 Log-likelihood function
 -----------------------
-Suppose that we want our *likelihood* function to be a *Gaussian density* with 10 paramerers or in 10-D, we would do 
+Suppose that we want our *likelihood* function to be a *Gaussian density* with 10 parameters or in 10-D, we would do
 something like::
 
     import numpy as np
@@ -59,7 +59,7 @@ e.g. :math:`x\sim\mathcal{N}(0,3^{2})`, we would do something like::
     def log_prior(x):
         return - 0.5 * np.dot(x, x) / 3.0**2.0
 
-Alternatively, we can have priors in which not all of the paramerers have the same density a priori. For instance, suppose that 
+Alternatively, we can have priors in which not all of the parameters have the same density a priori. For instance, suppose that
 we want the first five parameters to have a flat/uniform prior :math:`x_{i}\sim\mathcal{U}(-10,10)` for :math:`i=0,1,\dots,4` and
 the last five to have a Gaussian/normal prior  :math:`x_{i}\sim\mathcal{N}(0,3^{2})` for :math:`i=5,6,\dots,9`, we would do::
 
@@ -132,7 +132,7 @@ The sampler also accepts other arguments, for a full list see :doc:`api`. Those 
   or to the log-prior using the arguments ``log_prior_args`` and ``log_prior_kwargs``.
 - The arguments ``vectorize_likelihood`` and ``vectorize_prior`` which accept boolean values allow the user to use vectorized
   log-likelihood and log-prior functions.
-- The ``periodic`` and  ``reflective`` arguments that accept a list of indeces corresponding to parameters of the model that
+- The ``periodic`` and  ``reflective`` arguments that accept a list of indices corresponding to parameters of the model that
   have *periodic* or *reflective* boundary conditions. The first kind include *phase* parameters that might be periodic e.g. 
   on a range :math:`[0,2\pi]`. The latter can arise in cases where parameters are ratios where :math:`a/b` and :math:`b/a`
   are equivalent.
@@ -151,7 +151,7 @@ The sampler also accepts other arguments, for a full list see :doc:`api`. Those 
 
     train_config = dict(validation_split = 0.2, # Percentage of particles to use for validation
                         epochs = 1000, # Maximum number of epochs
-                        batch_size = nparticles, # Batch size used for training
+                        batch_size = n_particles, # Batch size used for training
                         patience = 30, # Number of iterations to wait with no improvement in the (monitor) loss until stopping.
                         monitor = 'val_loss', # Which loss to monitor for early stopping. Options are 'val_loss' and 'loss'.
                         shuffle = True, # Shuffle the particles
@@ -196,7 +196,7 @@ works well for most target distributions.
 Correlation coefficient threshold :math:`\gamma` and number of MCMC steps
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
-The :math:`\gamma` factor ( default is ``gamma = 0.75``) determnines the correlation coefficient threshold of the MCMC trajectories
+The :math:`\gamma` factor ( default is ``gamma = 0.75``) determines the correlation coefficient threshold of the MCMC trajectories
 of the particles. The lower this threshold, the more MCMC steps are performed per iteration and thus less correlated the final positions
 of the particles are with respect to their initial ones. In other words, the value :math:`\gamma` determines the number of MCMC steps
 to perform. The default value works well for most problems. If you find that your particles are not decorrelated enough and you want
@@ -224,7 +224,7 @@ This is a dictionary which includes the following arrays:
 2. ``results['loglikelihood']`` - Array with the **values of the log-likelihood** for the posterior samples given by ``results['samples']``.
 3. ``results['logprior']`` - Array with the **values of the log-prior** for the posterior samples given by ``results['samples']``.
 4. ``results['logz']`` - Array with the evolution of the estimate of the **logarithm of the model evidence** :math:`\log\mathcal{Z}`. This is usually what you need for model comparison.
-5. ``results['iter']`` - Array with number iteration indeces (e.g. ``np.array([0, 1, 2, ...])``)
+5. ``results['iter']`` - Array with number iteration indices (e.g. ``np.array([0, 1, 2, ...])``)
 6. ``results['x']`` - Array with the final samples from all the intermediate distributions.
 7. ``results['logl']`` - Array with the values of the log-likelihood for the samples from all the intermediate distributions.
 8. ``results['logp']`` - Array with the values of the log-prior for the samples from all the intermediate distributions.
@@ -242,7 +242,7 @@ Visualising the results
 
 First of all, we can plot the *run-plot* that shows us various metrics calculated during the run using the command::
 
-    import matplotliib.pyplot as plt
+    import matplotlib.pyplot as plt
 
     pc.plotting.run(results)
     plt.show()
@@ -279,7 +279,7 @@ Parallelisation
 If you want to run computations in parallel, ``pocoMC`` can use a user-defined ``pool`` to execute a variety of expensive operations 
 in parallel rather than in serial. This can be done by passing the ``pool`` object to the sampler upon initialization::
 
-    sampler = pc.Sampler(n_particles = nparticles,
+    sampler = pc.Sampler(n_particles = n_particles,
                          n_dim = ndim,
                          log_likelihood = log_like,
                          log_prior = log_prior,
@@ -328,20 +328,20 @@ it is a good idea to specify how many CPUs should be used for that using::
 
     os.environ["OMP_NUM_THREADS"] = "1"
 
-at the beggining of the code. This can affect the speed of the normalising flow training.
+at the beginning of the code. This can affect the speed of the normalising flow training.
 
 Finally, other pools can also be used, particularly if you plan to use ``pocoMC`` is a supercomputing cluster you may want to use
 an ``mpi4py`` pool so that you can utilise multiple nodes.
 
-The speed-up offered by parallisation in ``pocoMC`` is expected to be linear in the number of particles ``n_particles``.
+The speed-up offered by parallelisation in ``pocoMC`` is expected to be linear in the number of particles ``n_particles``.
 
 
 Saving and resuming runs
 ------------------------
 
 A useful option, especially for long runs, is to be able to store the state of ``pocoMC`` in a file and also the to use
-that file in order to later continue the same run. This can help avoid disastrous situations in which a run is interupted
-or terminated prematurely (e.g. due to time limititation in computing clusters or possible crashes).
+that file in order to later continue the same run. This can help avoid disastrous situations in which a run is interrupted
+or terminated prematurely (e.g. due to time limitation in computing clusters or possible crashes).
 
 Fortunately, ``pocoMC`` offers both options to save and load a previous state of the sampler.
 
@@ -361,7 +361,7 @@ something like::
 The default directory in which the state files are saved is a folder named ``states`` in the current directory. One can change
 this using the ``output_dir`` argument when initialising the sampler (e.g. ``output_dir = "new_run"``). By default, the state
 files follow the naming convention ``pmc_{i}.state`` where ``i`` is the iteration index. For instance, if ``save_every=3`` was 
-specified then the ``output_dir`` directory will incliude the files ``pmc_3.state``, ``pmc_6.state``, etc. One can also change
+specified then the ``output_dir`` directory will include the files ``pmc_3.state``, ``pmc_6.state``, etc. One can also change
 the label from ``pmc`` to anything else by using the ``output_label`` argument when initialising the sampler (e.g. 
 ``output_label="grav_waves"``).
 

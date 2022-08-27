@@ -58,7 +58,7 @@ For the task of Bayesian model comparison, one is interested in the ratio of pos
     \frac{p(\mathcal{M}_{i}\vert d)}{p(\mathcal{M}_{j}\vert d)} = \frac{p(d\vert\mathcal{M}_{i})}{p(d\vert\mathcal{M}_{j})} \times \frac{p(\mathcal{M}_{i})}{p(\mathcal{M}_{j})}
 
 where the first term on the right-hand-side is the so called *Bayes factor* and the second term is the ratio of
-prior probabilities of the two models. The latter is often set to 1 (i.e. no model is prefered a priori). The 
+prior probabilities of the two models. The latter is often set to 1 (i.e. no model is preferred a priori). The
 Bayes factor on the other hand is simply the ratio of the model evidences of the two models, or
 
 .. math::
@@ -114,7 +114,7 @@ Normalising Flow Preconditioning
 
 The purpose of the *mutation* step in SMC is to diversify the particles and allow their distribution to reach the 
 equilibrium distribution :math:`p_{t}(\theta)`. To this end, common MCMC methods (e.g. Metropolis-Hastings) are
-often employed in practice. However, the sampling efficiency of MCMC is affected by the presense of correlation
+often employed in practice. However, the sampling efficiency of MCMC is affected by the presence of correlation
 between the parameters and multimodality. In order to maintain their efficiency, PMC and `pocoMC` utilise a 
 *Normalising Flow (NF)* (i.e. an invertible transformation parameterised by a neural network) to precondition or
 decorrelate the parameters of the target distribution. *Normalising Flow Preconditioning* works by approximately
@@ -135,4 +135,4 @@ with sampling procedure of PMC, and consists of:
 
 1. The number of particles that will be used to sample. The default value is 1000 but more might be needed for challenging or high dimensional target distributions.
 2. The *effective sample size (ESS)* that will be maintain constant during the run. The default value is :math:`ESS=0.95`. This effectively determines the schedule of the :math:`\beta_{t}` values as well, with higher ESS resulting in great number of :math:`\beta_{t}` levels and more conservative exploration.
-3. The *correlation coefficient (CC)* which takes values in the range :math:`(0,1)` determines how long the particles are propaged with MCMC in each iteration. As the value of CC expresses the mean correlation between the current and initial distribution of particles,  a lower value results in more MCMC steps per iteration and thus more careful and conservative exploration of the target distribution. The default value is :math:`CC=0.75`.
+3. The *correlation coefficient (CC)* which takes values in the range :math:`(0,1)` determines how long the particles are propaged with MCMC in each iteration. As the value of CC expresses the mean correlation between the current and initial distribution of particles, a lower value results in more MCMC steps per iteration and thus more careful and conservative exploration of the target distribution. The default value is :math:`CC=0.75`.
