@@ -1,6 +1,5 @@
 import unittest
 import torch
-
 from pocomc.flow import Flow
 
 
@@ -49,6 +48,7 @@ class FlowTestCase(unittest.TestCase):
 
         x = self.make_data()
         flow = Flow(ndim=x.shape[1])
+
         log_prob = flow.logprob(x)
 
         self.assertFalse(torch.any(torch.isnan(log_prob)))
@@ -109,7 +109,8 @@ class FlowTestCase(unittest.TestCase):
         x = self.make_data()
         x = x.double()
         flow = Flow(ndim=x.shape[1])
-        log_prob = flow.logprob(x)
+        with self.assertWarns(UserWarning):
+            log_prob = flow.logprob(x)
 
         self.assertFalse(torch.any(torch.isnan(log_prob)))
         self.assertFalse(torch.any(torch.isinf(log_prob)))

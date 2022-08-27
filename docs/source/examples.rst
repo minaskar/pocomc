@@ -11,7 +11,7 @@ is required to be installed to generate some of the plots.
 Gaussian Shells
 ===============
 
-The ``Gaussian Shells`` are a clear example of a bimodal distribution. Allthough
+The ``Gaussian Shells`` are a clear example of a bimodal distribution. Although
 the example is only in 2D it is a difficult target for many MCMC methods due to 
 its peculiar geometry in each mode.
 
