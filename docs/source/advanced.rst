@@ -176,6 +176,14 @@ Running the above also produces a progress bar similar to the one shown below::
 
     Iter: 6it [00:17,  3.18s/it, beta=0.00239, calls=35000, ESS=0.95, logZ=-3.52, accept=0.232, N=6, scale=0.964, corr=0.728] 
 
+The ``scale`` parameter in the above progress bar is perhaps the most important metric of the sampling performance. It is defined
+as the ratio of the actual Metropolis-Hastings proposal scale (in latent space) to the optimal one :math:`2.38/\sqrt{D}`. Its 
+value reflects the quality of the NF preconditioner. A value of ``scale=1.0`` corresponds to perfect preconditioning and maximum
+sampling efficiency. It is normal for this value to drop up to ``0.5`` during the run when the NF struggles to capture the
+geometry of the posterior. However, if the value of the ``scale`` parameter becomes significantly less than one (e.g. ``0.1``)
+this is usually an indication that something is wrong. A possible way to increase the scale parameter is to increase the number
+of particles.
+
 We can also use the ``run`` method to specify the desired *effective sample size (ESS)*, the :math:`\gamma` factor, as well as
 the minimum and maximum number of MCMC steps per iteration (the actual number is determined adaptively)::
 
