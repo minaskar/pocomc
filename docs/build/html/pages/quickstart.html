@@ -414,13 +414,15 @@ title="Print to PDF"
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 
+<span class="c1"># Set the random seed.</span>
+<span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
 <span class="c1"># Define the dimensionality of our problem.</span>
-<span class="n">ndim</span> <span class="o">=</span> <span class="mi">10</span>
+<span class="n">n_dim</span> <span class="o">=</span> <span class="mi">10</span>
 
 <span class="c1"># Define our 10-D Rosenbrock log-likelihood.</span>
 <span class="k">def</span> <span class="nf">log_likelihood</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
-    <span class="k">return</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="mf">10.0</span><span class="o">*</span><span class="p">(</span><span class="n">x</span><span class="p">[:,::</span><span class="mi">2</span><span class="p">]</span><span class="o">**</span><span class="mf">2.0</span> <span class="o">-</span> <span class="n">x</span><span class="p">[:,</span><span class="mi">1</span><span class="p">::</span><span class="mi">2</span><span class="p">])</span><span class="o">**</span><span class="mf">2.0</span> \
-            <span class="o">+</span> <span class="p">(</span><span class="n">x</span><span class="p">[:,::</span><span class="mi">2</span><span class="p">]</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">)</span><span class="o">**</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">return</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="mf">10.0</span> <span class="o">*</span> <span class="p">(</span><span class="n">x</span><span class="p">[:,</span> <span class="p">::</span><span class="mi">2</span><span class="p">]</span> <span class="o">**</span> <span class="mf">2.0</span> <span class="o">-</span> <span class="n">x</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">::</span><span class="mi">2</span><span class="p">])</span> <span class="o">**</span> <span class="mf">2.0</span> <span class="o">+</span> <span class="p">(</span><span class="n">x</span><span class="p">[:,</span> <span class="p">::</span><span class="mi">2</span><span class="p">]</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">**</span> <span class="mf">2.0</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 
 <span class="c1"># Define our uniform prior.</span>
 <span class="k">def</span> <span class="nf">log_prior</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
@@ -442,15 +444,18 @@ title="Print to PDF"
 <span class="kn">import</span> <span class="nn">pocomc</span> <span class="k">as</span> <span class="nn">pc</span>
 
 <span class="c1"># Number of particles to use</span>
-<span class="n">nparticles</span> <span class="o">=</span> <span class="mi">1000</span>
+<span class="n">n_particles</span> <span class="o">=</span> <span class="mi">1000</span>
 
 <span class="c1"># Initialise sampler</span>
-<span class="n">sampler</span> <span class="o">=</span> <span class="n">pc</span><span class="o">.</span><span class="n">Sampler</span><span class="p">(</span><span class="n">n_particles</span><span class="p">,</span>
-                     <span class="n">n_dim</span><span class="p">,</span>
-                     <span class="n">log_likelihood</span><span class="o">=</span><span class="n">log_likelihood</span><span class="p">,</span>
-                     <span class="n">log_prior</span><span class="o">=</span><span class="n">log_prior</span><span class="p">,</span>
-                     <span class="n">vectorize_likelihood</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-                     <span class="n">bounds</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mf">10.0</span><span class="p">,</span> <span class="mf">10.0</span><span class="p">))</span>
+<span class="n">sampler</span> <span class="o">=</span> <span class="n">pc</span><span class="o">.</span><span class="n">Sampler</span><span class="p">(</span>
+    <span class="n">n_particles</span><span class="p">,</span>
+    <span class="n">n_dim</span><span class="p">,</span>
+    <span class="n">log_likelihood</span><span class="o">=</span><span class="n">log_likelihood</span><span class="p">,</span>
+    <span class="n">log_prior</span><span class="o">=</span><span class="n">log_prior</span><span class="p">,</span>
+    <span class="n">vectorize_likelihood</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">bounds</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mf">10.0</span><span class="p">,</span> <span class="mf">10.0</span><span class="p">),</span>
+    <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span>
+<span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -459,7 +464,7 @@ title="Print to PDF"
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Initialise particles&#39; positions using samples from the prior (this is very important, other initialisation will not work).</span>
-<span class="n">prior_samples</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">low</span><span class="o">=-</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">high</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">nparticles</span><span class="p">,</span> <span class="n">ndim</span><span class="p">))</span>
+<span class="n">prior_samples</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">low</span><span class="o">=-</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">high</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">n_particles</span><span class="p">,</span> <span class="n">n_dim</span><span class="p">))</span>
 
 <span class="c1"># Start sampling</span>
 <span class="n">sampler</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">prior_samples</span><span class="p">)</span>
@@ -473,8 +478,8 @@ title="Print to PDF"
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Iter: 67it [05:17,  4.75s/it, beta=1, calls=611000, ESS=0.998, logZ=-30.6, accept=0.218, N=5, scale=1.04, corr=0.738]        
-Iter: 1it [00:00,  3.21it/s, beta=1, calls=616000, ESS=0.95, logZ=-30.6, accept=0.239, N=5, scale=1.06, corr=0.747]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Iter: 66it [06:43,  6.12s/it, beta=1, calls=516000, ESS=0.993, logZ=-28.4, accept=0.258, N=5, scale=1, corr=0.746]           
+Iter: 1it [00:00,  3.34it/s, beta=1, calls=tensor(521000), ESS=0.95, logZ=-28.4, accept=0.245, N=5, scale=1.05, corr=0.731]
 </pre></div>
 </div>
 </div>
@@ -488,25 +493,25 @@ Iter: 1it [00:00,  3.21it/s, beta=1, calls=616000, ESS=0.95, logZ=-30.6, accept=
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
 
 <span class="c1"># Trace plot</span>
-<span class="n">pc</span><span class="o">.</span><span class="n">plotting</span><span class="o">.</span><span class="n">trace</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">dims</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">])</span>
+<span class="n">pc</span><span class="o">.</span><span class="n">plotting</span><span class="o">.</span><span class="n">trace</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">dims</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">])</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 </pre></div>
 </div>
 </div>
 <div class="cell_output docutils container">
-<img alt="../_images/0b128449bd59f709ebc3904a2608e7f85779204b41c77070dcbdb17e05ae0abb.png" src="../_images/0b128449bd59f709ebc3904a2608e7f85779204b41c77070dcbdb17e05ae0abb.png" />
+<img alt="../_images/147fb7fbf16bc53d24168ddc61af28400b0b40c587f89ec544e96c74c09e8744.png" src="../_images/147fb7fbf16bc53d24168ddc61af28400b0b40c587f89ec544e96c74c09e8744.png" />
 </div>
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Corner plot</span>
-<span class="n">pc</span><span class="o">.</span><span class="n">plotting</span><span class="o">.</span><span class="n">corner</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">dims</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">])</span>
+<span class="n">pc</span><span class="o">.</span><span class="n">plotting</span><span class="o">.</span><span class="n">corner</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">dims</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">])</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 </pre></div>
 </div>
 </div>
 <div class="cell_output docutils container">
-<img alt="../_images/d4b9800702a694fe71aa97b391dff8d6236328a722e55e7c44cb684e47209600.png" src="../_images/d4b9800702a694fe71aa97b391dff8d6236328a722e55e7c44cb684e47209600.png" />
+<img alt="../_images/5aaebb37487d034771b30f29483da7f22efb3da27ad8095ae92dee0a1181ad65.png" src="../_images/5aaebb37487d034771b30f29483da7f22efb3da27ad8095ae92dee0a1181ad65.png" />
 </div>
 </div>
 <div class="cell docutils container">
@@ -518,7 +523,7 @@ Iter: 1it [00:00,  3.21it/s, beta=1, calls=616000, ESS=0.95, logZ=-30.6, accept=
 </div>
 </div>
 <div class="cell_output docutils container">
-<img alt="../_images/9c603c28de45ddd290c83344c02655cc5b6f0001f1cb9700f6eb1149781847be.png" src="../_images/9c603c28de45ddd290c83344c02655cc5b6f0001f1cb9700f6eb1149781847be.png" />
+<img alt="../_images/e558964ad0bf754bad5a5154e783a892f19d45ae7eaa87a8c3bf140f5aa16c0f.png" src="../_images/e558964ad0bf754bad5a5154e783a892f19d45ae7eaa87a8c3bf140f5aa16c0f.png" />
 </div>
 </div>
 </section>
