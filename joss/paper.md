@@ -85,7 +85,7 @@ can be applied. As a result, `pocoMC` produces both samples from the posterior d
 unbiased estimate of the model evidence thus facilitating both scientific tasks with excellent 
 efficiency and robustness. Compared to popular alternatives such as nested sampling, `pocoMC`
 can reduce the computational cost, and thus, the total run time of the analysis by orders of magnitude,
-in both artificial and realistic applications [@karamanis2022pmc]. Finally, the code is well-tested
+in both artificial and realistic applications [@karamanis2022accelerating]. Finally, the code is well-tested
 and is currently used for research work in the field of gravitational wave parameter estimation [@vretinaris2022postmerger].
 
 ![Logo of `pocoMC`.](./../logo.png)
@@ -101,8 +101,12 @@ parameters of the target distribution such that any correlation between paramete
 or presence of multimodality is removed. The effect of this bijective transformation
 is the substantial rise in the sampling efficiency of the algorithm as the particles
 are allowed to sample freely from the target without being hindered by its locally-curved 
-geometry. The method is explained in detail in the accompanying publication [@karamanis2022pmc]
-and we provide only a short summary here.
+geometry. The method is explained in detail in the accompanying publication [@karamanis2022accelerating]
+and we provide only a short summary here. NFs have been used extensively in order to
+accelerate various sampling algorithms, including Hamiltonian Monte Carlo [@hoffman2019neutra],
+Metropolis adjusted Langevin algorithm [@gabrie2021efficient], adaptive Independence
+Metropolis-Hastings [@brofos2022adaptation], adaptive MCMC [@gabrie2022adaptive], and
+nested sampling [@moss2020accelerated].
 
 ## Sequential Monte Carlo
 
@@ -136,6 +140,7 @@ updates in the preconditioned/uncorrelated latent space.
 - User-friendly black-box API (only the log-likelihood, log-prior and some prior samples required from the user)
 - Default configuration sufficient for most applications (no tuning is required but is possible for experienced users)
 - Posterior corner, trace, and run plotting tools
+- Increased-accuracy model evidence estimation using Gaussianized Bridge Sampling [@jia2020normalizing]
 - Support for both MAF and RealNVP normalising flows with added regularisation [@papamakarios2017masked; @dinh2016density]
 - Straightforward parallelisation using MPI or multiprocessing
 - Continuous integration, unit tests and wide range of examples available
