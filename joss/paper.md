@@ -17,7 +17,7 @@ authors:
   - name: John A. Peacock
     orcid: 0000-0002-1168-8299
     affiliation: 1
-  - name: Uros Seljak
+  - name: Uro\v{s} Seljak
     orcid: 0000-0003-2262-356X
     affiliation: 3
 
@@ -39,7 +39,7 @@ bibliography: paper.bib
 cosmology. The code is designed to sample efficiently from posterior distributions
 with non-trivial geometry, including strong multimodality and non-linearity. To this end,
 `pocoMC` relies on the Preconditioned Monte Carlo algorithm which utilises a Normalising
-Flow in order to decorrelate the parameters of the posterior. It facilitates both tasks of
+Flow to decorrelate the parameters of the posterior. It facilitates both tasks of
 parameter estimation and model comparison, focusing especially on computationally expensive
 applications. It allows fitting arbitrary models defined as a log-likelihood function and a
 log-prior probability density function in Python. Compared to popular alternatives (e.g.
@@ -49,12 +49,12 @@ manifests linear scaling.
 
 # Statement of need
 
-Over the past few decades the volume of astronomical and cosmological data has 
+Over the past few decades, the volume of astronomical and cosmological data has 
 increased substantially. At the same time, theoretical and phenomenological models
 in these fields have grown even more complex. As a response to that, a number of methods
 aiming at efficient Bayesian computation have been developed with the sole task of
 comparing those models to the available data [@trotta2017bayesian; @sharma2017markov]. 
-In the Bayesian context, scientific inference proceeds though the use of Bayes' theorem:
+In the Bayesian context, scientific inference proceeds through the use of Bayes' theorem:
 \begin{equation}\label{eq:bayes}
 \mathcal{P}(\theta) = \frac{\mathcal{L}(\theta)\pi(\theta)}{\mathcal{Z}}
 \end{equation}
@@ -70,13 +70,13 @@ evidences yields the Bayes factor which is the cornerstone of Bayesian model com
 
 Markov chain Monte Carlo (MCMC) has been established as the standard tool for 
 Bayesian computation in astronomy and cosmology, either as a standalone algorithm
-or as part of another method (e.g. nested sampling [@skilling2006nested]). However, 
-as MCMC relies on the local exploration of the posterior, the presense of non-linear
+or as part of another method [e.g., nested sampling, @skilling2006nested]. However, 
+as MCMC relies on the local exploration of the posterior, the presence of a non-linear
 correlation between parameters and multimodality can at best hinder its performance
-and at worst violate its theoretical guarantees of convergence (i.e. ergodicity). Usually
+and at worst violate its theoretical guarantees of convergence (i.e. ergodicity). Usually,
 those challenges are partially addressed by reparameterising the model using a common
 change-of-variables parameter transformation. However, guessing the right kind of
-reparameterisation a priori is not trivial as it often requires a deep knowledge of
+reparameterisation _a priori_ is not trivial as it often requires a deep knowledge of
 the physical model and its symmetries. These problems are usually complicated further by the substantial
 computational cost of evaluating astronomical and cosmological models. `pocoMC` is 
 designed to tackle exactly these kinds of difficulties by automatically reparameterising
@@ -87,8 +87,6 @@ efficiency and robustness. Compared to popular alternatives such as nested sampl
 can reduce the computational cost, and thus, the total run time of the analysis by orders of magnitude,
 in both artificial and realistic applications [@karamanis2022accelerating]. Finally, the code is well-tested
 and is currently used for research work in the field of gravitational wave parameter estimation [@vretinaris2022postmerger].
-
-![Logo of `pocoMC`.](./../logo.png)
 
 # Method
 
@@ -101,8 +99,8 @@ parameters of the target distribution such that any correlation between paramete
 or presence of multimodality is removed. The effect of this bijective transformation
 is the substantial rise in the sampling efficiency of the algorithm as the particles
 are allowed to sample freely from the target without being hindered by its locally-curved 
-geometry. The method is explained in detail in the accompanying publication [@karamanis2022accelerating]
-and we provide only a short summary here. NFs have been used extensively in order to
+geometry. The method is explained in detail in the accompanying publication [@karamanis2022accelerating],
+and we provide only a summary here. NFs have been used extensively to
 accelerate various sampling algorithms, including Hamiltonian Monte Carlo [@hoffman2019neutra],
 Metropolis adjusted Langevin algorithm [@gabrie2021efficient], adaptive Independence
 Metropolis-Hastings [@brofos2022adaptation], adaptive MCMC [@gabrie2022adaptive], and
@@ -117,7 +115,7 @@ case of `pocoMC` the path has the form:
 p_{t}(\theta) = \pi(\theta)^{1-\beta_{t}} \mathcal{P}(\theta)^{\beta_{t}}
 \end{equation}
 where $0=\beta_{1}<\beta_{2}<\dots<\beta_{T}=1$. Starting from the prior, each distribution with density $p_{t}(\theta)$ is
-sampled in turn using a collection of particles propagated by a number of MCMC steps. Prior to MCMC sampling,
+sampled in turn using a collection of particles propagated by a number of MCMC steps. Before MCMC sampling,
 the particles are re-weighted using importance sampling and then re-sampled to account for the transition from
 $p_{t}(\theta)$ to $p_{t+1}(\theta)$. `pocoMC` utilises the importance weights of this step to define an estimator
 for the effective sample size (ESS) of the population of particles. Maintaining a fixed value of ESS during the run
@@ -132,7 +130,7 @@ a NF to learn an invertible transformation that simplifies
 the geometry of the distribution by mapping $p_{t}(\theta)$ into a zero-mean unit-variance normal distribution.
 Sampling then proceeds in the latent space in which correlations are substantially reduced. The positions of
 the particles are transformed back to the original parameter space at the end of each iteration. This way,
-PMC and `pocoMC` are able to sample from very challenging posteriors very efficiently using simple Metropolis-Hastings
+PMC and `pocoMC` can sample from very challenging posteriors very efficiently using simple Metropolis-Hastings
 updates in the preconditioned/uncorrelated latent space.
 
 # Features
@@ -143,11 +141,11 @@ updates in the preconditioned/uncorrelated latent space.
 - Increased-accuracy model evidence estimation using Gaussianized Bridge Sampling [@jia2020normalizing]
 - Support for both MAF and RealNVP normalising flows with added regularisation [@papamakarios2017masked; @dinh2016density]
 - Straightforward parallelisation using MPI or multiprocessing
-- Continuous integration, unit tests and wide range of examples available
-- [Extensive documentation available](http://pocomc.readthedocs.io)
+- Continuous integration, unit tests and a wide range of examples are available
+- [Extensive documentation available]
 
-# Acknowledgements
+# Acknowledgments
 
-MK would like to thank Jamie Donald-McCann and Richard Grumitt for providing constructive comments and George Vretinaris for feedback on an early version of the code. This project has received funding from the European Research Council (ERC) under the European Union's Horizon 2020 research and innovation program (grant agreement 853291), and  by the U.S. Department of Energy, Office of Science, Office of Advanced Scientific Computing Research under Contract No. DE-AC02-05CH11231 at Lawrence Berkeley National Laboratory to enable research for Data-intensive Machine Learning and Analysis. FB is a University Research Fellow.
+MK would like to thank Jamie Donald-McCann and Richard Grumitt for providing constructive comments and George Vretinaris for feedback on an early version of the code. This project has received funding from the European Research Council (ERC) under the European Union's Horizon 2020 research and innovation program (grant agreement 853291), and from the U.S. Department of Energy, Office of Science, Office of Advanced Scientific Computing Research under Contract No. DE-AC02-05CH11231 at Lawrence Berkeley National Laboratory to enable research for Data-intensive Machine Learning and Analysis. FB is a University Research Fellow.
 
 # References
