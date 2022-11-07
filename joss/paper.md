@@ -91,7 +91,7 @@ and is currently used for research work in the field of gravitational wave param
 # Method
 
 `pocoMC` implements the Preconditioned Monte Carlo (PMC) algorithm. PMC combines
-the popular Sequential Monte Carlo (SMC) [@del2006sequential] method with a Normalising Flow (NF) [@papamakarios2021normalizing]. 
+the popular Sequential Monte Carlo [SMC, @del2006sequential] method with a Normalising Flow [NF, @papamakarios2021normalizing]. 
 The latter works as a preconditioner for the target distribution of the former. 
 As SMC evolves a population of particles, starting from the prior distribution 
 and gradually approaching the posterior distribution, the NF transforms the 
@@ -135,14 +135,13 @@ updates in the preconditioned/uncorrelated latent space.
 
 # Features
 
-- User-friendly black-box API (only the log-likelihood, log-prior and some prior samples required from the user)
-- Default configuration sufficient for most applications (no tuning is required but is possible for experienced users)
-- Posterior corner, trace, and run plotting tools
-- Increased-accuracy model evidence estimation using Gaussianized Bridge Sampling [@jia2020normalizing]
-- Support for both MAF and RealNVP normalising flows with added regularisation [@papamakarios2017masked; @dinh2016density]
-- Straightforward parallelisation using MPI or multiprocessing
-- Continuous integration, unit tests and a wide range of examples are available
-- [Extensive documentation available]
+- User-friendly black-box API: only the log-likelihood, log-prior and some prior samples required from the user.
+- The default configuration sufficient for most applications: no tuning is required but is possible for experienced users.
+- Comprehensive plotting tools: posterior corner, trace, and run plots are all supported.
+- Model evidence estimation using Gaussianized Bridge Sampling [@jia2020normalizing].
+- Support for both MAF and RealNVP normalising flows with added regularisation [@papamakarios2017masked; @dinh2016density].
+- Straightforward parallelisation using MPI or multiprocessing.
+- Well-tested and documented: continuous integration, unit tests, a wide range of examples, and [extensive documentation](https://pocomc.readthedocs.io/).
 
 # Acknowledgments
 
