@@ -17,7 +17,7 @@ authors:
   - name: John A. Peacock
     orcid: 0000-0002-1168-8299
     affiliation: 1
-  - name: Uro\v{s} Seljak
+  - name: Uroš Seljak
     orcid: 0000-0003-2262-356X
     affiliation: 3
 
