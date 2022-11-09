@@ -7,7 +7,7 @@ authors:
   - name: Minas Karamanis
     orcid: 0000-0001-9489-4612
     corresponding: true
-    affiliation: 1
+    affiliation: "1, 3"
   - name: David Nabergoj
     orcid: 0000-0001-6882-627X
     affiliation: 2
