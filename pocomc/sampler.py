@@ -133,6 +133,8 @@ class Sampler:
                  parallelize_prior: bool = False,
                  flow_config: dict = None,
                  train_config: dict = None,
+                 use_resampled: bool = False,
+                 inflate_resampled: bool = False,
                  output_dir: str = None,
                  output_label: str = None,
                  random_state: int = None):
