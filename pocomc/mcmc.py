@@ -158,31 +158,23 @@ def preconditioned_metropolis(state_dict: dict,
         cc_prime = corr.get(torch_to_numpy(theta))
 
         # Update progress bar if available
+        if type(sigma) == float:
+            sigma_item = sigma
+        else:
+            sigma_item = sigma.item()    
         if progress_bar is not None:
-            try:
-                progress_bar.update_stats(
-                    dict(
-                        calls=progress_bar.info['calls'] + sum(finite_prior_mask).item(),
-                        accept=torch.mean(alpha).item(),
-                        N=i,
-                        scale=sigma.item() / (2.38 / np.sqrt(n_dim)),
-                        corr=np.mean(cc_prime)
-                    )
+            progress_bar.update_stats(
+                dict(
+                    calls=progress_bar.info['calls'] + sum(finite_prior_mask).item(),
+                    accept=torch.mean(alpha).item(),
+                    N=i,
+                    scale=sigma_item / (2.38 / np.sqrt(n_dim)),
+                    corr=np.mean(cc_prime)
                 )
-            except:
-                progress_bar.update_stats(
-                    dict(
-                        calls=progress_bar.info['calls'] + sum(finite_prior_mask).item(),
-                        accept=torch.mean(alpha).item(),
-                        N=i,
-                        scale=sigma / (2.38 / np.sqrt(n_dim)),
-                        corr=np.mean(cc_prime)
-                    )
-                )
-
+            )
 
         # Loop termination criteria:
-        if corr_threshold is None and i >= int(n_min * ((2.38 / np.sqrt(n_dim)) / sigma.item()) ** 2):
+        if corr_threshold is None and i >= int(n_min * ((2.38 / np.sqrt(n_dim)) / sigma_item) ** 2):
             break
         elif np.mean(cc_prime) < corr_threshold and i >= n_min:
             break
@@ -195,7 +187,7 @@ def preconditioned_metropolis(state_dict: dict,
         J=torch_to_numpy(J),
         L=torch_to_numpy(L),
         P=torch_to_numpy(P),
-        scale=sigma.item(),
+        scale=sigma_item,
         accept=torch.mean(alpha).item(),
         steps=i,
         calls=n_calls
