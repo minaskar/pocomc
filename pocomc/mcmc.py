@@ -159,15 +159,27 @@ def preconditioned_metropolis(state_dict: dict,
 
         # Update progress bar if available
         if progress_bar is not None:
-            progress_bar.update_stats(
-                dict(
-                    calls=progress_bar.info['calls'] + sum(finite_prior_mask).item(),
-                    accept=torch.mean(alpha).item(),
-                    N=i,
-                    scale=sigma.item() / (2.38 / np.sqrt(n_dim)),
-                    corr=np.mean(cc_prime)
+            try:
+                progress_bar.update_stats(
+                    dict(
+                        calls=progress_bar.info['calls'] + sum(finite_prior_mask).item(),
+                        accept=torch.mean(alpha).item(),
+                        N=i,
+                        scale=sigma.item() / (2.38 / np.sqrt(n_dim)),
+                        corr=np.mean(cc_prime)
+                    )
                 )
-            )
+            except:
+                progress_bar.update_stats(
+                    dict(
+                        calls=progress_bar.info['calls'] + sum(finite_prior_mask).item(),
+                        accept=torch.mean(alpha).item(),
+                        N=i,
+                        scale=sigma / (2.38 / np.sqrt(n_dim)),
+                        corr=np.mean(cc_prime)
+                    )
+                )
+
 
         # Loop termination criteria:
         if corr_threshold is None and i >= int(n_min * ((2.38 / np.sqrt(n_dim)) / sigma.item()) ** 2):
