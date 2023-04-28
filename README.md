@@ -28,7 +28,7 @@ pip install pocomc
 or, to install from source:
 
 ```bash
-git clone https://github.com/minaskar/pocomc.git
+git clone https://github.com/augeorge/pocomc.git
 cd pocomc
 python setup.py install
 ```
