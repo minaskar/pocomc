@@ -19,16 +19,14 @@ Read the docs at [pocomc.readthedocs.io](https://pocomc.readthedocs.io) for more
 
 ## Installation
 
-To install ``pocomc`` using ``pip`` run:
+<s> To install ``pocomc`` using ``pip`` run:  </s>
 
-```bash
-pip install pocomc
-```
+<s>```pip install pocomc```  </s>
 
 or, to install from source:
 
 ```bash
-git clone https://github.com/minaskar/pocomc.git
+git clone https://github.com/augeorge/pocomc.git
 cd pocomc
 python setup.py install
 ```
