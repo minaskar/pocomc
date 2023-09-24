@@ -1,10 +1,10 @@
 import unittest
 import numpy as np
 
-from pocomc.scaler import Reparameterise
+from pocomc.scaler import Reparameterize
 
 
-class ReparameteriseTestCase(unittest.TestCase):
+class ReparameterizeTestCase(unittest.TestCase):
     @staticmethod
     def make_unconstrained_data():
         # Make a dataset to use in tests
@@ -58,7 +58,7 @@ class ReparameteriseTestCase(unittest.TestCase):
         np.random.seed(0)
 
         x, lb, ub = self.make_unconstrained_data()
-        r = Reparameterise(n_dim=x.shape[1], bounds=(lb, ub))
+        r = Reparameterize(n_dim=x.shape[1], bounds=(lb, ub))
         r.fit(x)
 
         u = r.forward(x)
@@ -77,7 +77,7 @@ class ReparameteriseTestCase(unittest.TestCase):
         np.random.seed(0)
 
         x, lb, ub = self.make_lower_bounded_data()
-        r = Reparameterise(n_dim=x.shape[1], bounds=(lb, ub))
+        r = Reparameterize(n_dim=x.shape[1], bounds=(lb, ub))
         r.fit(x)
 
         u = r.forward(x)
@@ -96,7 +96,7 @@ class ReparameteriseTestCase(unittest.TestCase):
         np.random.seed(0)
 
         x, lb, ub = self.make_upper_bounded_data()
-        r = Reparameterise(n_dim=x.shape[1], bounds=(lb, ub))
+        r = Reparameterize(n_dim=x.shape[1], bounds=(lb, ub))
         r.fit(x)
 
         u = r.forward(x)
@@ -115,7 +115,7 @@ class ReparameteriseTestCase(unittest.TestCase):
         np.random.seed(0)
 
         x, lb, ub = self.make_lower_and_upper_bounded_data()
-        r = Reparameterise(n_dim=x.shape[1], bounds=(lb, ub))
+        r = Reparameterize(n_dim=x.shape[1], bounds=(lb, ub))
         r.fit(x)
 
         u = r.forward(x)
@@ -136,7 +136,7 @@ class ReparameteriseTestCase(unittest.TestCase):
         x[0] = lb - 1  # Artificially make example 0 go outside the bounds
         x[1] = ub + 1  # Artificially make example 1 go outside the bounds
 
-        r = Reparameterise(n_dim=x.shape[1], bounds=(lb, ub))
+        r = Reparameterize(n_dim=x.shape[1], bounds=(lb, ub))
         self.assertRaises(ValueError, r.fit, x)
 
 

@@ -2,7 +2,6 @@ import unittest
 import torch
 from pocomc.flow import Flow
 
-
 class FlowTestCase(unittest.TestCase):
     @staticmethod
     def make_data():
@@ -15,17 +14,19 @@ class FlowTestCase(unittest.TestCase):
 
     @torch.no_grad()
     def test_forward(self):
-        # Test that the forward pass works without raising an error
+        """
+        Test that the forward pass works without raising an error
+        """
         torch.manual_seed(0)
 
-        x = self.make_data()
-        flow = Flow(ndim=x.shape[1])
-        z, _ = flow.forward(x)
+        data = self.make_data()
+        flow = Flow(n_dim=data.shape[1])
+        z, _ = flow.forward(data)
 
         self.assertFalse(torch.any(torch.isnan(z)))
         self.assertFalse(torch.any(torch.isinf(z)))
-        self.assertEqual(x.shape, z.shape)
-        self.assertEqual(x.dtype, z.dtype)
+        self.assertEqual(data.shape, z.shape)
+        self.assertEqual(data.dtype, z.dtype)
 
     @torch.no_grad()
     def test_inverse(self):
@@ -33,7 +34,7 @@ class FlowTestCase(unittest.TestCase):
         torch.manual_seed(0)
 
         z = self.make_data()
-        flow = Flow(ndim=z.shape[1])
+        flow = Flow(n_dim=z.shape[1])
         x, _ = flow.inverse(z)
 
         self.assertFalse(torch.any(torch.isnan(x)))
@@ -47,9 +48,9 @@ class FlowTestCase(unittest.TestCase):
         torch.manual_seed(0)
 
         x = self.make_data()
-        flow = Flow(ndim=x.shape[1])
+        flow = Flow(n_dim=x.shape[1])
 
-        log_prob = flow.logprob(x)
+        log_prob = flow.log_prob(x)
 
         self.assertFalse(torch.any(torch.isnan(log_prob)))
         self.assertFalse(torch.any(torch.isinf(log_prob)))
@@ -62,7 +63,7 @@ class FlowTestCase(unittest.TestCase):
         torch.manual_seed(0)
 
         x_tmp = self.make_data()
-        flow = Flow(ndim=x_tmp.shape[1])
+        flow = Flow(n_dim=x_tmp.shape[1])
         x, _ = flow.sample(x_tmp.shape[0])
 
         self.assertFalse(torch.any(torch.isnan(x)))
@@ -76,7 +77,7 @@ class FlowTestCase(unittest.TestCase):
         torch.manual_seed(0)
 
         x = self.make_data()
-        flow = Flow(ndim=x.shape[1])
+        flow = Flow(n_dim=x.shape[1])
         z, _ = flow.forward(x)
         x_reconstructed, _ = flow.inverse(z)
 
@@ -93,8 +94,8 @@ class FlowTestCase(unittest.TestCase):
 
         x = self.make_data()
         x = x.float()
-        flow = Flow(ndim=x.shape[1])
-        log_prob = flow.logprob(x)
+        flow = Flow(n_dim=x.shape[1])
+        log_prob = flow.log_prob(x)
 
         self.assertFalse(torch.any(torch.isnan(log_prob)))
         self.assertFalse(torch.any(torch.isinf(log_prob)))
@@ -108,9 +109,9 @@ class FlowTestCase(unittest.TestCase):
 
         x = self.make_data()
         x = x.double()
-        flow = Flow(ndim=x.shape[1])
+        flow = Flow(n_dim=x.shape[1])
         with self.assertWarns(UserWarning):
-            log_prob = flow.logprob(x)
+            log_prob = flow.log_prob(x)
 
         self.assertFalse(torch.any(torch.isnan(log_prob)))
         self.assertFalse(torch.any(torch.isinf(log_prob)))
@@ -124,7 +125,7 @@ class FlowTestCase(unittest.TestCase):
 
         x = self.make_data()
         x = x[:, 0].reshape(-1, 1)
-        self.assertRaises(ValueError, lambda: Flow(ndim=x.shape[1]))
+        self.assertRaises(ValueError, lambda: Flow(n_dim=x.shape[1]))
 
     @torch.no_grad()
     def test_logprob_single_example(self):
@@ -133,8 +134,8 @@ class FlowTestCase(unittest.TestCase):
 
         x = self.make_data()
         x = x[0].reshape(1, -1)
-        flow = Flow(ndim=x.shape[1])
-        log_prob = flow.logprob(x)
+        flow = Flow(n_dim=x.shape[1])
+        log_prob = flow.log_prob(x)
 
         self.assertFalse(torch.any(torch.isnan(log_prob)))
         self.assertFalse(torch.any(torch.isinf(log_prob)))
@@ -146,8 +147,8 @@ class FlowTestCase(unittest.TestCase):
         torch.manual_seed(0)
 
         x = self.make_data()
-        flow = Flow(ndim=x.shape[1])
-        log_prob = flow.logprob(x)
+        flow = Flow(n_dim=x.shape[1])
+        log_prob = flow.log_prob(x)
         nll = -torch.mean(log_prob)
         nll.backward()
 
@@ -164,7 +165,7 @@ class FlowTestCase(unittest.TestCase):
 
         x = self.make_data()
 
-        flow = Flow(ndim=x.shape[1])
+        flow = Flow(n_dim=x.shape[1])
         z, logprob_forward = flow.forward(x)
         _, logprob_inverse = flow.inverse(z)
 
@@ -172,30 +173,16 @@ class FlowTestCase(unittest.TestCase):
         self.assertEqual(logprob_forward.shape, logprob_inverse.shape)
         self.assertEqual(logprob_forward.dtype, logprob_inverse.dtype)
 
-    @torch.no_grad()
-    def test_logprob_realnvp(self):
-        # Test that logprob works with RealNVP
-        torch.manual_seed(0)
-
-        x = self.make_data()
-        flow = Flow(ndim=x.shape[1], flow_config={'flow_type': 'realnvp'})
-        log_prob = flow.logprob(x)
-
-        self.assertFalse(torch.any(torch.isnan(log_prob)))
-        self.assertFalse(torch.any(torch.isinf(log_prob)))
-        self.assertEqual(log_prob.shape, (x.shape[0],))
-        self.assertEqual(x.dtype, log_prob.dtype)
-
     def test_fit(self):
         # Test that fit works without errors and check some basic functions afterwards
         torch.manual_seed(0)
 
         x = self.make_data()
-        flow = Flow(ndim=x.shape[1], train_config={'epochs': 5})
-        flow.fit(x)
+        flow = Flow(n_dim=x.shape[1])
+        flow.fit(x, epochs=5)
 
         z, _ = flow.forward(x)
-        log_prob = flow.logprob(x)
+        log_prob = flow.log_prob(x)
         x_samples, _ = flow.sample(x.shape[0])
 
         self.assertFalse(torch.any(torch.isnan(log_prob)))
@@ -217,7 +204,7 @@ class FlowTestCase(unittest.TestCase):
         torch.manual_seed(0)
 
         x = self.make_data()
-        flow = Flow(ndim=x.shape[1])
+        flow = Flow(n_dim=x.shape[1])
 
         z, logj_forward = flow.forward(x)
         _, logj_inverse = flow.inverse(z)

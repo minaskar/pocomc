@@ -372,7 +372,7 @@ def pcn(state_dict: dict,
     #sigma = np.minimum(2.38 / n_dim**0.5, 0.99)
     sigma = 0.5
 
-    mu, cov, nu = fit_mvstud(v)
+    mu, cov, nu = fit_mvstud(u)
     if ~np.isfinite(nu):
         nu = 1e6
 
