@@ -26,6 +26,21 @@ class Reparameterize:
         Rescale parameters to zero mean and unit variance (default is true)
     diagonal : ``bool``
         Use diagonal transformation (i.e. ignore covariance) (default is true)
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from pocomc.reparameterize import Reparameterize
+    >>> bounds = np.array([[0, 1], [0, 1]])
+    >>> reparam = Reparameterize(2, bounds)
+    >>> x = np.array([[0.5, 0.5], [0.5, 0.5]])
+    >>> reparam.forward(x)
+    array([[0., 0.],
+           [0., 0.]])
+    >>> u = np.array([[0, 0], [0, 0]])
+    >>> reparam.inverse(u)
+    (array([[0.5, 0.5],
+           [0.5, 0.5]]), array([0., 0.]))
     """
     def __init__(self,
                  n_dim: int,

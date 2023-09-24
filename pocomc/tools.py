@@ -26,6 +26,27 @@ def mean_minimum_distance(N : int = None,
     return np.exp(gammaln(D/2 + 1)/D + gammaln(1+1/D) + gammaln(N) - gammaln(N + 1/D) - 0.5 * np.log(np.pi))
 
 def trim_weights(samples, weights, ess=0.99, bins=1000):
+    """
+        Trim samples and weights to a given effective sample size.
+
+    Parameters
+    ----------
+    samples : ``np.ndarray``
+        Samples.
+    weights : ``np.ndarray``
+        Weights.
+    ess : ``float``
+        Effective sample size threshold.
+    bins : ``int``
+        Number of bins to use for trimming.
+
+    Returns
+    -------
+    samples_trimmed : ``np.ndarray``
+        Trimmed samples.
+    weights_trimmed : ``np.ndarray``
+        Trimmed weights.
+    """
 
     # normalize weights
     weights /= np.sum(weights)
@@ -93,6 +114,35 @@ def increment_logz(logw: np.ndarray):
 def systematic_resample(size: np.ndarray, 
                         weights: np.ndarray, 
                         random_state: int = None):
+    """
+        Resample a new set of points from the weighted set of inputs
+        such that they all have equal weight.
+
+    Parameters
+    ----------
+    size : `int`
+        Number of samples to draw.
+    weights : `~numpy.ndarray` with shape (nsamples,)
+        Corresponding weight of each sample.
+    random_state : `int`, optional
+        Random seed.    
+
+    Returns
+    -------
+    indeces : `~numpy.ndarray` with shape (nsamples,)
+        Indices of the resampled array.
+    
+    Examples
+    --------
+    >>> x = np.array([[1., 1.], [2., 2.], [3., 3.], [4., 4.]])
+    >>> w = np.array([0.6, 0.2, 0.15, 0.05])
+    >>> systematic_resample(4, w)
+    array([0, 0, 0, 2])
+
+    Notes
+    -----
+    Implements the systematic resampling method.
+    """
     
     if random_state is not None:
         np.random.seed(random_state)

@@ -12,17 +12,41 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from .tools import torch_double_to_float
 
 class Flow:
+    """
+    Normalizing flow model.
+
+    Parameters
+    ----------
+    n_dim : ``int``
+        Number of dimensions of the distribution to be modeled.
+    flow : ``zuko.flows.Flow``
+        Normalizing flow model. Default: ``zuko.flows.MAF``.
+
+    Attributes
+    ----------
+    n_dim : ``int``
+        Number of dimensions of the distribution to be modeled.
+    flow : ``zuko.flows.Flow``
+        Normalizing flow model.
+    transform : ``zuko.transforms.Transform``
+        Transformation object.
+    
+    Examples
+    --------
+    >>> import torch
+    >>> import pocomc
+    >>> flow = pocomc.Flow(2)
+    >>> x = torch.randn(100, 2)
+    >>> u, logdetj = flow(x)
+    >>> x_, logdetj_ = flow.inverse(u)
+    >>> log_prob = flow.log_prob(x)
+    >>> x_, log_prob_ = flow.sample(100)
+    >>> history = flow.fit(x)
+    """
 
     def __init__(self, n_dim, flow=None):
         self.n_dim = n_dim
         if flow is None:
-            #maf = zuko.flows.MAF(n_dim, transforms=3, hidden_features=[128] * 3)
-            #nsf = zuko.flows.NSF(n_dim, transforms=3, bins=8, hidden_features=[128] * 3)
-            #maf2 = zuko.flows.MAF(n_dim, transforms=3, hidden_features=[128] * 3)
-            #self.flow = zuko.flows.FlowModule((*maf.transforms, 
-            #                                   *nsf.transforms, 
-            #                                   *maf2.transforms,
-            #                                  ), maf.base)
             self.flow = zuko.flows.MAF(n_dim, 
                                        transforms=6, 
                                        hidden_features=[64] * 2)
@@ -115,6 +139,54 @@ class Flow:
             clip_grad_norm=1.0,
             verbose=0,
             ):
+        """
+
+        Parameters
+        ----------
+        x : ``torch.Tensor``
+            Input samples.
+        weights : ``torch.Tensor``, optional
+            Weights for each sample. Default: ``None``.
+        validation_split : ``float``, optional
+            Fraction of samples to use for validation. Default: 0.0.
+        epochs : ``int``, optional
+            Number of epochs. Default: 1000.
+        batch_size : ``int``, optional
+            Batch size. Default: 1000.
+        patience : ``int``, optional
+            Number of epochs without improvement before early stopping. Default: 20.
+        learning_rate : ``float``, optional
+            Learning rate. Default: 1e-3.
+        weight_decay : ``float``, optional
+            Weight decay. Default: 0.
+        laplace_scale : ``float``, optional
+            Laplace regularization scale. Default: ``None``.
+        gaussian_scale : ``float``, optional
+            Gaussian regularization scale. Default: ``None``.
+        annealing : ``bool``, optional
+            Whether to use learning rate annealing. Default: ``True``.
+        noise : ``float``, optional
+            Noise scale. Default: ``None``.
+        shuffle : ``bool``, optional
+            Whether to shuffle samples. Default: ``True``.
+        clip_grad_norm : ``float``, optional
+            Maximum gradient norm. Default: 1.0.
+        verbose : ``int``, optional
+            Verbosity level. Default: 0.
+
+        Returns
+        -------
+        history : ``dict``
+            Dictionary with loss history.
+
+        Examples
+        --------
+        >>> import torch
+        >>> import pocomc
+        >>> flow = pocomc.Flow(2)
+        >>> x = torch.randn(100, 2)
+        >>> history = flow.fit(x)    
+        """
         x = torch_double_to_float(x)
 
         n_samples, n_dim = x.shape
@@ -273,6 +345,22 @@ class Flow:
 
 
 def regularization_loss(model, laplace_scale=None, gaussian_scale=None):
+    """
+    Compute regularization loss.
+
+    Parameters
+    ----------
+    model : ``zuko.flows.Flow``
+        Normalizing flow model.
+    laplace_scale : ``float``, optional
+        Laplace regularization scale. Default: ``None``.
+    gaussian_scale : ``float``, optional
+        Gaussian regularization scale. Default: ``None``.
+    
+    Returns
+    -------
+    Regularization loss.
+    """
     total_laplace = 0.0
     total_gaussian = 0.0
 

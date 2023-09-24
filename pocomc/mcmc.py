@@ -5,6 +5,19 @@ from .tools import numpy_to_torch, torch_to_numpy
 from .student import fit_mvstud
 
 class flow_numpy_wrapper:
+    """
+    Wrapper class for numpy flows.
+
+    Parameters
+    ----------
+    flow : Flow object
+        Flow object that implements forward and inverse
+        transformations.
+    
+    Returns
+    -------
+    Flow object
+    """
     def __init__(self, flow):
         self.flow = flow
 
@@ -26,15 +39,10 @@ class flow_numpy_wrapper:
 
 @torch.no_grad()
 def preconditioned_pcn(state_dict: dict,
-                              function_dict: dict,
-                              option_dict: dict):
+                       function_dict: dict,
+                       option_dict: dict):
     """
-    Preconditioned Metropolis
-    Function that samples the current target distribution
-    using a simple Random-walk Metropolis algorithm on the
-    latent (i.e. uncorrelated or preconditioned) parameter
-    space. The lack of correlations renders Preconditioned
-    Metropolis more efficient that standard Metropolis.
+    Doubly Preconditioned Crank-Nicolson
     
     Parameters
     ----------
@@ -202,12 +210,7 @@ def preconditioned_rwm(state_dict: dict,
                        function_dict: dict,
                        option_dict: dict):
     """
-    Preconditioned Metropolis
-    Function that samples the current target distribution
-    using a simple Random-walk Metropolis algorithm on the
-    latent (i.e. uncorrelated or preconditioned) parameter
-    space. The lack of correlations renders Preconditioned
-    Metropolis more efficient that standard Metropolis.
+    Preconditioned Random-walk Metropolis
     
     Parameters
     ----------
@@ -328,12 +331,7 @@ def pcn(state_dict: dict,
         function_dict: dict,
         option_dict: dict):
     """
-    Preconditioned Metropolis
-    Function that samples the current target distribution
-    using a simple Random-walk Metropolis algorithm on the
-    latent (i.e. uncorrelated or preconditioned) parameter
-    space. The lack of correlations renders Preconditioned
-    Metropolis more efficient that standard Metropolis.
+    Preconditioned Crank-Nicolson
     
     Parameters
     ----------
@@ -466,12 +464,7 @@ def rwm(state_dict: dict,
         function_dict: dict,
         option_dict: dict):
     """
-    Preconditioned Metropolis
-    Function that samples the current target distribution
-    using a simple Random-walk Metropolis algorithm on the
-    latent (i.e. uncorrelated or preconditioned) parameter
-    space. The lack of correlations renders Preconditioned
-    Metropolis more efficient that standard Metropolis.
+    Random-walk Metropolis
     
     Parameters
     ----------

@@ -13,21 +13,22 @@ from .tools import systematic_resample, FunctionWrapper, numpy_to_torch, torch_t
 from .scaler import Reparameterize
 from .flow import Flow
 from .particles import Particles
-from .plotting import trace, run, corner
-
 
 class Sampler:
     r"""Preconditioned Monte Carlo class.
 
     Parameters
     ----------
-    n_particles : int
-        The total number of particles/particles to use.
+    prior : callable
+        Class implementing the prior distribution.
+    likelihood : callable
+        Function returning the log likelihood of a set of parameters.
     n_dim : int
-        The total number of parameters/dimensions.
-    log_likelihood : callable
-        Function returning the log likelihood of a set
-        of parameters.
+        The total number of parameters/dimensions (Optional as it can be infered from the prior class).
+    n_ess : int
+        The effective sample size maintained during the run (default is ``n_ess=1500``).
+    n_active : int
+        The number of active particles (default is ``n_active=n_ess//3``).
     log_likelihood_args : list
         Extra arguments to be passed to log_likelihood
         (default is ``loglikelihood_args=None``).
@@ -35,17 +36,27 @@ class Sampler:
         Extra arguments to be passed to log_likelihood
         (default is ``loglikelihood_kwargs=None``).
     vectorize : bool
-        If True, vectorize ``loglikelihood``
+        If True, vectorize ``likelihood``
         calculation (default is ``vectorize=False``).
     pool : pool
         Provided ``MPI`` or ``multiprocessing`` pool for
         parallelisation (default is ``pool=None``).
-    flow_config : dict or ``None``
-        Configuration of the normalizing flow (default is
-        ``flow_config=None``).
+    flow : ``torch.nn.Module`` or ``None``
+        Normalizing flow (default is ``None``).
     train_config : dict or ``None``
         Configuration for training the normalizing flow
         (default is ``train_config=None``).
+    preconditioned : bool
+        If True, use preconditioned MCMC (default is ``preconditioned=True``).
+    sample : ``str``
+        Type of MCMC sampler to use (default is ``sample="pcn"``). Options are
+        ``"pcn"`` (Preconditioned Crank-Nicolson) or ``"rwm"`` (Random Walk Metropolis).
+    max_steps : int
+        Maximum number of MCMC steps (default is ``max_steps=4*n_dim``).
+    patience : int
+        Patience for early stopping of MCMC (default is ``patience=None``).
+    ess_threshold : int
+        Effective sample size threshold for resampling (default is ``ess_threshold=n_dim``).
     output_dir : ``str`` or ``None``
         Output directory for storing the state files of the
         sampler. Default is ``None`` which creates a ``states``
@@ -61,13 +72,13 @@ class Sampler:
     """
 
     def __init__(self,
-                 log_likelihood: callable,
                  prior: callable,
+                 likelihood: callable,
                  n_dim: int = None,
                  n_ess: int = 1500,
                  n_active: int = None,
-                 log_likelihood_args: list = None,
-                 log_likelihood_kwargs: dict = None,
+                 likelihood_args: list = None,
+                 likelihood_kwargs: dict = None,
                  vectorize: bool = False,
                  pool=None,
                  train_config: dict = None,
@@ -87,18 +98,18 @@ class Sampler:
             torch.manual_seed(random_state)
         self.random_state = random_state
 
-        # Log likelihood
-        self.log_likelihood = FunctionWrapper(
-            log_likelihood,
-            log_likelihood_args,
-            log_likelihood_kwargs
-        )
-
         # Prior
         self.prior = prior
         self.log_prior = self.prior.logpdf
         self.sample_prior = self.prior.rvs
         self.bounds = self.prior.bounds
+
+        # Log likelihood
+        self.log_likelihood = FunctionWrapper(
+            likelihood,
+            likelihood_args,
+            likelihood_kwargs
+        )
 
         # Number of parameters
         if n_dim is None:
@@ -202,9 +213,9 @@ class Sampler:
 
         Parameters
         ----------
-        ess : float
-            The effective sample size maintained during the run (default is
-            `ess=0.95`).
+        n_total : int
+            The total number of effectively independent samples to be
+            collected (default is ``n_total=5000``).
         progress : bool
             If True, print progress bar (default is ``progress=True``).
         resume_state_path : ``Union[str, Path]``
@@ -282,6 +293,19 @@ class Sampler:
         self.pbar.close()
 
     def _not_termination(self, current_particles):
+        """
+        Check if termination criterion is satisfied.
+
+        Parameters
+        ----------
+        current_particles : dict
+            Dictionary containing the current particles.
+        
+        Returns
+        -------
+        termination : bool
+            True if termination criterion is not satisfied.
+        """
         log_weights = self.particles.compute_logw(1.0, self.ess_threshold)
         weights = np.exp(log_weights - np.max(log_weights))
         weights /= np.sum(weights)
@@ -292,33 +316,17 @@ class Sampler:
     
     def _mutate(self, current_particles):
         """
-            Method which mutates particle positions
+        Evolve particles using MCMC.
 
         Parameters
         ----------
-        u : ``np.ndarray``
-            Scaled positions of particles.
-        x : ``np.ndarray``
-            Unscaled (original) positions of particles.
-        J : ``np.ndarray``
-            Logarithms of the absolute determinant of the Jacobian of the scaling transform.
-        L : ``np.ndarray``
-            log-likelihood values of particles
-        P : ``np.ndarray``
-            log-prior values of particles
-
+        current_particles : dict
+            Dictionary containing the current particles.
+        
         Returns
         -------
-        u : ``np.ndarray``
-            Mutated scaled positions of particles.
-        x : ``np.ndarray``
-            Mutated unscaled (original) positions of particles.
-        J : ``np.ndarray``
-            Mutated logarithms of the absolute determinant of the Jacobian of the scaling transform.
-        L : ``np.ndarray``
-            Mutated log-likelihood values of particles
-        P : ``np.ndarray``
-            Mutated log-prior values of particles
+        current_particles : dict
+            Dictionary containing the updated particles.
         """
         state_dict = dict(
             u=current_particles.get("u").copy(),
@@ -382,12 +390,17 @@ class Sampler:
 
     def _train(self, current_particles):
         """
-            Method which trains the normalising flow.
+        Train normalizing flow.
 
         Parameters
         ----------
-        u : ``np.ndarray``
-            Input training data (i.e. positions of particles)
+        current_particles : dict
+            Dictionary containing the current particles.
+        
+        Returns
+        -------
+        current_particles : dict
+            Dictionary containing the updated particles.
         """
         u = current_particles.get("u")
         w = current_particles.get("weights")
@@ -416,35 +429,18 @@ class Sampler:
 
     def _resample(self, current_particles):
         """
-            Method which resamples particle positions
+        Resample particles.
 
         Parameters
         ----------
-        u : ``np.ndarray``
-            Scaled positions of particles.
-        x : ``np.ndarray``
-            Unscaled (original) positions of particles.
-        J : ``np.ndarray``
-            Logarithms of the absolute determinant of the Jacobian of the scaling transform.
-        L : ``np.ndarray``
-            log-likelihood values of particles
-        P : ``np.ndarray``
-            log-prior values of particles
+        current_particles : dict
+            Dictionary containing the current particles.
 
         Returns
         -------
-        u : ``np.ndarray``
-            Resampled scaled positions of particles.
-        x : ``np.ndarray``
-            Resampled unscaled (original) positions of particles.
-        J : ``np.ndarray``
-            Resampled logarithms of the absolute determinant of the Jacobian of the scaling transform.
-        L : ``np.ndarray``
-            Resampled log-likelihood values of particles
-        P : ``np.ndarray``
-            Resampled log-prior values of particles
+        current_particles : dict
+            Dictionary containing the updated particles.
         """
-
         u = current_particles.get("u")
         x = current_particles.get("x")
         logdetj = current_particles.get("logdetj")
@@ -464,7 +460,17 @@ class Sampler:
 
     def _reweight(self, current_particles):
         """
-            Update beta level and evidence estimate.
+        Reweight particles.
+
+        Parameters
+        ----------
+        current_particles : dict
+            Dictionary containing the current particles.
+
+        Returns
+        -------
+        current_particles : dict
+            Dictionary containing the updated particles.
         """
         # Update iteration index
         self.t += 1
@@ -530,17 +536,17 @@ class Sampler:
 
     def _log_like(self, x):
         """
-            Compute the log-likelihood values of the particles.
+        Compute log likelihood.
 
         Parameters
         ----------
-        x : ``np.ndarray``
-            Input array of particle positions.
-
+        x : array_like
+            Array of parameter values.
+        
         Returns
         -------
-        L : ``np.ndarray``
-            Array of log-likelihood values of particles.
+        logl : float
+            Log likelihood.
         """
         if self.vectorize_likelihood:
             return self.log_likelihood(x)
@@ -550,6 +556,21 @@ class Sampler:
             return np.array(list(map(self.log_likelihood, x)))
         
     def evidence(self, n=5_000):
+        """
+        Estimate the evidence using importance sampling.
+
+        Parameters
+        ----------
+        n : int
+            Number of importance samples (default is ``n=5_000``).
+        
+        Returns
+        -------
+        logz : float
+            Estimate of the log evidence.
+        dlogz : float
+            Estimate of the error on the log evidence.
+        """
         with torch.no_grad():
             theta_q, logq = self.flow.sample(1000)
             theta_q = torch_to_numpy(theta_q)
@@ -588,6 +609,33 @@ class Sampler:
         return state
 
     def posterior(self, resample=False, trim_importance_weights=True, return_logw=False, ess_trim=0.99, bins_trim=1_000):
+        """
+        Return posterior samples.
+
+        Parameters
+        ----------
+        resample : bool
+            If True, resample particles (default is ``resample=False``).
+        trim_importance_weights : bool
+            If True, trim importance weights (default is ``trim_importance_weights=True``).
+        return_logw : bool
+            If True, return log importance weights (default is ``return_logw=False``).
+        ess_trim : float
+            Effective sample size threshold for trimming (default is ``ess_trim=0.99``).
+        bins_trim : int
+            Number of bins for trimming (default is ``bins_trim=1_000``).
+
+        Returns
+        -------
+        samples : ``np.ndarray``
+            Samples from the posterior.
+        weights : ``np.ndarray``
+            Importance weights.
+        logl : ``np.ndarray``
+            Log likelihoods.
+        logp : ``np.ndarray``
+            Log priors.
+        """
         samples = self.particles.get("x", flat=True)
         logl = self.particles.get("logl", flat=True)
         logp = self.particles.get("logp", flat=True)
@@ -613,16 +661,15 @@ class Sampler:
 
     @property
     def results(self):
+        """
+        Return results.
+
+        Returns
+        -------
+        results : dict
+            Dictionary containing the results.
+        """
         return self.particles.compute_results()
-
-    def plot_corner(self):
-        return corner(self.results)
-
-    def plot_trace(self):
-        return trace(self.results)
-
-    def plot_run(self):
-        return run(self.results)
 
     def save_state(self, path: Union[str, Path]):
         """Save current state of sampler to file.
