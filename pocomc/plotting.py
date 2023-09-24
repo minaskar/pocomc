@@ -125,7 +125,7 @@ def corner(results: dict,
     fig : Figure
         Corner figure.
     """
-    import corner
+    import corner as crn
 
     if color is None:
         color = 'C0'
@@ -146,7 +146,7 @@ def corner(results: dict,
     if dims is not None:
         posterior_samples = posterior_samples[:, dims]
 
-    return corner.corner(data=posterior_samples,
+    return crn.corner(data=posterior_samples,
                          labels=labels,
                          color=color,
                          **corner_kwargs)

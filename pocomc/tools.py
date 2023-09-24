@@ -1,10 +1,53 @@
 import numpy as np
 import math
+from scipy.special import gammaln
 import torch
 from tqdm import tqdm
 import warnings
 
 SQRTEPS = math.sqrt(float(np.finfo(np.float64).eps))
+
+def mean_minimum_distance(N : int = None, 
+                          D : int = None):
+    r"""
+        Compute the average minimum (1st neighbor) distance between N samples from a D-dimensional uniform distribution.
+
+    Parameters
+    ----------
+    N : ``int``
+        Number of samples
+    D : ``int``
+        Number of dimensions.
+    Returns
+    -------
+    distance : float
+        Mean minimum distance.
+    """
+    return np.exp(gammaln(D/2 + 1)/D + gammaln(1+1/D) + gammaln(N) - gammaln(N + 1/D) - 0.5 * np.log(np.pi))
+
+def trim_weights(samples, weights, ess=0.99, bins=1000):
+
+    # normalize weights
+    weights /= np.sum(weights)
+    # compute untrimmed ess
+    ess_total = 1.0 / np.sum(weights**2.0)
+    # define percentile grid
+    percentiles = np.linspace(0, 99, bins)
+
+    i = bins - 1
+    while True:
+        p = percentiles[i]
+        # compute weight threshold
+        threshold = np.percentile(weights, p)
+        mask = weights >= threshold
+        weights_trimmed = weights[mask]
+        weights_trimmed /= np.sum(weights_trimmed)
+        ess_trimmed = 1.0 / np.sum(weights_trimmed**2.0)
+        if ess_trimmed / ess_total >= ess:
+            break 
+        i -= 1
+    
+    return samples[mask], weights_trimmed
 
 
 def compute_ess(logw: np.ndarray):
@@ -43,9 +86,32 @@ def increment_logz(logw: np.ndarray):
     """
     logw_max = np.max(logw)
     logw_normed = logw - logw_max
-    N = len(logw)
 
-    return logw_max + np.logaddexp.reduce(logw_normed) - np.log(N)
+    return logw_max + np.logaddexp.reduce(logw_normed)
+
+
+def systematic_resample(size: np.ndarray, 
+                        weights: np.ndarray, 
+                        random_state: int = None):
+    
+    if random_state is not None:
+        np.random.seed(random_state)
+
+    if abs(np.sum(weights) - 1.) > SQRTEPS:
+        weights = np.array(weights) / np.sum(weights)
+
+    positions = (np.random.random() + np.arange(size)) / size
+
+    j = 0
+    cumulative_sum = weights[0]
+    indeces = np.empty(size, dtype=int)
+    for i in range(size):
+        while positions[i] > cumulative_sum:
+            j += 1
+            cumulative_sum += weights[j]
+        indeces[i] = j
+    
+    return indeces
 
 
 def resample_equal(samples: np.ndarray,
