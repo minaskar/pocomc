@@ -85,8 +85,7 @@ def preconditioned_pcn(state_dict: dict,
     # Transform u to theta
     theta, logdetj_flow = flow.forward(u)
 
-    #sigma = np.minimum(2.38 / n_dim**0.5, 0.99)
-    sigma = np.ones(n_walkers) * np.minimum(2.38 / n_dim**0.5, 0.99)
+    sigma = np.minimum(2.38 / n_dim**0.5, 0.99)
 
     mu, cov, nu = fit_mvstud(theta)
     if ~np.isfinite(nu):
@@ -111,7 +110,7 @@ def preconditioned_pcn(state_dict: dict,
         # Propose new points in theta space
         theta_prime = np.empty((n_walkers, n_dim))
         for k in range(n_walkers):
-            theta_prime[k] = mu + (1.0 - sigma[k] ** 2.0) ** 0.5 * diff[k] + sigma[k] * np.sqrt(s[k]) * np.dot(chol_cov, np.random.randn(n_dim))        
+            theta_prime[k] = mu + (1.0 - sigma ** 2.0) ** 0.5 * diff[k] + sigma * np.sqrt(s[k]) * np.dot(chol_cov, np.random.randn(n_dim))        
 
         # Transform to u space
         u_prime, logdetj_flow_prime = flow.inverse(theta_prime)
@@ -153,21 +152,9 @@ def preconditioned_pcn(state_dict: dict,
         logp[mask] = logp_prime[mask]
 
         # Adapt scale parameter using diminishing adaptation
-        #sigma = np.abs(np.minimum(sigma + 1 / (i + 1) * (np.mean(alpha) - 0.4), np.minimum(2.38 / n_dim**0.5, 0.99)))
-        sigma = np.abs(np.minimum(sigma + 1 / (i + 1) * (alpha - 0.4), np.minimum(2.38 / n_dim**0.5, 0.99)*np.ones(n_walkers)))
+        sigma = np.abs(np.minimum(sigma + 1 / (i + 1) * (np.mean(alpha) - 0.234), np.minimum(2.38 / n_dim**0.5, 0.99)))
 
-        import matplotlib.pyplot as plt
-        plt.hist(alpha, bins=20)
-        plt.show()
-
-        plt.hist(logl_prime * beta - logl * beta + logp_prime - logp + logdetj_prime - logdetj + logdetj_flow_prime - logdetj_flow - A + B, bins=20)
-        plt.show()
-
-        print('mean:', np.exp(np.mean(logl_prime * beta - logl * beta + logp_prime - logp + logdetj_prime - logdetj + logdetj_flow_prime - logdetj_flow - A + B)))
-        print('median:', np.exp(np.median(logl_prime * beta - logl * beta + logp_prime - logp + logdetj_prime - logdetj + logdetj_flow_prime - logdetj_flow - A + B)))
-
-
-        # Adapt mean
+        # Adapt mean parameter using diminishing adaptation
         mu = mu + 1.0 / (i + 1.0) * (np.mean(theta, axis=0) - mu)
 
         # Update progress bar if available
@@ -177,8 +164,7 @@ def preconditioned_pcn(state_dict: dict,
                     accept=np.mean(alpha),
                     steps=i,
                     logp=np.mean(logl + logp + logdetj),
-                    #efficiency=sigma / (2.38 / np.sqrt(n_dim)),
-                    efficiency=np.mean(sigma) / (2.38 / np.sqrt(n_dim)),
+                    efficiency=sigma / (2.38 / np.sqrt(n_dim)),
                     )
             )
 
@@ -191,9 +177,7 @@ def preconditioned_pcn(state_dict: dict,
         else:
             cnt += 1
         if patience is None:
-            #if cnt >= n_dim // 2 * ((2.38 / n_dim**0.5) / sigma)**1.5 * np.minimum(1.0, np.abs(0.234 / np.mean(alpha))):
-            #    break
-            if cnt >= n_dim // 2 * ((2.38 / n_dim**0.5) / np.mean(sigma))**1.5 * np.minimum(1.0, np.abs(0.234 / np.mean(alpha))):
+            if cnt >= n_dim // 2 * ((2.38 / n_dim**0.5) / sigma)**1.5 * np.minimum(1.0, np.abs(0.234 / np.mean(alpha))):
                 break
         else:
             if cnt >= patience:
@@ -202,8 +186,7 @@ def preconditioned_pcn(state_dict: dict,
         if i >= n_max:
             break
 
-    print(i-cnt, i, np.mean(logl + logp + logdetj), np.std(logl + logp + logdetj))
-    return dict(u=u, x=x, logdetj=logdetj, logl=logl, logp=logp, efficiency=np.mean(sigma), accept=np.mean(alpha), steps=i, calls=n_calls)
+    return dict(u=u, x=x, logdetj=logdetj, logl=logl, logp=logp, efficiency=sigma, accept=np.mean(alpha), steps=i, calls=n_calls)
 
 @torch.no_grad()
 def preconditioned_rwm(state_dict: dict,

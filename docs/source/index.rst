@@ -23,7 +23,7 @@ problems that include multimodal and highly non--Gaussian target distributions.
     :doc:`pages/quickstart` guide. If you are not familiar with Bayesian inference
     or how PMC works have a look at the :doc:`background`.
 
-    📖 For more details, check out the :doc:`advanced`, :doc:`tutorials` and :doc:`examples`,
+    📖 For more details, check out the :doc:`advanced` and :doc:`tutorials`,
     including the full :doc:`api` documentation.
 
     💡 If you're running into problems getting ``pocoMC`` to do what you want, first
@@ -46,7 +46,6 @@ problems that include multimodal and highly non--Gaussian target distributions.
    background
    advanced
    tutorials
-   examples
    faq
    api
    GitHub Repository <https://github.com/minaskar/pocomc>
@@ -81,7 +80,7 @@ research. The BibTeX entries for the papers are::
 Authors & License
 =================
 
-Copyright 2022 Minas Karamanis and contributors.
+Copyright 2022-2023 Minas Karamanis and contributors.
 
 ``pocoMC`` is free software made available under the ``GPL-3.0 License``.
 

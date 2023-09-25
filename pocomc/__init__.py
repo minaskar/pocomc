@@ -16,7 +16,6 @@ __description__ = "A Python implementation of Preconditioned Monte Carlo for acc
 from .flow import *
 from .sampler import *
 from .prior import *
-from .plotting import *
 from ._version import version
 
 __version__ = version

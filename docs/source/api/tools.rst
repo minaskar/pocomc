@@ -4,18 +4,13 @@ Tools
 Resample particles
 ------------------
 
-.. autofunction:: pocomc.tools.resample_equal
+.. autofunction:: pocomc.tools.systematic_resample
 
 
 Compute effective sample size
 -----------------------------
 
 .. autofunction:: pocomc.tools.compute_ess
-
-Compute log evidence increment
-------------------------------
-
-.. autofunction:: pocomc.tools.increment_logz
 
 
 Progress bar

@@ -20,7 +20,7 @@ import pocomc
 # -- Project information -----------------------------------------------------
 
 project = 'pocoMC'
-copyright = '2022, Minas Karamanis'
+copyright = '2022-2023, Minas Karamanis'
 author = 'Minas Karamanis'
 
 # The full version, including alpha/beta/rc tags
@@ -61,7 +61,10 @@ exclude_patterns = []
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = "sphinx_book_theme"
+#html_theme = "sphinx_book_theme"
+html_theme = "sphinx_rtd_theme"
+#html_theme = 'pydata_sphinx_theme'
+#html_theme = 'sphinx_material'
 html_title = "pocoMC"
 html_logo = "./../../logo.png"
 logo_only = True

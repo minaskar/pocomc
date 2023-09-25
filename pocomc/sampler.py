@@ -56,7 +56,7 @@ class Sampler:
     patience : int
         Patience for early stopping of MCMC (default is ``patience=None``).
     ess_threshold : int
-        Effective sample size threshold for resampling (default is ``ess_threshold=n_dim``).
+        Effective sample size threshold for resampling (default is ``ess_threshold=4*n_dim``).
     output_dir : ``str`` or ``None``
         Output directory for storing the state files of the
         sampler. Default is ``None`` which creates a ``states``
@@ -122,7 +122,7 @@ class Sampler:
 
         # Number of active particles
         if n_active is None:
-            self._n_active = self.n_ess // 3
+            self.n_active = self.n_ess // 3
         else:
             self.n_active = int(n_active)
 
@@ -137,7 +137,7 @@ class Sampler:
 
         # Particle manager
         if ess_threshold is None:
-            self.ess_threshold = self.n_dim
+            self.ess_threshold = int(4 * self.n_dim)
         else:
             self.ess_threshold = ess_threshold
 
@@ -639,7 +639,7 @@ class Sampler:
         samples = self.particles.get("x", flat=True)
         logl = self.particles.get("logl", flat=True)
         logp = self.particles.get("logp", flat=True)
-        logw = self.particles.compute_logw(1.0)
+        logw = self.particles.compute_logw(1.0, self.ess_threshold)
         weights = np.exp(logw)
 
         if trim_importance_weights:
