@@ -142,6 +142,8 @@ def preconditioned_pcn(state_dict: dict,
         # Metropolis criterion
         mask = u_rand < alpha
 
+        theta_squared_distance = np.sum((theta_prime - theta)**2, axis=1)
+
         # Accept new points
         theta[mask] = theta_prime[mask]
         u[mask] = u_prime[mask]
@@ -509,7 +511,7 @@ def rwm(state_dict: dict,
         u_rand = np.random.rand(n_walkers)
 
         logl_prime = log_like(x_prime)
-        logp_prime = log_like(x_prime)
+        logp_prime = log_prior(x_prime)
 
         n_calls += len(logl_prime)
 

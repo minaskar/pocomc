@@ -8,15 +8,13 @@ This guide is intended to give the user an idea of the various options and possi
 We will start by explaining in detail how to define a problem of Bayesian inference. Then, we will demonstrate 
 how to use ``pocoMC`` in order to solve the aforementioned problem as effectively and robustly as possible.
 
-Defining the inference problem
-==============================
+Likelihood function
+===================
 
 We will begin by defining our problem. To this end we need to define *log-likelihood* function :math:`\log\mathcal{L}(\theta)=\log p(d\vert\theta,\mathcal{M})` and 
 *log-prior* probability density function :math:`\log \pi(\theta) = \log p(\theta\vert \mathcal{M})`. We will start with the former, the likelihood.
 If you are not familiar with these terms I encourage you to visit the :doc:`background` section for some theory. 
 
-Log-likelihood function
------------------------
 Suppose that we want our *likelihood* function to be a *Gaussian density* with 10 parameters or in 10-D, we would do
 something like::
 
@@ -38,82 +36,90 @@ The inclusion of the normalisation factor ``lnorm`` is not strictly necessary as
 vary. 
 
 
-Log-prior probability density function
---------------------------------------
+Prior probability distribution
+==============================
 
-The next step is to define the *log-prior* function. Suppose that we want our prior to be uniform :math:`x\sim\mathcal{U}(-10,10)`
-in all 10 of the parameters. We can do this in Python as::
+Standard priors
+---------------
 
-    def log_prior(x):
-        if np.any(x < -10.0) or np.any(x > 10.0):
-            return - np.inf
-        else:
-            return - ndim * np.log(10.0)
+The next step is to define the *prior* probability distribution. This encodes our knowledge about the parameters of the model
+before we have seen any data.
 
-Again, the normalisation term :math:`- ndim * np.log(10.0)` in the case that a point :math:`x` is inside the boundaries is not strictly
-necessary, as it doesn't vary. Instead, it is common to return `0.0` in those cases.
+``pocoMC`` offers two ways to define a prior. The first is to utilise ready-made priors from the ``scipy.stats`` package. For instance,
+if we want our prior to be a *uniform* distribution on the interval :math:`[-10,10]` for all 10 of the parameters, we would do::
 
-If Instead we required a prior that is normal/*Gaussian* on all parameters with zero-mean and a standard deviation of ``3.0``,
-e.g. :math:`x\sim\mathcal{N}(0,3^{2})`, we would do something like::
+    from scipy.stats import uniform
 
-    def log_prior(x):
-        return - 0.5 * np.dot(x, x) / 3.0**2.0
+    prior = pc.Prior(n_dim * [uniform(loc=-10.0, scale=20.0)]) # Uniform prior on [-10,10] for all 10 parameters.
 
-Alternatively, we can have priors in which not all of the parameters have the same density a priori. For instance, suppose that
-we want the first five parameters to have a flat/uniform prior :math:`x_{i}\sim\mathcal{U}(-10,10)` for :math:`i=0,1,\dots,4` and
-the last five to have a Gaussian/normal prior  :math:`x_{i}\sim\mathcal{N}(0,3^{2})` for :math:`i=5,6,\dots,9`, we would do::
+Suppose now that we want a different prior for each parameter. For instance, we want the first five parameters to have a flat/uniform
+prior :math:`x_{i}\sim\mathcal{U}(-10,10)` for :math:`i=0,1,\dots,4` and the last five to have a Gaussian/normal prior
+with mean :math:`\mu=0` and standard deviation :math:`\sigma=3`, i.e. :math:`x_{i}\sim\mathcal{N}(0,3^{2})` for :math:`i=5,6,\dots,9`.
+We would do::
 
-    def log_prior(x):
-        if np.any(x[:5] < -10.0) or np.any(x[:5] > 10.0):
-            return - np.inf
-        else:
-            return - 5 * np.log(10.0) - 0.5 * np.dot(x[5:], x[5:]) / 3.0**2.0
+    from scipy.stats import uniform, norm
+
+    prior = pc.Prior([uniform(loc=-10.0, scale=20.0), # Uniform prior on [-10,10] for the first parameter.
+                      uniform(loc=-10.0, scale=20.0), # Uniform prior on [-10,10] for the second parameter.
+                      uniform(loc=-10.0, scale=20.0), # Uniform prior on [-10,10] for the third parameter.
+                      uniform(loc=-10.0, scale=20.0), # Uniform prior on [-10,10] for the fourth parameter.
+                      uniform(loc=-10.0, scale=20.0), # Uniform prior on [-10,10] for the fifth parameter.
+                      norm(loc=0.0, scale=3.0), # Normal prior with mean=0 and std=3 for the sixth parameter.
+                      norm(loc=0.0, scale=3.0), # Normal prior with mean=0 and std=3 for the seventh parameter.
+                      norm(loc=0.0, scale=3.0), # Normal prior with mean=0 and std=3 for the eighth parameter.
+                      norm(loc=0.0, scale=3.0), # Normal prior with mean=0 and std=3 for the ninth parameter.
+                      norm(loc=0.0, scale=3.0), # Normal prior with mean=0 and std=3 for the tenth parameter.
+                     ])
+
+or simply::
+
+    from scipy.stats import uniform, norm
+
+    prior = pc.Prior([uniform(loc=-10.0, scale=20.0)] * 5 + [norm(loc=0.0, scale=3.0)] * 5)
+
+One is free to use any of the priors available in the ``scipy.stats`` package. For a full list see `here <https://docs.scipy.org/doc/scipy/reference/stats.html>`_.
+
+Custom priors
+-------------
+
+The second way to define a prior is to define a class including the ``logpdf`` and ``rvs`` methods and ``dim`` 
+and ``bounds`` attributes. This can be useful when the prior has some conditional/hierarchical structure.
+As an example, let us assume we have a three-parameter model where the prior for the third parameter depends 
+on the values for the first two. This might be the case in, e.g., a hierarchical model where the prior over ``c`` 
+is a Normal distribution whose mean ``m`` and standard deviation ``s`` are determined by a corresponding 
+“hyper-prior”. We can easily set up a prior transform for this model by just going through the variables in order. 
+This would look like::
+    
+        import numpy as np
+        from scipy.stats import norm
+    
+        class CustomPrior:
+            def __init__(self):
+                self.dim = 3
+                self.bounds = np.array([[-np.inf, np.inf], 
+                                        [0.0, 10], 
+                                        [-np.inf, np.inf]])
+                self.hyper_mean = 0.0
+                self.hyper_std = 3.0
+    
+            def logpdf(self, x):
+                m, s, c = x
+                return norm.logpdf(c, loc=m, scale=s)
+    
+            def rvs(self, size=1):
+                m = np.random.normal(loc=self.hyper_mean, scale=self.hyper_std, size=size)
+                s = np.random.uniform(low=0.0, high=10.0, size=size)
+                c = np.random.normal(loc=m, scale=s, size=size)
+                return np.array([m, s, c]).T
+
+        prior = CustomPrior()
 
 
-Parameter bounds
-----------------
-
-Furthermore, it is useful for ``pocoMC`` to know which parameters are bounded and how. This is often determined based on 
-the form of the prior distribution. For instance, in the case of the prior that we just discussed, in which the first 5
-of the parameters have a flat/uniform prior and the final five have a Gaussian/normal prior, we know the lower and upper 
-bounds for the first five. 
-
-We can define the lower and/or upper bounds for any parameter that we know and set ``None`` for the rest of them::
-
-    bounds = np.empty((ndim, 2))
-    bounds[:5, 0] = -10.0
-    bounds[:5, 1] = 10.0
-    bounds[5:] = None
-
-If a parameter is only bounded from below or high we can only set that bound e.g. ``bounds[i] = np.array([None, 10.0])``.
-
-Preconditioned Monte Carlo with pocoMC
-======================================
+Sampler options
+===============
 
 Having defined the Bayesian components of the problem (e.g. likelihood, prior, etc.) we can now turn our attention to
 configuring ``pocoMC`` in order to solve this inference problem.
-
-Initial particles
------------------
-
-The first step is generate some samples/points from the prior distribution. These will be the starting positions for the 
-particles or walkers of ``pocoMC``.
-
-For instance, in the case of the half-uniform/half-normal prior that we discussed above, we can generate some prior samples as::
-
-    n_particles = 1000
-
-    prior_samples = np.empty((n_particles, n_dim))
-    prior_samples[:, :5] = np.random.uniform(low=-10.0, high=10.0, size=(n_particles, 5))
-    prior_samples[:, 5:] = np.random.normal(loc=0.0, scale=3.0, size=(n_particles, 5))
-
-Here we chose to use ``n_particles = 1000`` as the total number of particles. In real applications, we recommend to use at least this
-many particles and possibly more if you expect your distribution to be particularly nasty (e.g. high dimensional :math:`D>10`, 
-highly correlated, and/or multimodal).
-
-
-Sampler initialisation
-----------------------
 
 The next step is to import ``pocoMC`` and initialise the ``Sampler`` class::
 
@@ -282,30 +288,18 @@ can find more about these in the :doc:`api`.
 
 
 Parallelisation
----------------
+===============
 
 If you want to run computations in parallel, ``pocoMC`` can use a user-defined ``pool`` to execute a variety of expensive operations 
 in parallel rather than in serial. This can be done by passing the ``pool`` object to the sampler upon initialization::
 
-    sampler = pc.Sampler(n_particles = n_particles,
-                         n_dim = ndim,
-                         log_likelihood = log_like,
-                         log_prior = log_prior,
-                         bounds = bounds,
+    sampler = pc.Sampler(prior=prior,
+                         likelihood = log_like,
                          pool = pool,
                         )
+    sampler.run()
 
-By default ``pocoMC`` will use the ``pool`` to execute the calculation of the ``log_likelihood`` in parallel for the ``n_particles`` particles.
-If you also want the ``pool`` to be used for the calculation of the ``log_prior`` (default is False), you can do::
-
-    sampler = pc.Sampler(n_particles = n_particles,
-                         n_dim = n_dim,
-                         log_likelihood = log_like,
-                         log_prior = log_prior,
-                         bounds = bounds,
-                         pool = pool,
-                         parallelize_prior = True,
-                        )
+By default ``pocoMC`` will use the ``pool`` to execute the calculation of the ``log_likelihood`` in parallel for the particles.
 
 Commonly used pools are offered by standard Python in the ``multiprocessing`` package and the ``multiprocess`` package. The benefit of
 the latter is that it uses ``dill`` to perform the serialization so it can actually work with a greater variety of log-likelihood
@@ -317,17 +311,12 @@ functions. The disadvantage is that it needs to be installed manually. An exampl
 
     with Pool(n_cpus) as pool:
 
-        sampler = pc.Sampler(n_particles = n_particles,
-                         n_dim = n_dim,
-                         log_likelihood = log_like,
-                         log_prior = log_prior,
-                         bounds = bounds,
-                         pool = pool,
-                        )
+        sampler = pc.Sampler(prior=prior,
+                             likelihood = log_like,
+                             pool = pool,
+                            )
         
-        sampler.run(prior_samples = prior_samples)
-
-        sampler.add_samples(2000)
+        sampler.run()
 
 where ``n_cpus`` is the number of available CPUs in our machine. Since ``numpy`` and ``torch`` are doing some internal parallelisation
 it is a good idea to specify how many CPUs should be used for that using::
@@ -341,11 +330,11 @@ at the beginning of the code. This can affect the speed of the normalising flow 
 Finally, other pools can also be used, particularly if you plan to use ``pocoMC`` is a supercomputing cluster you may want to use
 an ``mpi4py`` pool so that you can utilise multiple nodes.
 
-The speed-up offered by parallelisation in ``pocoMC`` is expected to be linear in the number of particles ``n_particles``.
+The speed-up offered by parallelisation in ``pocoMC`` is expected to be linear in the number of particles.
 
 
 Saving and resuming runs
-------------------------
+========================
 
 A useful option, especially for long runs, is to be able to store the state of ``pocoMC`` in a file and also the to use
 that file in order to later continue the same run. This can help avoid disastrous situations in which a run is interrupted
@@ -354,7 +343,7 @@ or terminated prematurely (e.g. due to time limitation in computing clusters or 
 Fortunately, ``pocoMC`` offers both options to save and load a previous state of the sampler.
 
 Saving the state of the sampler
-"""""""""""""""""""""""""""""""
+-------------------------------
 
 In order to save the state of the sampler during the run, one has to specify how often to save the state in a file. This is
 done using the ``save_every`` argument in the ``run`` method. The default is ``save_every=None`` which means that no state
@@ -362,7 +351,6 @@ is saved during the run. If instead we want to store the state of ``pocoMC`` eve
 something like::
 
     sampler.run(
-        prior_samples = prior_samples,
         save_every = 3,
     )
 
@@ -374,7 +362,7 @@ the label from ``pmc`` to anything else by using the ``output_label`` argument w
 ``output_label="grav_waves"``).
 
 Loading the state of the sampler
-""""""""""""""""""""""""""""""""
+--------------------------------
 
 Loading a previous state of the sampler and resuming the run from that point requires to provide the path to the specific state
 file to the ``run`` method using the ``resume_state_path`` argument. For instance, if we want to continue the run from the 
@@ -383,5 +371,3 @@ file to the ``run`` method using the ``resume_state_path`` argument. For instanc
     sampler.run(
         resume_state_path = "states/pmc_3.state"
     )
-
-Notice that no prior samples are required to be provided in this case.
