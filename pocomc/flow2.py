@@ -1,4 +1,10 @@
-from typing import Union, Optional, Tuple, Dict, List
+import torch
+import torch.nn as nn
+
+from torch import Tensor
+from torch.distributions import Normal
+from typing import *
+from zuko.utils import odeint
 
 import numpy as np
 import copy
@@ -10,117 +16,132 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from .tools import torch_double_to_float
 
-class Flow:
-    """
-    Normalizing flow model.
+class MLP(nn.Sequential):
+    def __init__(
+        self,
+        in_features: int,
+        out_features: int,
+        hidden_features: List[int] = [64, 64],
+    ):
+        layers = []
 
-    Parameters
-    ----------
-    n_dim : ``int``
-        Number of dimensions of the distribution to be modeled.
-    flow : ``zuko.flows.Flow``
-        Normalizing flow model. Default: ``zuko.flows.MAF``.
+        for a, b in zip(
+            (in_features, *hidden_features),
+            (*hidden_features, out_features),
+        ):
+            layers.extend([nn.Linear(a, b), nn.ELU()])
+            #layers.extend([nn.Linear(a, b), nn.ELU(), nn.Dropout(0.2)])
 
-    Attributes
-    ----------
-    n_dim : ``int``
-        Number of dimensions of the distribution to be modeled.
-    flow : ``zuko.flows.Flow``
-        Normalizing flow model.
-    transform : ``zuko.transforms.Transform``
-        Transformation object.
+        super().__init__(*layers[:-1])
+        #super().__init__(*layers[:-2])
+
+
+class CNF(nn.Module):
+    def __init__(
+        self,
+        features: int,
+        freqs: int = 3,
+        **kwargs,
+    ):
+        super().__init__()
+
+        self.net = MLP(2 * freqs + features, features, **kwargs)
+
+        self.register_buffer('freqs', torch.arange(1, freqs + 1) * torch.pi)
+
+    def forward(self, t: Tensor, x: Tensor) -> Tensor:
+        t = self.freqs * t[..., None]
+        t = torch.cat((t.cos(), t.sin()), dim=-1)
+        t = t.expand(*x.shape[:-1], -1)
+
+        return self.net(torch.cat((t, x), dim=-1))
+
+    def encode(self, x: Tensor) -> Tensor:
+        return odeint(self, x, 0.0, 1.0, phi=self.parameters())
+
+    def decode(self, z: Tensor) -> Tensor:
+        return odeint(self, z, 1.0, 0.0, phi=self.parameters())
+
+    def log_prob(self, x: Tensor) -> Tensor:
+        I = torch.eye(x.shape[-1]).to(x)
+        I = I.expand(x.shape + x.shape[-1:]).movedim(-1, 0)
+
+        def augmented(t: Tensor, x: Tensor, ladj: Tensor) -> Tensor:
+            with torch.enable_grad():
+                x = x.requires_grad_()
+                dx = self(t, x)
+
+            jacobian = torch.autograd.grad(dx, x, I, is_grads_batched=True, create_graph=True)[0]
+            trace = torch.einsum('i...i', jacobian)
+
+            return dx, trace * 1e-2
+
+        ladj = torch.zeros_like(x[..., 0])
+        z, ladj = odeint(augmented, (x, ladj), 0.0, 1.0, phi=self.parameters())
+
+        return Normal(0.0, z.new_tensor(1.0)).log_prob(z).sum(dim=-1) + ladj * 1e2
     
-    Examples
-    --------
-    >>> import torch
-    >>> import pocomc
-    >>> flow = pocomc.Flow(2)
-    >>> x = torch.randn(100, 2)
-    >>> u, logdetj = flow(x)
-    >>> x_, logdetj_ = flow.inverse(u)
-    >>> log_prob = flow.log_prob(x)
-    >>> x_, log_prob_ = flow.sample(100)
-    >>> history = flow.fit(x)
-    """
+    def _forward(self, x):
+        I = torch.eye(x.shape[-1]).to(x)
+        I = I.expand(x.shape + x.shape[-1:]).movedim(-1, 0)
+
+        def augmented(t: Tensor, x: Tensor, ladj: Tensor) -> Tensor:
+            with torch.enable_grad():
+                x = x.requires_grad_()
+                dx = self(t, x)
+
+            jacobian = torch.autograd.grad(dx, x, I, is_grads_batched=True, create_graph=True)[0]
+            trace = torch.einsum('i...i', jacobian)
+
+            return dx, trace * 1e-2
+
+        ladj = torch.zeros_like(x[..., 0])
+        z, ladj = odeint(augmented, (x, ladj), 0.0, 1.0, phi=self.parameters())
+
+        return z, ladj
+    
+    def _inverse(self, z):
+        x = self.decode(z)
+        _, ladj = self._forward(x)
+        return x, -ladj
+
+
+class FlowMatchingLoss(nn.Module):
+    def __init__(self, v: nn.Module):
+        super().__init__()
+
+        self.v = v
+
+    def forward(self, x: Tensor) -> Tensor:
+        t = torch.rand_like(x[..., 0]).unsqueeze(-1)
+        z = torch.randn_like(x)
+        y = (1 - t) * x + (1e-4 + (1 - 1e-4) * t) * z
+        u = (1 - 1e-4) * z - x
+
+        return (self.v(t.squeeze(-1), y) - u).square().mean()
+
+
+class Flow:
 
     def __init__(self, n_dim, flow=None):
         self.n_dim = n_dim
-        if flow is None:
-            self.flow = zuko.flows.MAF(n_dim, 
-                                       transforms=6, 
-                                       hidden_features=[64] * 2)
-        else:
-            self.flow = flow 
-        self.transform = self.flow().transform
+        self.flow = CNF(n_dim, hidden_features=[256] * 3)
+        self.loss = FlowMatchingLoss(self.flow)
 
-    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        """
-        Forward transformation.
-        Inputs are transformed from the original (relating to the distribution to be modeled) to the latent space.
+    def forward(self, x):
+        return self.flow._forward(x)
 
-        Parameters
-        ----------
-        x : ``torch.Tensor``
-            Samples to transform.
-        Returns
-        -------
-        u : ``torch.Tensor``
-            Transformed samples in latent space with the same shape as the original space inputs.
-        """
-        x = torch_double_to_float(x)
-        return self.transform.call_and_ladj(x)
+    def inverse(self, u):
+        return self.flow._inverse(u)
 
-    def inverse(self, u: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        """
-        Inverse transformation.
-        Inputs are transformed from the latent to the original space (relating to the distribution to be modeled).
-        
-        Parameters
-        ----------
-        u : ``torch.Tensor``
-            Samples to transform.
-        Returns
-        -------
-        x : ``torch.Tensor``
-            Transformed samples in the original space with the same shape as the latent space inputs.
-        """
-        u = torch_double_to_float(u)
-        x = self.transform.inv(u)
-        logdetj = self.transform.log_abs_det_jacobian(x, None)
-        return x, -logdetj
+    def log_prob(self, x):
+        return self.flow.log_prob(x)
 
-    def log_prob(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Compute log probability of samples.
-        
-        Parameters
-        ----------
-        x : ``torch.Tensor``
-            Input samples
-        Returns
-        -------
-        Log-probability of samples.
-        """
-        x = torch_double_to_float(x)
-        return self.flow().log_prob(x)
-
-    def sample(self, size: int = 1) -> Tuple[torch.Tensor, torch.Tensor]:
-        """
-        Draw random samples from the normalizing flow.
-
-        Parameters
-        ----------
-        size : ``int``
-            Number of samples to generate. Default: 1.
-        Returns
-        -------
-        samples, log_prob : ``tuple``
-            Samples as a ``torch.Tensor`` with shape ``(size, n_dimensions)`` and log probability values with shape ``(size, )``.
-        """
+    def sample(self, size=1):
         u = torch.randn(size, self.n_dim)
-        x = self.transform.inv(u)
-        return x, self.flow().log_prob(x)
-
+        x, _ = self.flow.decode(u)
+        return x, self.log_prob(x)
+    
     def fit(self,
             x,
             weights=None,
@@ -189,6 +210,14 @@ class Flow:
         x = torch_double_to_float(x)
 
         n_samples, n_dim = x.shape
+
+        # Check if weights is not None and resample samples according to weights
+        if weights is not None:
+            weights = torch_double_to_float(weights)
+            weights = weights / torch.sum(weights)
+            rand_indx = torch.multinomial(weights, n_samples, replacement=True)
+            x = x[rand_indx]
+            weights = None
 
         if shuffle:
             rand_indx = torch.randperm(n_samples)
@@ -265,10 +294,9 @@ class Flow:
                 else:
                     x_ = batch[0] + noise * mean_min_dist * torch.randn_like(batch[0])
                 if weights is None:
-                    loss = -self.flow().log_prob(x_).sum()
+                    loss = self.loss(x_)
                 else:
-                    loss = -self.flow().log_prob(x_) * batch[1] * 1000.0
-                    loss = loss.sum() / batch[1].sum()
+                    loss = self.weighted_loss(x_, batch[1])
 
                 if laplace_scale is not None or gaussian_scale is not None:
                     loss -= regularization_loss(self.flow, laplace_scale, gaussian_scale)
@@ -294,10 +322,9 @@ class Flow:
                     else:
                         x_ = batch[0] + noise * mean_min_dist * torch.randn_like(batch[0])
                     if weights is None:
-                        loss = -self.flow().log_prob(x_).sum()
+                        loss = self.loss(x_)
                     else:
-                        loss = -self.flow().log_prob(x_) * batch[1] * 1000.0
-                        loss = loss.sum() / batch[1].sum()
+                        loss = self.weighted_loss(x_, batch[1])
                     
                     if laplace_scale is not None or gaussian_scale is not None:
                         loss -= regularization_loss(self.flow, laplace_scale, gaussian_scale)
@@ -341,41 +368,3 @@ class Flow:
             print('Time per epoch: %5.2f sec' % time_per_epoch_sec)
 
         return history
-
-
-def regularization_loss(model, laplace_scale=None, gaussian_scale=None):
-    """
-    Compute regularization loss.
-
-    Parameters
-    ----------
-    model : ``zuko.flows.Flow``
-        Normalizing flow model.
-    laplace_scale : ``float``, optional
-        Laplace regularization scale. Default: ``None``.
-    gaussian_scale : ``float``, optional
-        Gaussian regularization scale. Default: ``None``.
-    
-    Returns
-    -------
-    Regularization loss.
-    """
-    total_laplace = 0.0
-    total_gaussian = 0.0
-
-    for i, transform in enumerate(model.transforms):
-        if hasattr(transform, "hyper"):
-            for parameter_name, parameter in transform.hyper.named_parameters():
-                if parameter_name.endswith('weight'):
-                    if laplace_scale is not None:
-                        total_laplace += parameter.abs().sum()
-                    if gaussian_scale is not None:
-                        total_gaussian += parameter.square().sum()
-    
-    total = 0.0
-    if laplace_scale is not None:
-        total += - total_laplace / laplace_scale
-    if gaussian_scale is not None:
-        total += - total_gaussian / (2.0 * gaussian_scale**2.0)
-
-    return total

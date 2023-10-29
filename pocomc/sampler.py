@@ -11,7 +11,8 @@ from .input_validation import assert_array_2d
 from .mcmc import preconditioned_pcn, preconditioned_rwm, pcn, rwm
 from .tools import systematic_resample, FunctionWrapper, numpy_to_torch, torch_to_numpy, compute_ess, increment_logz, trim_weights, ProgressBar
 from .scaler import Reparameterize
-from .flow import Flow
+#from .flow import Flow
+from .flow2 import Flow
 from .particles import Particles
 
 class Sampler:

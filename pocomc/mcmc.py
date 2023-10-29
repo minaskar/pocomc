@@ -142,8 +142,6 @@ def preconditioned_pcn(state_dict: dict,
         # Metropolis criterion
         mask = u_rand < alpha
 
-        theta_squared_distance = np.sum((theta_prime - theta)**2, axis=1)
-
         # Accept new points
         theta[mask] = theta_prime[mask]
         u[mask] = u_prime[mask]
@@ -354,8 +352,7 @@ def pcn(state_dict: dict,
     # Get number of particles and parameters/dimensions
     n_walkers, n_dim = x.shape
 
-    #sigma = np.minimum(2.38 / n_dim**0.5, 0.99)
-    sigma = 0.5
+    sigma = np.minimum(2.38 / n_dim**0.5, 0.99)
 
     mu, cov, nu = fit_mvstud(u)
     if ~np.isfinite(nu):
@@ -416,8 +413,7 @@ def pcn(state_dict: dict,
         logp[mask] = logp_prime[mask]
 
         # Adapt scale parameter using diminishing adaptation
-        if sigma < 0.5 or np.mean(alpha) < 0.40:
-            sigma = np.abs(np.minimum(sigma + 1 / (i + 1) * (np.mean(alpha) - 0.4), np.minimum(2.38 / n_dim**0.5, 0.5)))
+        sigma = np.abs(np.minimum(sigma + 1 / (i + 1) * (np.mean(alpha) - 0.234), np.minimum(2.38 / n_dim**0.5, 0.5)))
 
         # Update progress bar if available
         if progress_bar is not None:
@@ -437,7 +433,7 @@ def pcn(state_dict: dict,
             logp2_val = logp2_val_new
         else:
             cnt += 1
-        if cnt >= n_dim // 2 * (np.minimum(1.0, (2.38 / n_dim**0.5) / sigma))**1.5 * np.minimum(1.0, np.abs(0.4 / np.mean(alpha))):
+        if cnt >= n_dim // 2 * ((2.38 / n_dim**0.5) / sigma)**1.5 * np.minimum(1.0, np.abs(0.234 / np.mean(alpha))):
             break
 
         if i >= n_max:
