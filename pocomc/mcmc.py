@@ -94,7 +94,6 @@ def preconditioned_pcn(state_dict: dict,
     inv_cov = np.linalg.inv(cov)
     chol_cov = np.linalg.cholesky(cov)
 
-    #logp2_val = np.mean(logl + logp + logdetj)
     logp2_val = np.mean(logl + logp)
     cnt = 0
 
@@ -169,7 +168,6 @@ def preconditioned_pcn(state_dict: dict,
             )
 
         # Loop termination criteria:
-        #logp2_val_new = np.mean(logl + logp + logdetj)
         logp2_val_new = np.mean(logl + logp)
         if logp2_val_new > logp2_val:
             cnt = 0
@@ -422,7 +420,6 @@ def pcn(state_dict: dict,
                     accept=np.mean(alpha),
                     steps=i,
                     logp=np.mean(logl + logp + logdetj),
-                    #efficiency=sigma * np.mean(np.sqrt(s)) / (2.38 / np.sqrt(n_dim)))
                     efficiency=sigma / (2.38 / np.sqrt(n_dim)))
             )
 
