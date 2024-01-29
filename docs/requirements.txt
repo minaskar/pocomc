@@ -1,2 +1,2 @@
-sphinx_book_theme
+furo
 myst_nb
