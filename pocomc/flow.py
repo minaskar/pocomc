@@ -48,7 +48,8 @@ class Flow:
         if flow is None:
             self.flow = zuko.flows.MAF(n_dim, 
                                        transforms=6, 
-                                       hidden_features=[64] * 2)
+                                       hidden_features=[64] * 3,
+                                       residual=True,)
         else:
             self.flow = flow 
         self.transform = self.flow().transform

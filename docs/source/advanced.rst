@@ -200,29 +200,6 @@ the minimum and maximum number of MCMC steps per iteration (the actual number is
                 nmax = 50
                )
 
-Effective sample size
-"""""""""""""""""""""
-
-The default choice for ESS is ``ess = 0.95``, meaning :math:`95\%`. The allowed range for ESS is :math:`(0\%, 100\%)`. Values closer
-to the upper limit result in slower but more careful sampling (and also better estimates of the model evidence). The default value
-works well for most target distributions.
-
-Correlation coefficient threshold :math:`\gamma` and number of MCMC steps
-"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-
-The :math:`\gamma` factor ( default is ``gamma = 0.75``) determines the correlation coefficient threshold of the MCMC trajectories
-of the particles. The lower this threshold, the more MCMC steps are performed per iteration and thus less correlated the final positions
-of the particles are with respect to their initial ones. In other words, the value :math:`\gamma` determines the number of MCMC steps
-to perform. The default value works well for most problems. If you find that your particles are not decorrelated enough and you want
-to increase the number of MCMC steps they perform per iteration then I suggest that you decrease :math:`\gamma` to ``gamma = 0.50``
-for more robust sampling.
-
-Adding more samples
--------------------
-
-Once the main run has finished running, we can add more samples at the end of it. For instance, to add `2000` samples, we can do::
-
-    sampler.add_samples(2000)
 
 Results
 -------
@@ -249,42 +226,6 @@ This is a dictionary which includes the following arrays:
 13. ``results['accept']`` - Array with the Metropolis-Hastings acceptance rates during the run.
 14. ``results['scale']`` - Array with the evolution of the scale factor during the run.
 15. ``results['steps']`` - Array with the number of MCMC steps per iteration during the run.
-
-
-Visualising the results
------------------------
-
-First of all, we can plot the *run-plot* that shows us various metrics calculated during the run using the command::
-
-    import matplotlib.pyplot as plt
-
-    pc.plotting.run(results)
-    plt.show()
-
-.. image:: ./images/advanced_run.png
-    :align: center
-
-We can also plot a *trace-plot* of the parameters, showing the marginal distribution for each parameter, as well as
-its evolution during the run, by running::
-
-    pc.plotting.trace(results, dims = [0, 5])
-    plt.show()
-
-where `dims = [0, 5]` selects only the 0th and 5th parameter to plot.
-
-.. image:: ./images/advanced_trace.png
-    :align: center
-
-Finally, we can also produce a corner plot e.g. for parameters `dims = [0, 3, 5, 8]`, by running::
-
-    pc.plotting.corner(results, dims = [0, 3, 5, 8])
-    plt.show()
-
-.. image:: ./images/advanced_corner.png
-    :align: center
-
-All of the plotting methods presented above accept additional arguments that allow the user to customise them. You 
-can find more about these in the :doc:`api`.
 
 
 Parallelisation

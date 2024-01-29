@@ -358,3 +358,36 @@ def torch_double_to_float(x: torch.Tensor, warn: bool = True):
         return x
     else:
         raise ValueError(f"Unsupported datatype for input data: {x.dtype}")
+
+class flow_numpy_wrapper:
+    """
+    Wrapper class for numpy flows.
+
+    Parameters
+    ----------
+    flow : Flow object
+        Flow object that implements forward and inverse
+        transformations.
+    
+    Returns
+    -------
+    Flow object
+    """
+    def __init__(self, flow):
+        self.flow = flow
+
+    @torch.no_grad()
+    def forward(self, v):
+        v = numpy_to_torch(v)
+        theta, logdetj = self.flow.forward(v)
+        theta = torch_to_numpy(theta)
+        logdetj = - torch_to_numpy(logdetj)
+        return theta, logdetj
+
+    @torch.no_grad()
+    def inverse(self, theta):
+        theta = numpy_to_torch(theta)
+        v, logdetj = self.flow.inverse(theta)
+        v = torch_to_numpy(v)
+        logdetj = torch_to_numpy(logdetj)
+        return v, logdetj

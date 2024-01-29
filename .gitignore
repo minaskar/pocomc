@@ -4,3 +4,15 @@ pocomc/__pycache__/
 pocomc/utils/__pycache__/
 pocomc/sinf/__pycache__/
 docs/build/
+.DS_Store
+pocomc/docs/.DS_Store
+pocomc/docs/build/.DS_Store
+pocomc/docs/source/.DS_Store
+*.egg-info
+*.pyc
+*.so
+*.dylib
+*.egg
+.DS_Store
+docs/.DS_Store
+docs/source/.DS_Store

@@ -5,7 +5,7 @@
 
 .. title:: pocoMC documentation
 
-.. figure:: ./../../logo.png
+.. figure:: ./../../logo.svg
     :scale: 30 %
     :align: center
 
@@ -21,7 +21,7 @@ problems that include multimodal and highly non--Gaussian target distributions.
 
     🖥 A good place to get started is with the :doc:`install` and then the
     :doc:`pages/quickstart` guide. If you are not familiar with Bayesian inference
-    or how PMC works have a look at the :doc:`background`.
+    have a look at the :doc:`background`.
 
     📖 For more details, check out the :doc:`advanced` and :doc:`tutorials`,
     including the full :doc:`api` documentation.
@@ -80,7 +80,7 @@ research. The BibTeX entries for the papers are::
 Authors & License
 =================
 
-Copyright 2022-2023 Minas Karamanis and contributors.
+Copyright 2022-2024 Minas Karamanis and contributors.
 
 ``pocoMC`` is free software made available under the ``GPL-3.0 License``.
 

@@ -1,41 +1,8 @@
 import numpy as np
 import torch
 
-from .tools import numpy_to_torch, torch_to_numpy
+from .tools import numpy_to_torch, torch_to_numpy, flow_numpy_wrapper
 from .student import fit_mvstud
-
-class flow_numpy_wrapper:
-    """
-    Wrapper class for numpy flows.
-
-    Parameters
-    ----------
-    flow : Flow object
-        Flow object that implements forward and inverse
-        transformations.
-    
-    Returns
-    -------
-    Flow object
-    """
-    def __init__(self, flow):
-        self.flow = flow
-
-    @torch.no_grad()
-    def forward(self, v):
-        v = numpy_to_torch(v)
-        theta, logdetj = self.flow.forward(v)
-        theta = torch_to_numpy(theta)
-        logdetj = - torch_to_numpy(logdetj)
-        return theta, logdetj
-
-    @torch.no_grad()
-    def inverse(self, theta):
-        theta = numpy_to_torch(theta)
-        v, logdetj = self.flow.inverse(theta)
-        v = torch_to_numpy(v)
-        logdetj = torch_to_numpy(logdetj)
-        return v, logdetj
 
 @torch.no_grad()
 def preconditioned_pcn(state_dict: dict,
@@ -73,6 +40,7 @@ def preconditioned_pcn(state_dict: dict,
     log_prior = function_dict.get('logprior')
     scaler = function_dict.get('scaler')
     flow = flow_numpy_wrapper(function_dict.get('flow'))
+    geometry = function_dict.get('theta_geometry')
 
     # Get MCMC options
     n_max = option_dict.get('nmax')
@@ -87,9 +55,12 @@ def preconditioned_pcn(state_dict: dict,
 
     sigma = np.minimum(2.38 / n_dim**0.5, 0.99)
 
-    mu, cov, nu = fit_mvstud(theta)
-    if ~np.isfinite(nu):
-        nu = 1e6
+    #mu, cov, nu = fit_mvstud(theta)
+    #if ~np.isfinite(nu):
+    #    nu = 1e6
+    mu = geometry.t_mean
+    cov = geometry.t_cov
+    nu = geometry.t_nu
 
     inv_cov = np.linalg.inv(cov)
     chol_cov = np.linalg.cholesky(cov)
@@ -160,10 +131,10 @@ def preconditioned_pcn(state_dict: dict,
         if progress_bar is not None:
             progress_bar.update_stats(
                 dict(calls=progress_bar.info['calls'] + n_walkers,
-                    accept=np.mean(alpha),
+                    acc=np.mean(alpha),
                     steps=i,
-                    logp=np.mean(logl + logp + logdetj),
-                    efficiency=sigma / (2.38 / np.sqrt(n_dim)),
+                    logP=np.mean(logl + logp),
+                    eff=sigma / (2.38 / np.sqrt(n_dim)),
                     )
             )
 
@@ -222,6 +193,7 @@ def preconditioned_rwm(state_dict: dict,
     log_prior = function_dict.get('logprior')
     scaler = function_dict.get('scaler')
     flow = flow_numpy_wrapper(function_dict.get('flow'))
+    geometry = function_dict.get('theta_geometry')
 
     # Get MCMC options
     n_max = option_dict.get('nmax')
@@ -231,6 +203,9 @@ def preconditioned_rwm(state_dict: dict,
     n_walkers, n_dim = x.shape
 
     sigma = 2.38/n_dim**0.5
+
+    cov = geometry.normal_cov
+    chol = np.linalg.cholesky(cov)
 
     # Transform u to theta
     theta, logdetj_flow = flow.forward(u)
@@ -243,7 +218,11 @@ def preconditioned_rwm(state_dict: dict,
         i += 1
 
         # Propose new points in theta space
-        theta_prime = theta + sigma * np.random.randn(n_walkers, n_dim)
+        #theta_prime = theta + sigma * np.random.randn(n_walkers, n_dim)
+        # Propose new points in theta space
+        theta_prime = np.empty((n_walkers, n_dim))
+        for k in range(n_walkers):
+            theta_prime[k] = theta[k] + sigma * np.dot(chol, np.random.randn(n_dim))
 
         # Transform to u space
         u_prime, logdetj_flow_prime = flow.inverse(theta_prime)
@@ -285,10 +264,10 @@ def preconditioned_rwm(state_dict: dict,
         if progress_bar is not None:
             progress_bar.update_stats(
                 dict(calls=progress_bar.info['calls'] + n_walkers,
-                    accept=np.mean(alpha),
+                    acc=np.mean(alpha),
                     steps=i,
-                    logp=np.mean(logl + logp + logdetj),
-                    efficiency=sigma / (2.38 / np.sqrt(n_dim)))
+                    logP=np.mean(logl + logp),
+                    eff=sigma / (2.38 / np.sqrt(n_dim)))
             )
 
         # Loop termination criteria:
@@ -342,6 +321,7 @@ def pcn(state_dict: dict,
     log_like = function_dict.get('loglike')
     log_prior = function_dict.get('logprior')
     scaler = function_dict.get('scaler')
+    geometry = function_dict.get('u_geometry')
 
     # Get MCMC options
     n_max = option_dict.get('nmax')
@@ -352,9 +332,9 @@ def pcn(state_dict: dict,
 
     sigma = np.minimum(2.38 / n_dim**0.5, 0.99)
 
-    mu, cov, nu = fit_mvstud(u)
-    if ~np.isfinite(nu):
-        nu = 1e6
+    mu = geometry.t_mean
+    cov = geometry.t_cov
+    nu = geometry.t_nu
 
     inv_cov = np.linalg.inv(cov)
     chol_cov = np.linalg.cholesky(cov)
@@ -417,10 +397,10 @@ def pcn(state_dict: dict,
         if progress_bar is not None:
             progress_bar.update_stats(
                 dict(calls=progress_bar.info['calls'] + n_walkers,
-                    accept=np.mean(alpha),
+                    acc=np.mean(alpha),
                     steps=i,
-                    logp=np.mean(logl + logp + logdetj),
-                    efficiency=sigma / (2.38 / np.sqrt(n_dim)))
+                    logP=np.mean(logl + logp),
+                    eff=sigma / (2.38 / np.sqrt(n_dim)))
             )
 
         # Loop termination criteria:
@@ -472,6 +452,7 @@ def rwm(state_dict: dict,
     log_like = function_dict.get('loglike')
     log_prior = function_dict.get('logprior')
     scaler = function_dict.get('scaler')
+    geometry = function_dict.get('u_geometry')
 
     # Get MCMC options
     n_max = option_dict.get('nmax')
@@ -482,7 +463,7 @@ def rwm(state_dict: dict,
 
     sigma = 0.5 * 2.38/n_dim**0.5
 
-    cov = np.cov(u.T)
+    cov = geometry.normal_cov
     chol = np.linalg.cholesky(cov)
 
     logp2_val = np.mean(logl + logp + logdetj)
@@ -532,10 +513,10 @@ def rwm(state_dict: dict,
         if progress_bar is not None:
             progress_bar.update_stats(
                 dict(calls=progress_bar.info['calls'] + n_walkers,
-                    accept=np.mean(alpha),
+                    acc=np.mean(alpha),
                     steps=i,
-                    logp=np.mean(logl + logp + logdetj),
-                    efficiency=sigma / (2.38 / np.sqrt(n_dim)))
+                    logP=np.mean(logl + logp),
+                    eff=sigma / (2.38 / np.sqrt(n_dim)))
             )
 
         # Loop termination criteria:

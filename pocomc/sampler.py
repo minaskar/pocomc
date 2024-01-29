@@ -9,10 +9,11 @@ from scipy.optimize import root_scalar
 
 from .input_validation import assert_array_2d
 from .mcmc import preconditioned_pcn, preconditioned_rwm, pcn, rwm
-from .tools import systematic_resample, FunctionWrapper, numpy_to_torch, torch_to_numpy, compute_ess, increment_logz, trim_weights, ProgressBar
+from .tools import systematic_resample, FunctionWrapper, numpy_to_torch, torch_to_numpy, trim_weights, ProgressBar, flow_numpy_wrapper
 from .scaler import Reparameterize
 from .flow import Flow
 from .particles import Particles
+from .geometry import Geometry
 
 class Sampler:
     r"""Preconditioned Monte Carlo class.
@@ -26,15 +27,15 @@ class Sampler:
     n_dim : int
         The total number of parameters/dimensions (Optional as it can be infered from the prior class).
     n_ess : int
-        The effective sample size maintained during the run (default is ``n_ess=1500``).
+        The effective sample size maintained during the run (default is ``n_ess=1000``).
     n_active : int
-        The number of active particles (default is ``n_active=n_ess//3``).
-    log_likelihood_args : list
-        Extra arguments to be passed to log_likelihood
-        (default is ``loglikelihood_args=None``).
-    log_likelihood_kwargs : dict
-        Extra arguments to be passed to log_likelihood
-        (default is ``loglikelihood_kwargs=None``).
+        The number of active particles (default is ``n_active=250``). It must be smaller than ``n_ess``.
+    likelihood_args : list
+        Extra arguments to be passed to likelihood
+        (default is ``likelihood_args=None``).
+    likelihood_kwargs : dict
+        Extra arguments to be passed to likelihood
+        (default is ``likelihood_kwargs=None``).
     vectorize : bool
         If True, vectorize ``likelihood``
         calculation (default is ``vectorize=False``).
@@ -42,19 +43,25 @@ class Sampler:
         Provided ``MPI`` or ``multiprocessing`` pool for
         parallelisation (default is ``pool=None``).
     flow : ``torch.nn.Module`` or ``None``
-        Normalizing flow (default is ``None``).
+        Normalizing flow (default is ``None``). The default is a Masked Autoregressive Flow
+        (MAF) with 6 blocks of 3x64 layers and residual connections.
     train_config : dict or ``None``
         Configuration for training the normalizing flow
-        (default is ``train_config=None``).
+        (default is ``train_config=None``). Options include a dictionary with the following
+        keys: ``"validation_split"``, ``"epochs"``, ``"batch_size"``, ``"patience"``,
+        ``"learning_rate"``, ``"annealing"``, ``"gaussian_scale"``, ``"laplace_scale"``,
+        ``"noise"``, ``"shuffle"``, ``"clip_grad_norm"``, ``"verbose"``.
     preconditioned : bool
-        If True, use preconditioned MCMC (default is ``preconditioned=True``).
+        If True, use preconditioned MCMC (default is ``preconditioned=True``). If False,
+        use standard MCMC without normalizing flow.
     sample : ``str``
         Type of MCMC sampler to use (default is ``sample="pcn"``). Options are
-        ``"pcn"`` (Preconditioned Crank-Nicolson) or ``"rwm"`` (Random Walk Metropolis).
+        ``"pcn"`` (Preconditioned Crank-Nicolson) or ``"rwm"`` (Random-Walk Metropolis).
     max_steps : int
-        Maximum number of MCMC steps (default is ``max_steps=4*n_dim``).
+        Maximum number of MCMC steps (default is ``max_steps=5*n_dim``).
     patience : int
-        Patience for early stopping of MCMC (default is ``patience=None``).
+        Number of steps for early stopping of MCMC (default is ``patience=None``). If ``patience=None``,
+        MCMC terminates automatically.
     ess_threshold : int
         Effective sample size threshold for resampling (default is ``ess_threshold=4*n_dim``).
     output_dir : ``str`` or ``None``
@@ -75,8 +82,8 @@ class Sampler:
                  prior: callable,
                  likelihood: callable,
                  n_dim: int = None,
-                 n_ess: int = 1500,
-                 n_active: int = None,
+                 n_ess: int = 1000,
+                 n_active: int = 250,
                  likelihood_args: list = None,
                  likelihood_kwargs: dict = None,
                  vectorize: bool = False,
@@ -121,14 +128,11 @@ class Sampler:
         self.n_ess = int(n_ess)
 
         # Number of active particles
-        if n_active is None:
-            self.n_active = self.n_ess // 3
-        else:
-            self.n_active = int(n_active)
+        self.n_active = int(n_active)
 
         # Maximum number of MCMC steps
         if max_steps is None:
-            self.max_steps = 4 * self.n_dim 
+            self.max_steps = 5 * self.n_dim 
         else:
             self.max_steps = int(max_steps)
 
@@ -154,12 +158,16 @@ class Sampler:
             self.distribute = pool.map
         self.vectorize_likelihood = vectorize
 
+        # Geometry
+        self.u_geometry = Geometry()
+        self.theta_geometry = Geometry()
+
         # Flow
         self.flow = Flow(self.n_dim, flow)
         self.train_config = dict(validation_split=0.5,
-                                 epochs=1000,
-                                 batch_size=4000,
-                                 patience=20,
+                                 epochs=2000,
+                                 batch_size=512,
+                                 patience=50,
                                  learning_rate=1e-3,
                                  annealing=False,
                                  gaussian_scale=None,
@@ -206,6 +214,7 @@ class Sampler:
 
     def run(self,
             n_total: int = 5000,
+            n_evidence: int = 5000,
             progress: bool = True,
             resume_state_path: Union[str, Path] = None,
             save_every: int = None):
@@ -216,6 +225,12 @@ class Sampler:
         n_total : int
             The total number of effectively independent samples to be
             collected (default is ``n_total=5000``).
+        n_evidence : int
+            The number of importance samples used to estimate the
+            evidence (default is ``n_evidence=5000``). If ``n_evidence=0``,
+            the evidence is not estimated using importance sampling and the
+            SMC estimate is used instead. If ``preconditioned=False``, 
+            the evidence is estimated using SMC and ``n_evidence`` is ignored.
         progress : bool
             If True, print progress bar (default is ``progress=True``).
         resume_state_path : ``Union[str, Path]``
@@ -290,6 +305,13 @@ class Sampler:
             # Save particles
             self.particles.update(current_particles)
 
+        # Compute evidence
+        if n_evidence > 0 and self.preconditioned:
+            self._compute_evidence(int(n_evidence))
+        else:
+            self.logz = self.particles.compute_logz(1.0)
+            self.logz_err = None
+
         self.pbar.close()
 
     def _not_termination(self, current_particles):
@@ -342,6 +364,8 @@ class Sampler:
             logprior=self.log_prior,
             scaler=self.scaler,
             flow=self.flow,
+            u_geometry=self.u_geometry,
+            theta_geometry=self.theta_geometry,
         )
 
         option_dict = dict(
@@ -405,6 +429,8 @@ class Sampler:
         u = current_particles.get("u")
         w = current_particles.get("weights")
 
+        self.u_geometry.fit(u, weights=w)
+
         if self.preconditioned:
 
             self.flow.fit(numpy_to_torch(u),
@@ -422,8 +448,13 @@ class Sampler:
                           clip_grad_norm=self.train_config["clip_grad_norm"],
                           verbose=self.train_config["verbose"],
                           )
+            
+            theta = flow_numpy_wrapper(self.flow).forward(u)[0]
+            self.theta_geometry.fit(theta, weights=w)
         else:
             pass
+
+
 
         return current_particles
 
@@ -555,7 +586,13 @@ class Sampler:
         else:
             return np.array(list(map(self.log_likelihood, x)))
         
-    def evidence(self, n=5_000):
+    def evidence(self):
+        """
+        Return the log evidence estimate and error.
+        """
+        return self.logz, self.logz_err
+        
+    def _compute_evidence(self, n=5_000):
         """
         Estimate the evidence using importance sampling.
 
@@ -572,7 +609,7 @@ class Sampler:
             Estimate of the error on the log evidence.
         """
         with torch.no_grad():
-            theta_q, logq = self.flow.sample(1000)
+            theta_q, logq = self.flow.sample(n)
             theta_q = torch_to_numpy(theta_q)
             logq = torch_to_numpy(logq)
 
