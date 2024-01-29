@@ -256,6 +256,9 @@ class Sampler:
             calls = 0
             scaler_fitted = False
             while calls < int(2.0 * self.n_ess):
+                if save_every is not None:
+                    if (self.t - t0) % int(save_every) == 0 and self.t != t0:
+                        self.save_state(Path(self.output_dir) / f'{self.output_label}_{self.t}.state')
                 # Set state parameters
                 x = self.sample_prior(self.n_active)
                 if not scaler_fitted:
@@ -504,10 +507,8 @@ class Sampler:
         self.t += 1
         self.pbar.update_iter()
 
-        delta_beta_max = 0.10
-
         beta_prev = self.particles.get("beta", index=-1)
-        beta_max = np.minimum(1.0, beta_prev + delta_beta_max)
+        beta_max = 1.0
         beta_min = np.copy(beta_prev)
 
         def get_weights_and_ess(beta):
