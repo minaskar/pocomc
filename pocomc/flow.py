@@ -52,7 +52,13 @@ class Flow:
                                        residual=True,)
         else:
             self.flow = flow 
-        self.transform = self.flow().transform
+
+    @property
+    def transform(self):
+        """
+        Transformation object.
+        """
+        return self.flow().transform
 
     def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
@@ -86,9 +92,8 @@ class Flow:
             Transformed samples in the original space with the same shape as the latent space inputs.
         """
         u = torch_double_to_float(u)
-        x = self.transform.inv(u)
-        logdetj = self.transform.log_abs_det_jacobian(x, None)
-        return x, -logdetj
+        x, logdetj = self.transform.inv.call_and_ladj(u)
+        return x, logdetj
 
     def log_prob(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -118,9 +123,8 @@ class Flow:
         samples, log_prob : ``tuple``
             Samples as a ``torch.Tensor`` with shape ``(size, n_dimensions)`` and log probability values with shape ``(size, )``.
         """
-        u = torch.randn(size, self.n_dim)
-        x = self.transform.inv(u)
-        return x, self.flow().log_prob(x)
+        x, log_p = self.flow().rsample_and_log_prob((size,))
+        return x, log_p
 
     def fit(self,
             x,
