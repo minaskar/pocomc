@@ -1,60 +1,15 @@
 import numpy as np
 import torch
 
-from .tools import numpy_to_torch, torch_to_numpy
-
-
-class Pearson:
-    """
-    Pearson correlation coefficient.
-    This is a measure of the linear correlation between
-    two sets of particles. This is used to adaptively
-    determine the number of MCMC steps required per iteration
-    by comparing the initial particle distribution with
-    the current particle distribution and terminating
-    MCMC once the correlation coefficient drops below
-    a threshold value.
-
-    Parameters
-    ----------
-    a : ``np.ndarray`` of shape ``(nparticles, ndim)``
-        Initial positions of particles
-    """
-
-    def __init__(self, a):
-        self.l = a.shape[0]  # TODO avoid ambiguous variable name 'l', rename to something else.
-        self.am = a - np.sum(a, axis=0) / self.l
-        self.aa = np.sum(self.am ** 2, axis=0) ** 0.5
-
-    def get(self, b):
-        """
-        Method that computes the correlation coefficients between current positions and initial.
-
-        Parameters
-        ----------
-        b : ``np.ndarray`` of shape ``(n_particles, n_dim)``
-            Current positions of particles
-        Returns
-        -------
-        correlation coefficients
-        """
-        bm = b - np.sum(b, axis=0) / self.l
-        bb = np.sum(bm ** 2, axis=0) ** 0.5
-        ab = np.sum(self.am * bm, axis=0)
-        return np.abs(ab / (self.aa * bb))
-
+from .tools import numpy_to_torch, torch_to_numpy, flow_numpy_wrapper
+from .student import fit_mvstud
 
 @torch.no_grad()
-def preconditioned_metropolis(state_dict: dict,
-                              function_dict: dict,
-                              option_dict: dict):
+def preconditioned_pcn(state_dict: dict,
+                       function_dict: dict,
+                       option_dict: dict):
     """
-    Preconditioned Metropolis
-    Function that samples the current target distribution
-    using a simple Random-walk Metropolis algorithm on the
-    latent (i.e. uncorrelated or preconditioned) parameter
-    space. The lack of correlations renders Preconditioned
-    Metropolis more efficient that standard Metropolis.
+    Doubly Preconditioned Crank-Nicolson
     
     Parameters
     ----------
@@ -73,131 +28,270 @@ def preconditioned_metropolis(state_dict: dict,
     n_calls = 0
 
     # Clone state variables
-    u = torch.clone(numpy_to_torch(state_dict.get('u')))
-    x = torch.clone(numpy_to_torch(state_dict.get('x')))
-    J = torch.clone(numpy_to_torch(state_dict.get('J')))
-    L = torch.clone(numpy_to_torch(state_dict.get('L')))
-    P = torch.clone(numpy_to_torch(state_dict.get('P')))
+    u = np.copy(state_dict.get('u'))
+    x = np.copy(state_dict.get('x'))
+    logdetj = np.copy(state_dict.get('logdetj'))
+    logl = np.copy(state_dict.get('logl'))
+    logp = np.copy(state_dict.get('logp'))
     beta = state_dict.get('beta')
-    Z = numpy_to_torch(log_prob(torch_to_numpy(L), torch_to_numpy(P), beta))
 
     # Get functions
     log_like = function_dict.get('loglike')
     log_prior = function_dict.get('logprior')
     scaler = function_dict.get('scaler')
-    flow = function_dict.get('flow')
+    flow = flow_numpy_wrapper(function_dict.get('flow'))
+    geometry = function_dict.get('theta_geometry')
 
     # Get MCMC options
-    n_min = option_dict.get('nmin')
     n_max = option_dict.get('nmax')
-    sigma = option_dict.get('sigma')
-    corr_threshold = option_dict.get('corr_threshold')
     progress_bar = option_dict.get('progress_bar')
+    patience = option_dict.get('patience')
 
     # Get number of particles and parameters/dimensions
     n_walkers, n_dim = x.shape
 
     # Transform u to theta
-    theta, log_det_J = flow.forward(u)
-    J_flow = -log_det_J.sum(-1)
+    theta, logdetj_flow = flow.forward(u)
 
-    # Initialise Pearson correlation object
-    corr = Pearson(torch_to_numpy(theta))
+    sigma = np.minimum(2.38 / n_dim**0.5, 0.99)
+
+    #mu, cov, nu = fit_mvstud(theta)
+    #if ~np.isfinite(nu):
+    #    nu = 1e6
+    mu = geometry.t_mean
+    cov = geometry.t_cov
+    nu = geometry.t_nu
+
+    inv_cov = np.linalg.inv(cov)
+    chol_cov = np.linalg.cholesky(cov)
+
+    logp2_val = np.mean(logl + logp)
+    cnt = 0
+
+    i = 0
+    while True:
+        i += 1
+
+        diff = theta - mu
+        s = np.empty(n_walkers)
+        for k in range(n_walkers):
+            s[k] = 1./np.random.gamma((n_dim + nu) / 2, 2.0/(nu + np.dot(diff[k],np.dot(inv_cov,diff[k]))))
+
+        # Propose new points in theta space
+        theta_prime = np.empty((n_walkers, n_dim))
+        for k in range(n_walkers):
+            theta_prime[k] = mu + (1.0 - sigma ** 2.0) ** 0.5 * diff[k] + sigma * np.sqrt(s[k]) * np.dot(chol_cov, np.random.randn(n_dim))        
+
+        # Transform to u space
+        u_prime, logdetj_flow_prime = flow.inverse(theta_prime)
+
+        # Transform to x space
+        x_prime, logdetj_prime = scaler.inverse(u_prime)
+
+        # Compute log-likelihood, log-prior, and log-posterior
+        u_rand = np.random.rand(n_walkers)
+
+        logl_prime = log_like(x_prime)
+        logp_prime = log_prior(x_prime)
+
+        n_calls += len(logl_prime)
+
+        # Compute Metropolis factors
+        diff_prime = theta_prime-mu
+        A = np.empty(n_walkers)
+        B = np.empty(n_walkers)
+        for k in range(n_walkers):
+            A[k] = -(n_dim+nu)/2*np.log(1+np.dot(diff_prime[k],np.dot(inv_cov,diff_prime[k]))/nu)
+            B[k] = -(n_dim+nu)/2*np.log(1+np.dot(diff[k],np.dot(inv_cov,diff[k]))/nu)
+        alpha = np.minimum(
+            np.ones(n_walkers),
+            np.exp(logl_prime * beta - logl * beta + logp_prime - logp + logdetj_prime - logdetj + logdetj_flow_prime - logdetj_flow - A + B)
+        )
+        alpha[np.isnan(alpha)] = 0.0
+
+        # Metropolis criterion
+        mask = u_rand < alpha
+
+        # Accept new points
+        theta[mask] = theta_prime[mask]
+        u[mask] = u_prime[mask]
+        x[mask] = x_prime[mask]
+        logdetj[mask] = logdetj_prime[mask]
+        logdetj_flow[mask] = logdetj_flow_prime[mask]
+        logl[mask] = logl_prime[mask]
+        logp[mask] = logp_prime[mask]
+
+        # Adapt scale parameter using diminishing adaptation
+        sigma = np.abs(np.minimum(sigma + 1 / (i + 1) * (np.mean(alpha) - 0.234), np.minimum(2.38 / n_dim**0.5, 0.99)))
+
+        # Adapt mean parameter using diminishing adaptation
+        mu = mu + 1.0 / (i + 1.0) * (np.mean(theta, axis=0) - mu)
+
+        # Update progress bar if available
+        if progress_bar is not None:
+            progress_bar.update_stats(
+                dict(calls=progress_bar.info['calls'] + n_walkers,
+                    acc=np.mean(alpha),
+                    steps=i,
+                    logP=np.mean(logl + logp),
+                    eff=sigma / (2.38 / np.sqrt(n_dim)),
+                    )
+            )
+
+        # Loop termination criteria:
+        logp2_val_new = np.mean(logl + logp)
+        if logp2_val_new > logp2_val:
+            cnt = 0
+            logp2_val = logp2_val_new
+        else:
+            cnt += 1
+        if patience is None:
+            if cnt >= n_dim // 2 * ((2.38 / n_dim**0.5) / sigma)**1.5 * np.minimum(1.0, np.abs(0.234 / np.mean(alpha))):
+                break
+        else:
+            if cnt >= patience:
+                break
+
+        if i >= n_max:
+            break
+
+    return dict(u=u, x=x, logdetj=logdetj, logl=logl, logp=logp, efficiency=sigma, accept=np.mean(alpha), steps=i, calls=n_calls)
+
+@torch.no_grad()
+def preconditioned_rwm(state_dict: dict,
+                       function_dict: dict,
+                       option_dict: dict):
+    """
+    Preconditioned Random-walk Metropolis
+    
+    Parameters
+    ----------
+    state_dict : dict
+        Dictionary of current state
+    function_dict : dict
+        Dictionary of functions.
+    option_dict : dict
+        Dictionary of options.
+    
+    Returns
+    -------
+    Results dictionary
+    """
+    # Likelihood call counter
+    n_calls = 0
+
+    # Clone state variables
+    u = np.copy(state_dict.get('u'))
+    x = np.copy(state_dict.get('x'))
+    logdetj = np.copy(state_dict.get('logdetj'))
+    logl = np.copy(state_dict.get('logl'))
+    logp = np.copy(state_dict.get('logp'))
+    beta = state_dict.get('beta')
+
+    # Get functions
+    log_like = function_dict.get('loglike')
+    log_prior = function_dict.get('logprior')
+    scaler = function_dict.get('scaler')
+    flow = flow_numpy_wrapper(function_dict.get('flow'))
+    geometry = function_dict.get('theta_geometry')
+
+    # Get MCMC options
+    n_max = option_dict.get('nmax')
+    progress_bar = option_dict.get('progress_bar')
+
+    # Get number of particles and parameters/dimensions
+    n_walkers, n_dim = x.shape
+
+    sigma = 2.38/n_dim**0.5
+
+    cov = geometry.normal_cov
+    chol = np.linalg.cholesky(cov)
+
+    # Transform u to theta
+    theta, logdetj_flow = flow.forward(u)
+
+    logp2_val = np.mean(logl + logp + logdetj)
+    cnt = 0
 
     i = 0
     while True:
         i += 1
 
         # Propose new points in theta space
-        theta_prime = theta + sigma * torch.randn(n_walkers, n_dim)
+        #theta_prime = theta + sigma * np.random.randn(n_walkers, n_dim)
+        # Propose new points in theta space
+        theta_prime = np.empty((n_walkers, n_dim))
+        for k in range(n_walkers):
+            theta_prime[k] = theta[k] + sigma * np.dot(chol, np.random.randn(n_dim))
 
         # Transform to u space
-        u_prime, logdetJ_prime = flow.inverse(theta_prime)
-        J_flow_prime = logdetJ_prime.sum(-1)
+        u_prime, logdetj_flow_prime = flow.inverse(theta_prime)
 
         # Transform to x space
-        x_prime, J_prime = scaler.inverse(torch_to_numpy(u_prime))
-        x_prime = scaler.apply_boundary_conditions(x_prime)
-        x_prime = numpy_to_torch(x_prime)
-        J_prime = numpy_to_torch(J_prime)
+        x_prime, logdetj_prime = scaler.inverse(u_prime)
 
         # Compute log-likelihood, log-prior, and log-posterior
-        P_prime = numpy_to_torch(log_prior(torch_to_numpy(x_prime)))
-        finite_prior_mask = torch.isfinite(P_prime)
-        L_prime = torch.full((len(x_prime),), -torch.inf)
-        L_prime[finite_prior_mask] = numpy_to_torch(log_like(torch_to_numpy(x_prime[finite_prior_mask])))
-        n_calls += sum(finite_prior_mask).item()
-        Z_prime = numpy_to_torch(log_prob(torch_to_numpy(L_prime), torch_to_numpy(P_prime), beta))
+        u_rand = np.random.rand(n_walkers)
+
+        logl_prime = log_like(x_prime)
+        logp_prime = log_prior(x_prime)
+
+        n_calls += len(logl_prime)
 
         # Compute Metropolis factors
-        alpha = torch.minimum(
-            torch.ones(n_walkers),
-            torch.exp(Z_prime - Z + J_prime - J + J_flow_prime - J_flow)
+        alpha = np.minimum(
+            np.ones(n_walkers),
+            np.exp(logl_prime * beta - logl * beta + logp_prime - logp + logdetj_prime - logdetj + logdetj_flow_prime - logdetj_flow)
         )
-        alpha[torch.isnan(alpha)] = 0.0
+        alpha[np.isnan(alpha)] = 0.0
 
         # Metropolis criterion
-        mask = torch.rand(n_walkers) < alpha
+        mask = u_rand < alpha
 
         # Accept new points
         theta[mask] = theta_prime[mask]
         u[mask] = u_prime[mask]
         x[mask] = x_prime[mask]
-        J[mask] = J_prime[mask]
-        J_flow[mask] = J_flow_prime[mask]
-        Z[mask] = Z_prime[mask]
-        L[mask] = L_prime[mask]
-        P[mask] = P_prime[mask]
+        logdetj[mask] = logdetj_prime[mask]
+        logdetj_flow[mask] = logdetj_flow_prime[mask]
+        logl[mask] = logl_prime[mask]
+        logp[mask] = logp_prime[mask]
 
         # Adapt scale parameter using diminishing adaptation
-        sigma_prime = sigma + 1 / (i + 1) * (torch.mean(alpha) - 0.234)
-        if sigma_prime > 1e-4:
-            sigma = sigma_prime
-
-        # Compute correlations
-        cc_prime = corr.get(torch_to_numpy(theta))
+        sigma = sigma + 1 / (i + 1) * (np.mean(alpha) - 0.234)
 
         # Update progress bar if available
         if progress_bar is not None:
             progress_bar.update_stats(
-                dict(
-                    calls=progress_bar.info['calls'] + sum(finite_prior_mask).item(),
-                    accept=torch.mean(alpha).item(),
-                    N=i,
-                    scale=sigma.item() / (2.38 / np.sqrt(n_dim)),
-                    corr=np.mean(cc_prime)
-                )
+                dict(calls=progress_bar.info['calls'] + n_walkers,
+                    acc=np.mean(alpha),
+                    steps=i,
+                    logP=np.mean(logl + logp),
+                    eff=sigma / (2.38 / np.sqrt(n_dim)))
             )
 
         # Loop termination criteria:
-        if corr_threshold is None and i >= int(n_min * ((2.38 / np.sqrt(n_dim)) / sigma.item()) ** 2):
-            break
-        elif np.mean(cc_prime) < corr_threshold and i >= n_min:
-            break
-        elif i >= n_max:
+        logp2_val_new = np.mean(logl + logp + logdetj)
+        if logp2_val_new > logp2_val:
+            cnt = 0
+            logp2_val = logp2_val_new
+        else:
+            cnt += 1
+        if cnt >= n_dim // 2 * (np.minimum(1.0, (2.38 / n_dim**0.5) / sigma))**2.0 * np.minimum(1.0, np.abs(0.234 / np.mean(alpha))):
             break
 
-    return dict(
-        u=torch_to_numpy(u),
-        x=torch_to_numpy(x),
-        J=torch_to_numpy(J),
-        L=torch_to_numpy(L),
-        P=torch_to_numpy(P),
-        scale=sigma.item(),
-        accept=torch.mean(alpha).item(),
-        steps=i,
-        calls=n_calls
-    )
+        if i >= n_max:
+            break
 
 
-def metropolis(state_dict: dict,
-               function_dict: dict,
-               option_dict: dict):
+    return dict(u=u, x=x, logdetj=logdetj, logl=logl, logp=logp, efficiency=sigma, accept=np.mean(alpha), steps=i, calls=n_calls)
+
+
+def pcn(state_dict: dict,
+        function_dict: dict,
+        option_dict: dict):
     """
-    Random-walk Metropolis
-    Function that samples the current target distribution
-    using a simple Random-walk Metropolis algorithm (i.e. 
-    Metropolis-Hastings with Normal proposal distribution).
+    Preconditioned Crank-Nicolson
     
     Parameters
     ----------
@@ -216,135 +310,227 @@ def metropolis(state_dict: dict,
     n_calls = 0
 
     # Clone state variables
-    u = state_dict.get('u').copy()
-    x = state_dict.get('x').copy()
-    J = state_dict.get('J').copy()
-    L = state_dict.get('L').copy()
-    P = state_dict.get('P').copy()
+    u = np.copy(state_dict.get('u'))
+    x = np.copy(state_dict.get('x'))
+    logdetj = np.copy(state_dict.get('logdetj'))
+    logl = np.copy(state_dict.get('logl'))
+    logp = np.copy(state_dict.get('logp'))
     beta = state_dict.get('beta')
-    Z = log_prob(L, P, beta)
 
     # Get functions
     log_like = function_dict.get('loglike')
     log_prior = function_dict.get('logprior')
     scaler = function_dict.get('scaler')
+    geometry = function_dict.get('u_geometry')
 
     # Get MCMC options
-    n_min = option_dict.get('nmin')
     n_max = option_dict.get('nmax')
-    sigma = option_dict.get('sigma')
-    corr_threshold = option_dict.get('corr_threshold')
     progress_bar = option_dict.get('progress_bar')
 
     # Get number of particles and parameters/dimensions
     n_walkers, n_dim = x.shape
 
-    # Compute proposal sample covariance and lower triangular Cholesky in u-space
-    cov = np.cov(u.T)
-    L_triangular = np.linalg.cholesky(cov)
+    sigma = np.minimum(2.38 / n_dim**0.5, 0.99)
 
-    # Initialise Pearson correlation object
-    corr = Pearson(u)
+    mu = geometry.t_mean
+    cov = geometry.t_cov
+    nu = geometry.t_nu
+
+    inv_cov = np.linalg.inv(cov)
+    chol_cov = np.linalg.cholesky(cov)
+
+    logp2_val = np.mean(logl + logp + logdetj)
+    cnt = 0
 
     i = 0
     while True:
         i += 1
 
+        diff = u - mu
+        s = np.empty(n_walkers)
+        for k in range(n_walkers):
+            s[k] = 1./np.random.gamma((n_dim + nu) / 2, 2.0/(nu + np.dot(diff[k],np.dot(inv_cov,diff[k]))))
+
         # Propose new points in u space
-        u_prime = u + sigma * np.dot(L_triangular, np.random.randn(n_walkers, n_dim).T).T
+        u_prime = np.empty((n_walkers, n_dim))
+        for k in range(n_walkers):
+            u_prime[k] = mu + (1.0 - sigma ** 2.0) ** 0.5 * diff[k] + sigma * np.sqrt(s[k]) * np.dot(chol_cov, np.random.randn(n_dim))        
 
         # Transform to x space
-        x_prime, J_prime = scaler.inverse(u_prime)
-        x_prime = scaler.apply_boundary_conditions(x_prime)
+        x_prime, logdetj_prime = scaler.inverse(u_prime)
 
         # Compute log-likelihood, log-prior, and log-posterior
-        P_prime = log_prior(x_prime)
-        finite_prior_mask = np.isfinite(P_prime)
-        L_prime = np.full((len(x_prime),), -np.inf)
-        L_prime[finite_prior_mask] = log_like(x_prime[finite_prior_mask])
-        Z_prime = log_prob(L_prime, P_prime, beta)
-        n_calls += sum(finite_prior_mask)
+        u_rand = np.random.rand(n_walkers)
 
-        # Compute Metropolis factor
+        logl_prime = log_like(x_prime)
+        logp_prime = log_prior(x_prime)
+
+        n_calls += len(logl_prime)
+
+        # Compute Metropolis factors
+        diff_prime = u_prime - mu
+        A = np.empty(n_walkers)
+        B = np.empty(n_walkers)
+        for k in range(n_walkers):
+            A[k] = -(n_dim+nu)/2*np.log(1+np.dot(diff_prime[k],np.dot(inv_cov,diff_prime[k]))/nu)
+            B[k] = -(n_dim+nu)/2*np.log(1+np.dot(diff[k],np.dot(inv_cov,diff[k]))/nu)
         alpha = np.minimum(
-            np.ones(len(u_prime)),
-            np.exp(Z_prime - Z + J_prime - J)
+            np.ones(n_walkers),
+            np.exp(logl_prime * beta - logl * beta + logp_prime - logp + logdetj_prime - logdetj - A + B)
         )
         alpha[np.isnan(alpha)] = 0.0
 
         # Metropolis criterion
-        mask = np.random.rand(n_walkers) < alpha
+        mask = u_rand < alpha
 
         # Accept new points
         u[mask] = u_prime[mask]
         x[mask] = x_prime[mask]
-        J[mask] = J_prime[mask]
-        Z[mask] = Z_prime[mask]
-        L[mask] = L_prime[mask]
-        P[mask] = P_prime[mask]
+        logdetj[mask] = logdetj_prime[mask]
+        logl[mask] = logl_prime[mask]
+        logp[mask] = logp_prime[mask]
 
         # Adapt scale parameter using diminishing adaptation
-        sigma_prime = sigma + 1 / (i + 1) * (np.mean(alpha) - 0.234)
-        if sigma_prime > 1e-4:
-            sigma = sigma_prime
-
-        # Compute correlation coefficient
-        cc_prime = corr.get(u)
+        sigma = np.abs(np.minimum(sigma + 1 / (i + 1) * (np.mean(alpha) - 0.234), np.minimum(2.38 / n_dim**0.5, 0.5)))
 
         # Update progress bar if available
         if progress_bar is not None:
             progress_bar.update_stats(
-                dict(
-                    calls=progress_bar.info['calls'] + sum(finite_prior_mask),
-                    accept=np.mean(alpha),
-                    N=i,
-                    scale=sigma / (2.38 / np.sqrt(n_dim)),
-                    corr=np.mean(cc_prime),
-                )
+                dict(calls=progress_bar.info['calls'] + n_walkers,
+                    acc=np.mean(alpha),
+                    steps=i,
+                    logP=np.mean(logl + logp),
+                    eff=sigma / (2.38 / np.sqrt(n_dim)))
             )
 
-        # Termination criteria:
-        if corr_threshold is None and i >= int(n_min * ((2.38 / np.sqrt(n_dim)) / sigma) ** 2):
-            break
-        elif np.mean(cc_prime) < corr_threshold and i >= n_min:
-            break
-        elif i >= n_max:
+        # Loop termination criteria:
+        logp2_val_new = np.mean(logl + logp + logdetj)
+        if logp2_val_new > logp2_val:
+            cnt = 0
+            logp2_val = logp2_val_new
+        else:
+            cnt += 1
+        if cnt >= n_dim // 2 * ((2.38 / n_dim**0.5) / sigma)**1.5 * np.minimum(1.0, np.abs(0.234 / np.mean(alpha))):
             break
 
-    return dict(
-        u=u,
-        x=x,
-        J=J,
-        L=L,
-        P=P,
-        scale=sigma,
-        accept=np.mean(alpha),
-        steps=i,
-        calls=n_calls
-    )
+        if i >= n_max:
+            break
 
+    return dict(u=u, x=x, logdetj=logdetj, logl=logl, logp=logp, efficiency=sigma, accept=np.mean(alpha), steps=i, calls=n_calls)
 
-def log_prob(L, P, beta):
+def rwm(state_dict: dict,
+        function_dict: dict,
+        option_dict: dict):
     """
-    Helper function that computes tempered log posterior.
+    Random-walk Metropolis
     
     Parameters
     ----------
-    L : ``np.ndarray``
-        Log-likelihood array
-    P : ``np.ndarray``
-        Log-prior array
-    beta : ``float``
-        Beta value
+    state_dict : dict
+        Dictionary of current state
+    function_dict : dict
+        Dictionary of functions.
+    option_dict : dict
+        Dictionary of options.
     
     Returns
     -------
-    Log-posterior array
+    Results dictionary
     """
+    # Likelihood call counter
+    n_calls = 0
 
-    L[np.isnan(L)] = -np.inf
-    L[np.isnan(P)] = -np.inf
-    L[~np.isfinite(P)] = -np.inf
-    P[np.isnan(P)] = -np.inf
+    # Clone state variables
+    u = np.copy(state_dict.get('u'))
+    x = np.copy(state_dict.get('x'))
+    logdetj = np.copy(state_dict.get('logdetj'))
+    logl = np.copy(state_dict.get('logl'))
+    logp = np.copy(state_dict.get('logp'))
+    beta = state_dict.get('beta')
 
-    return P + beta * L
+    # Get functions
+    log_like = function_dict.get('loglike')
+    log_prior = function_dict.get('logprior')
+    scaler = function_dict.get('scaler')
+    geometry = function_dict.get('u_geometry')
+
+    # Get MCMC options
+    n_max = option_dict.get('nmax')
+    progress_bar = option_dict.get('progress_bar')
+
+    # Get number of particles and parameters/dimensions
+    n_walkers, n_dim = x.shape
+
+    sigma = 0.5 * 2.38/n_dim**0.5
+
+    cov = geometry.normal_cov
+    chol = np.linalg.cholesky(cov)
+
+    logp2_val = np.mean(logl + logp + logdetj)
+    cnt = 0
+
+    i = 0
+    while True:
+        i += 1
+
+        # Propose new points in theta space
+        u_prime = np.empty((n_walkers, n_dim))
+        for k in range(n_walkers):
+            u_prime[k] = u[k] + sigma * np.dot(chol, np.random.randn(n_dim))
+
+        # Transform to x space
+        x_prime, logdetj_prime = scaler.inverse(u_prime)
+
+        # Compute log-likelihood, log-prior, and log-posterior
+        u_rand = np.random.rand(n_walkers)
+
+        logl_prime = log_like(x_prime)
+        logp_prime = log_prior(x_prime)
+
+        n_calls += len(logl_prime)
+
+        # Compute Metropolis factors
+        alpha = np.minimum(
+            np.ones(n_walkers),
+            np.exp(logl_prime * beta - logl * beta + logp_prime - logp + logdetj_prime - logdetj)
+        )
+        alpha[np.isnan(alpha)] = 0.0
+
+        # Metropolis criterion
+        mask = u_rand < alpha
+
+        # Accept new points
+        u[mask] = u_prime[mask]
+        x[mask] = x_prime[mask]
+        logdetj[mask] = logdetj_prime[mask]
+        logl[mask] = logl_prime[mask]
+        logp[mask] = logp_prime[mask]
+
+        # Adapt scale parameter using diminishing adaptation
+        sigma = np.abs(sigma + 1 / (i + 1) * (np.mean(alpha) - 0.234))
+
+        # Update progress bar if available
+        if progress_bar is not None:
+            progress_bar.update_stats(
+                dict(calls=progress_bar.info['calls'] + n_walkers,
+                    acc=np.mean(alpha),
+                    steps=i,
+                    logP=np.mean(logl + logp),
+                    eff=sigma / (2.38 / np.sqrt(n_dim)))
+            )
+
+        # Loop termination criteria:
+        logp2_val_new = np.mean(logl + logp + logdetj)
+        if logp2_val_new > logp2_val:
+            cnt = 0
+            logp2_val = logp2_val_new
+        else:
+            cnt += 1
+        if cnt >= n_dim // 2 * ((2.38 / n_dim**0.5) / sigma)**2.0 * np.minimum(1.0, np.abs(0.234 / np.mean(alpha))):
+            break
+
+        if i >= n_max:
+            break
+
+
+    return dict(u=u, x=x, logdetj=logdetj, logl=logl, logp=logp, efficiency=sigma, accept=np.mean(alpha), steps=i, calls=n_calls)

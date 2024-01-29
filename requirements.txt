@@ -1,7 +1,6 @@
 numpy
 torch
+zuko
 tqdm
-matplotlib
 scipy
-corner
 dill

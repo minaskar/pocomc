@@ -4,7 +4,6 @@
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://github.com/minaskar/pocomc/blob/master/LICENSE)
 [![Documentation Status](https://readthedocs.org/projects/pocomc/badge/?version=latest)](https://pocomc.readthedocs.io/en/latest/?badge=latest)
-[![build](https://github.com/minaskar/pocomc/actions/workflows/setup_and_run_tests.yml/badge.svg)](https://github.com/minaskar/pocomc/actions/workflows/setup_and_run_tests.yml)
 
 
 # Getting started
@@ -40,34 +39,26 @@ For instance, if you wanted to draw samples from a 10-dimensional Rosenbrock dis
 ```python
 import pocomc as pc
 import numpy as np
+from scipy.stats import uniform
 
 n_dim = 10  # Number of dimensions
 
-def log_prior(x):
-    if np.any((x < -10.0) | (x > 10.0)):  # If any dimension is out of bounds, the log prior is -infinity
-        return -np.inf 
-    else:
-        return 0.0
+prior = pc.Prior(n_dim*[uniform(-10.0, 20.0)]) # U(-10,10)
 
 def log_likelihood(x):
     return -np.sum(10.0*(x[:,::2]**2.0 - x[:,1::2])**2.0 \
             + (x[:,::2] - 1.0)**2.0, axis=1)
 
-
-n_particles = 1000
-prior_samples = np.random.uniform(size=(n_particles, n_dim), low=-10.0, high=10.0)
-
 sampler = pc.Sampler(
-    n_particles,
-    n_dim,
-    log_likelihood,
-    log_prior,
-    vectorize_likelihood=True,
-    bounds=(-10.0, 10.0)
+    prior=prior,
+    likelihood=log_likelihood,
+    vectorize=True,
 )
-sampler.run(prior_samples)
+sampler.run()
 
-results = sampler.results # Dictionary with results
+samples, weights, logl, logp = sampler.posterior() # Weighted posterior samples
+
+logz, logz_err = sampler.evidence() # Bayesian model evidence estimate and uncertainty
 ```
 
 

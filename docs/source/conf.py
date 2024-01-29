@@ -20,7 +20,7 @@ import pocomc
 # -- Project information -----------------------------------------------------
 
 project = 'pocoMC'
-copyright = '2022, Minas Karamanis'
+copyright = '2022-2024, Minas Karamanis'
 author = 'Minas Karamanis'
 
 # The full version, including alpha/beta/rc tags
@@ -61,15 +61,23 @@ exclude_patterns = []
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = "sphinx_book_theme"
+#html_theme = "sphinx_book_theme"
+#html_theme = "sphinx_rtd_theme"
+#html_theme = 'pydata_sphinx_theme'
+#html_theme = 'sphinx_material'
+html_theme = "furo"
 html_title = "pocoMC"
 html_logo = "./../../logo.png"
 logo_only = True
 
 html_theme_options = {
-    "logo_only" : True,
-    'collapse_navigation': True, 
-    'navigation_depth': 4
+    #"logo_only" : True,
+    #'collapse_navigation': True, 
+    #'navigation_depth': 4,
+    "announcement": (
+        "⚠️ The new release 1.0.0 includes major performance and quality-of-life updates. Please check the new syntax and features! ⚠️"
+    ),
+    'sidebar_hide_name': True,
 }
 
 nb_execution_mode = "off"

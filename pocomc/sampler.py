@@ -4,97 +4,65 @@ from typing import Union
 import dill
 import numpy as np
 import torch
-from scipy.special import logsumexp
-from scipy.optimize import root_scalar
 
-from .input_validation import assert_array_2d
-from .mcmc import preconditioned_metropolis, metropolis
-from .tools import resample_equal, FunctionWrapper, numpy_to_torch, torch_to_numpy, compute_ess, increment_logz, ProgressBar
-from .scaler import Reparameterise
+from .mcmc import preconditioned_pcn, preconditioned_rwm, pcn, rwm
+from .tools import systematic_resample, FunctionWrapper, numpy_to_torch, torch_to_numpy, trim_weights, ProgressBar, flow_numpy_wrapper
+from .scaler import Reparameterize
 from .flow import Flow
-
+from .particles import Particles
+from .geometry import Geometry
 
 class Sampler:
     r"""Preconditioned Monte Carlo class.
 
     Parameters
     ----------
-    n_particles : int
-        The total number of particles/walkers to use.
+    prior : callable
+        Class implementing the prior distribution.
+    likelihood : callable
+        Function returning the log likelihood of a set of parameters.
     n_dim : int
-        The total number of parameters/dimensions.
-    log_likelihood : callable
-        Function returning the log likelihood of a set
-        of parameters.
-    log_prior : callable
-        Function returning the log prior of a set
-        of parameters.
-    bounds : ``np.ndarray`` or None
-        Array of shape ``(ndim, 2)`` holding the boundaries
-        of parameters (default is ``bounds=None``). If a
-        parameter is unbounded from below, above or both
-        please provide ``None`` for the respective boundary.
-    periodic : list
-        List of indices that correspond to parameters with
-        periodic boundary conditions.
-    reflective : list
-        List of indices that correspond to parameters with
-        reflective boundary conditions.
-    transform : ``str``
-        Type of transform to use for bounded parameters. Options are ``"probit"``
-        (default) and ``"logit"``.
-    threshold : float
-        The threshold value for the (normalised) proposal
-        scale parameter below which normalising flow
-        preconditioning (NFP) is enabled (default is
-        ``threshold=1.0``, meaning that NFP is used all
-        the time).
-    scale : bool
-        Whether to scale the distribution of particles to
-        have zero mean and unit variance. Default is ``True``.
-    rescale : bool
-        Whether to rescale the distribution of particles to
-        have zero mean and unit variance in every iteration.
-        Default is ``False``.
-    diagonal : bool
-        Use a diagonal covariance matrix when rescaling instead
-        of a full covariance. Default is ``True``.
-    log_likelihood_args : list
-        Extra arguments to be passed to log_likelihood
-        (default is ``loglikelihood_args=None``).
-    log_likelihood_kwargs : dict
-        Extra arguments to be passed to log_likelihood
-        (default is ``loglikelihood_kwargs=None``).
-    log_prior_args : list
-        Extra arguments to be passed to log_prior
-        (default is ``log_prior_args=None``).
-    log_prior_kwargs : list
-        Extra arguments to be passed to log_prior
-        (default is ``log_prior_kwargs=None``).
-    vectorize_likelihood : bool
-        If True, vectorize ``loglikelihood``
-        calculation (default is ``vectorize_likelihood=False``).
-    vectorize_prior : bool
-        If True, vectorize ``log_prior``
-        calculation (default is ``vectorize_prior=False``).
-    infer_vectorization : bool
-        If True, infer the vectorization status of
-        the loglikelihood and logprior automatically. Default
-        is ``True`` (overwrites the ``vectorize_likelihood``
-        and ``vectorize_prior`` arguments).
+        The total number of parameters/dimensions (Optional as it can be infered from the prior class).
+    n_ess : int
+        The effective sample size maintained during the run (default is ``n_ess=1000``).
+    n_active : int
+        The number of active particles (default is ``n_active=250``). It must be smaller than ``n_ess``.
+    likelihood_args : list
+        Extra arguments to be passed to likelihood
+        (default is ``likelihood_args=None``).
+    likelihood_kwargs : dict
+        Extra arguments to be passed to likelihood
+        (default is ``likelihood_kwargs=None``).
+    vectorize : bool
+        If True, vectorize ``likelihood``
+        calculation (default is ``vectorize=False``).
     pool : pool
         Provided ``MPI`` or ``multiprocessing`` pool for
         parallelisation (default is ``pool=None``).
-    parallelize_prior : bool
-        If True, use the ``pool`` (if provided)
-        for the ``logprior`` as well (default is
-        ``parallelize_prior=False``).
-    flow_config : dict or ``None``
-        Configuration of the normalizing flow (default is
-        ``flow_config=None``).
+    flow : ``torch.nn.Module`` or ``None``
+        Normalizing flow (default is ``None``). The default is a Masked Autoregressive Flow
+        (MAF) with 6 blocks of 3x64 layers and residual connections.
     train_config : dict or ``None``
         Configuration for training the normalizing flow
-        (default is ``train_config=None``).
+        (default is ``train_config=None``). Options include a dictionary with the following
+        keys: ``"validation_split"``, ``"epochs"``, ``"batch_size"``, ``"patience"``,
+        ``"learning_rate"``, ``"annealing"``, ``"gaussian_scale"``, ``"laplace_scale"``,
+        ``"noise"``, ``"shuffle"``, ``"clip_grad_norm"``, ``"verbose"``.
+    precondition : bool
+        If True, use preconditioned MCMC (default is ``precondition=True``). If False,
+        use standard MCMC without normalizing flow.
+    n_prior : int
+        Number of prior samples to draw (default is ``n_prior=2*(n_ess//n_active)*n_active``).
+    sample : ``str``
+        Type of MCMC sampler to use (default is ``sample="pcn"``). Options are
+        ``"pcn"`` (Preconditioned Crank-Nicolson) or ``"rwm"`` (Random-Walk Metropolis).
+    max_steps : int
+        Maximum number of MCMC steps (default is ``max_steps=5*n_dim``).
+    patience : int
+        Number of steps for early stopping of MCMC (default is ``patience=None``). If ``patience=None``,
+        MCMC terminates automatically.
+    ess_threshold : int
+        Effective sample size threshold for resampling (default is ``ess_threshold=4*n_dim``).
     output_dir : ``str`` or ``None``
         Output directory for storing the state files of the
         sampler. Default is ``None`` which creates a ``states``
@@ -110,84 +78,77 @@ class Sampler:
     """
 
     def __init__(self,
-                 n_particles: int,
-                 n_dim: int,
-                 log_likelihood: callable,
-                 log_prior: callable,
-                 bounds: np.ndarray = None,
-                 periodic=None,
-                 reflective=None,
-                 transform="probit",
-                 threshold: float = 1.0,
-                 scale: bool = True,
-                 rescale: bool = False,
-                 diagonal: bool = True,
-                 log_likelihood_args: list = None,
-                 log_likelihood_kwargs: dict = None,
-                 log_prior_args: list = None,
-                 log_prior_kwargs: dict = None,
-                 vectorize_likelihood: bool = False,
-                 vectorize_prior: bool = False,
-                 infer_vectorization: bool = True,
+                 prior: callable,
+                 likelihood: callable,
+                 n_dim: int = None,
+                 n_ess: int = 1000,
+                 n_active: int = 250,
+                 likelihood_args: list = None,
+                 likelihood_kwargs: dict = None,
+                 vectorize: bool = False,
                  pool=None,
-                 parallelize_prior: bool = False,
-                 flow_config: dict = None,
+                 flow=None,
                  train_config: dict = None,
+                 precondition: bool = True,
+                 n_prior: int = None,
+                 sample: str = None,
+                 max_steps: int = None,
+                 patience: int = None,
+                 ess_threshold: int = None,
                  output_dir: str = None,
                  output_label: str = None,
                  random_state: int = None):
 
+        # Random seed
         if random_state is not None:
             np.random.seed(random_state)
             torch.manual_seed(random_state)
         self.random_state = random_state
 
-        self.n_walkers = n_particles
-        self.n_dim = n_dim
+        # Prior
+        self.prior = prior
+        self.log_prior = self.prior.logpdf
+        self.sample_prior = self.prior.rvs
+        self.bounds = self.prior.bounds
 
-        # Distributions
+        # Log likelihood
         self.log_likelihood = FunctionWrapper(
-            log_likelihood,
-            log_likelihood_args,
-            log_likelihood_kwargs
+            likelihood,
+            likelihood_args,
+            likelihood_kwargs
         )
-        self.log_prior = FunctionWrapper(
-            log_prior,
-            log_prior_args,
-            log_prior_kwargs
-        )
+
+        # Number of parameters
+        if n_dim is None:
+            self.n_dim = self.prior.dim
+        else:
+            self.n_dim = int(n_dim)
+
+        # Effective Sample Size
+        self.n_ess = int(n_ess)
+
+        # Number of active particles
+        self.n_active = int(n_active)
+
+        # Maximum number of MCMC steps
+        if max_steps is None:
+            self.max_steps = 5 * self.n_dim 
+        else:
+            self.max_steps = int(max_steps)
+
+        # Total number of effectively  independent samples
+        self.n_total = None
+
+        # Particle manager
+        if ess_threshold is None:
+            self.ess_threshold = int(4 * self.n_dim)
+        else:
+            self.ess_threshold = ess_threshold
+
+        self.particles = Particles(n_active, n_dim, ess_threshold)
 
         # Sampling
-        self.n_call = 0
         self.t = 0
-        self.beta = 0.0
-        self.logw = 0.0
-        self.sum_logw = 0.0
-        self.logz = 0.0
-
-        # Results
-        self.saved_iter = []
-        self.saved_samples = []
-        self.saved_posterior_samples = []
-        self.saved_posterior_logl = []
-        self.saved_posterior_logp = []
-        self.saved_logl = []
-        self.saved_logp = []
-        self.saved_logw = []
-        self.saved_logz = []
-        self.saved_ess = []
-        self.saved_n_call = []
-        self.saved_beta = []
-        self.saved_accept = []
-        self.saved_scale = []
-        self.saved_steps = []
-
-        # State variables
-        self.u = None
-        self.x = None
-        self.J = None
-        self.L = None
-        self.P = None
 
         # Parallelism
         self.pool = pool
@@ -195,33 +156,33 @@ class Sampler:
             self.distribute = map
         else:
             self.distribute = pool.map
-        self.vectorize_likelihood = vectorize_likelihood
-        self.vectorize_prior = vectorize_prior
-        self.infer_vectorization = infer_vectorization
-        self.parallelize_prior = parallelize_prior
+        self.vectorize_likelihood = vectorize
+
+        # Geometry
+        self.u_geometry = Geometry()
+        self.theta_geometry = Geometry()
 
         # Flow
-        self.flow = Flow(self.n_dim, flow_config, train_config)
-        self.threshold = threshold
-        self.use_flow = False
+        self.flow = Flow(self.n_dim, flow)
+        self.train_config = dict(validation_split=0.5,
+                                 epochs=2000,
+                                 batch_size=512,
+                                 patience=50,
+                                 learning_rate=1e-3,
+                                 annealing=False,
+                                 gaussian_scale=None,
+                                 laplace_scale=None,
+                                 noise=None,
+                                 shuffle=True,
+                                 clip_grad_norm=1.0,
+                                 verbose=0,
+                                )
+        if train_config is not None:
+            for key in train_config.keys():
+                self.train_config[key] = train_config[key]
 
         # Scaler
-        self.scaler = Reparameterise(
-            n_dim=self.n_dim,
-            bounds=bounds,
-            periodic=periodic,
-            reflective=reflective,
-            transform=transform,
-            scale=scale,
-            diagonal=diagonal
-        )
-        self.rescale = rescale
-
-        # MCMC parameters
-        self.ideal_scale = 2.38 / np.sqrt(n_dim)
-        self.scale = 2.38 / np.sqrt(n_dim)
-        self.accept = 0.234
-        self.target_accept = 0.234
+        self.scaler = Reparameterize(self.n_dim, bounds=self.bounds)
 
         # Output
         if output_dir is None:
@@ -234,51 +195,37 @@ class Sampler:
             self.output_label = output_label
 
         # Other
-        self.ess = None
-        self.gamma = None
-        self.n_min = None
-        self.n_max = None
+        self.preconditioned = precondition
+
+        if sample is None:
+            self.sample = 'pcn'
+        elif sample in ['pcn']:
+            self.sample = 'pcn'
+        elif sample in ['rwm', 'mh']:
+            self.sample = 'rwm'
+
+        # Prior samples to draw
+        if n_prior is None:
+            self.n_prior = int(2 * (self.n_ess//self.n_active) * self.n_active)
+        else:
+            self.n_prior = int((n_prior/self.n_active) * self.n_active)
+        self.prior_samples = None
+
+        self.patience = patience
+
+        self.logz = None
+        self.logz_err = None
+
+        self.current_particles = None
+        self.warmup = True
+        self.calls = 0
+        
         self.progress = None
         self.pbar = None
 
-    def validate_vectorization_settings(self, x_check: np.ndarray):
-        """
-        Check that vectorization settings are sensible.
-        This involves making a likelihood and prior call for each sample in x_check to determine the output shapes.
-        User-provided vectorization settings are overwritten according to output shapes.
-        The user is warned about the changes.
-        If both outputs are arrays (neither is a scalar) of different shape, an error is raised.
-
-        Parameters
-        ----------
-        x_check: np.ndarray
-            Input array used to check vectorization settings.
-        """
-
-        def is_function_vectorized(f, n_test=2):
-            try:
-                output_multiple = f(x_check[:n_test, :])
-                if output_multiple.shape == (n_test,):
-                    return True
-                else:
-                    raise ValueError
-            except (ValueError, AttributeError):
-                output_single = f(x_check[0])
-                if isinstance(output_single, float):
-                    return False
-                else:
-                    raise ValueError
-
-        # Use three test samples if ndim = 2
-        self.vectorize_likelihood = is_function_vectorized(self.log_likelihood, 3 if self.n_dim == 2 else 2)
-        self.vectorize_prior = is_function_vectorized(self.log_prior, 3 if self.n_dim == 2 else 2)
-
     def run(self,
-            prior_samples: np.ndarray = None,
-            ess: float = 0.95,
-            gamma: float = 0.75,
-            n_min: int = None,
-            n_max: int = None,
+            n_total: int = 5000,
+            n_evidence: int = 5000,
             progress: bool = True,
             resume_state_path: Union[str, Path] = None,
             save_every: int = None):
@@ -286,20 +233,15 @@ class Sampler:
 
         Parameters
         ----------
-        prior_samples : ``np.ndarray``
-            Array holding the initial positions of the particles. The initial
-            positions must be sampled from the prior distribution.
-        ess : float
-            The effective sample size maintained during the run (default is
-            `ess=0.95`).
-        gamma : float
-            Threshold for the correlation coefficient that is
-            used to adaptively determine the number of MCMC
-            steps (default is ``gamma=0.75``).
-        n_min : int or None
-            The minimum number of MCMC steps per iteration (default is ``n_min = ndim // 2``).
-        n_max : int or None
-            The maximum number of MCMC steps per iteration  (default is ``n_min = int(10 * n_dim)``).
+        n_total : int
+            The total number of effectively independent samples to be
+            collected (default is ``n_total=5000``).
+        n_evidence : int
+            The number of importance samples used to estimate the
+            evidence (default is ``n_evidence=5000``). If ``n_evidence=0``,
+            the evidence is not estimated using importance sampling and the
+            SMC estimate is used instead. If ``preconditioned=False``, 
+            the evidence is estimated using SMC and ``n_evidence`` is ignored.
         progress : bool
             If True, print progress bar (default is ``progress=True``).
         resume_state_path : ``Union[str, Path]``
@@ -313,396 +255,347 @@ class Sampler:
         """
         if resume_state_path is not None:
             self.load_state(resume_state_path)
+            t0 = self.t
+            # Initialise progress bar
+            self.pbar = ProgressBar(self.progress)
+            self.pbar.update_stats(dict(calls=self.particles.get("calls", -1),
+                                        beta=self.particles.get("beta", -1),
+                                        logZ=self.particles.get("logz", -1)))
         else:
-            if prior_samples is None:
-                raise ValueError(
-                    f"Prior samples not provided. You can only omit these if you load an existing PMC state by "
-                    f"specifying load_state_path."
-                )
-
-            assert_array_2d(prior_samples)
-            if self.infer_vectorization:
-                self.validate_vectorization_settings(prior_samples)
-
-                # Run parameters
-            self.ess = ess
-            self.gamma = gamma
-            if n_min is None:
-                self.n_min = self.n_dim // 2
-            else:
-                self.n_min = int(n_min)
-            if n_max is None:
-                self.n_max = int(10 * self.n_dim)
-            else:
-                self.n_max = int(n_max)
+            t0 = self.t
+            # Run parameters
+            self.n_total = int(n_total)
             self.progress = progress
 
-            # Set state parameters
-            self.x = np.copy(prior_samples)
-            self.scaler.fit(self.x)
-            self.u = self.scaler.forward(self.x)
-            self.J = self.scaler.inverse(self.u)[1]
-            self.P = self._log_prior(self.x)
-            finite_prior_mask = np.isfinite(self.P)
-            self.L = np.full((len(self.x),), -np.inf)
-            self.L[finite_prior_mask] = self._log_like(self.x[finite_prior_mask])
-            self.n_call += sum(finite_prior_mask)
+            # Initialise progress bar
+            self.pbar = ProgressBar(self.progress)
 
-            # Pre-train flow if required
-            if self.threshold >= 1.0:
-                self.use_flow = True
-                self._train(self.u)
+        # Initialise particles
+        if self.prior_samples is None:
+            self.prior_samples = self.sample_prior(self.n_prior)
+            self.scaler.fit(self.prior_samples)
 
-            # Save state
-            self.saved_samples.append(self.x)
-            self.saved_logl.append(self.L)
-            self.saved_logp.append(self.P)
-            self.saved_iter.append(self.t)
-            self.saved_beta.append(self.beta)
-            self.saved_logw.append(np.zeros(self.n_walkers))
-            self.saved_logz.append(self.logz)
-            self.saved_ess.append(self.ess)
-            self.saved_n_call.append(self.n_call)
-            self.saved_accept.append(self.accept)
-            self.saved_scale.append(self.scale / self.ideal_scale)
-            self.saved_steps.append(0)
+        if self.warmup:
+            for i in range(self.n_prior//self.n_active):
+                if save_every is not None:
+                    if (self.t - t0) % int(save_every) == 0 and self.t != t0:
+                        self.save_state(Path(self.output_dir) / f'{self.output_label}_{self.t}.state')
+                # Set state parameters
+                x = self.prior_samples[i*self.n_active:(i+1)*self.n_active]
+                u = self.scaler.forward(x)
+                logdetj = self.scaler.inverse(u)[1]
+                logp = self.log_prior(x)
+                logl = self._log_like(x)
+                self.calls += self.n_active
 
-        # Initialise progress bar
-        self.pbar = ProgressBar(self.progress)
-        self.pbar.update_stats(
-            dict(
-                beta=self.beta,
-                calls=self.n_call,
-                ESS=self.ess,
-                logZ=self.logz,
-                accept=0.234,
-                N=0,
-                scale=1.0
-            )
-        )
+                self.current_particles = dict(u=u,x=x,logl=logl,logp=logp,logdetj=logdetj,
+                                    logw=-1e300 * np.ones(self.n_active), iter=self.t,
+                                    calls=self.calls, steps=1, efficiency=1.0, ess=0.0, 
+                                    accept=1.0, beta=0.0, logz=0.0)
+                
+                self.particles.update(self.current_particles)
 
-        t0 = self.t
+                self.pbar.update_stats(dict(calls=self.particles.get("calls", -1), 
+                                            beta=self.particles.get("beta", -1), 
+                                            logZ=self.particles.get("logz", -1)))
+                
+                self.pbar.update_iter()
+
+                self.t += 1
+            self.warmup = False
+
         # Run Sequential Monte Carlo
-        while 1.0 - self.beta >= 1e-4:
+        while self._not_termination(self.current_particles):
             if save_every is not None:
                 if (self.t - t0) % int(save_every) == 0 and self.t != t0:
                     self.save_state(Path(self.output_dir) / f'{self.output_label}_{self.t}.state')
 
-            # Choose next beta based on CV of weights
-            self._update_beta()
-
-            # Resample x_prev, w
-            self.u, self.x, self.J, self.L, self.P = self._resample(
-                self.u,
-                self.x,
-                self.J,
-                self.L,
-                self.P
-            )
-
-            # Evolve particles using MCMC
-            self.u, self.x, self.J, self.L, self.P = self._mutate(
-                self.u,
-                self.x,
-                self.J,
-                self.L,
-                self.P
-            )
-
-            # Rescale parameters
-            if self.rescale:
-                self.scaler.fit(self.x)
-                self.u = self.scaler.forward(self.x)
-                self.J = self.scaler.inverse(self.u)[1]
+            # Choose next beta based on ESS of weights
+            self.current_particles = self._reweight(self.current_particles)
 
             # Train Preconditioner
-            self._train(self.u)
+            self.current_particles = self._train(self.current_particles)
 
-        self.saved_posterior_samples.append(self.x.copy())
-        self.saved_posterior_logl.append(self.L.copy())
-        self.saved_posterior_logp.append(self.P.copy())
+            # Resample particles
+            self.current_particles = self._resample(self.current_particles)
+
+            # Evolve particles using MCMC
+            self.current_particles = self._mutate(self.current_particles)   
+
+            # Save particles
+            self.particles.update(self.current_particles)
+
+        # Compute evidence
+        if n_evidence > 0 and self.preconditioned:
+            self._compute_evidence(int(n_evidence))
+        else:
+            self.logz = self.particles.compute_logz(1.0)
+            self.logz_err = None
 
         self.pbar.close()
 
-    def add_samples(self,
-                    n: int = 1000,
-                    retrain: bool = False,
-                    progress: bool = True):
-        r"""Method that generates additional samples at the end of the run
+    def _not_termination(self, current_particles):
+        """
+        Check if termination criterion is satisfied.
 
         Parameters
         ----------
-        n : int
-            The number of additional samples. Default: ``1000``.
-        retrain : bool
-            If True, retrain the normalising flow preconditioner between iterations. Default: ``False``.
-        progress : bool
-            If True, show progress bar. Default: ``True``.
-        """
-        self.progress = progress
-
-        self.pbar = ProgressBar(self.progress)
-        self.pbar.update_stats(
-            dict(
-                beta=self.beta,
-                calls=self.n_call,
-                ESS=self.ess,
-                logZ=self.logz,
-                accept=0,
-                N=0,
-                scale=0
-            )
-        )
-
-        iterations = int(np.ceil(n / len(self.u)))
-        for _ in range(iterations):
-            self.u, self.x, self.J, self.L, self.P = self._mutate(
-                self.u,
-                self.x,
-                self.J,
-                self.L,
-                self.P
-            )
-            if retrain:
-                self._train(self.u)
-            self.saved_posterior_samples.append(self.x)
-            self.saved_posterior_logl.append(self.L)
-            self.saved_posterior_logp.append(self.P)
-            self.pbar.update_iter()
-
-        self.pbar.close()
-        # self.u = np.tile(self.u.T, multiply).T
-
-    def _mutate(self, u, x, J, L, P):
-        """
-            Method which mutates particle positions
-
-        Parameters
-        ----------
-        u : ``np.ndarray``
-            Scaled positions of particles.
-        x : ``np.ndarray``
-            Unscaled (original) positions of particles.
-        J : ``np.ndarray``
-            Logarithms of the absolute determinant of the Jacobian of the scaling transform.
-        L : ``np.ndarray``
-            log-likelihood values of particles
-        P : ``np.ndarray``
-            log-prior values of particles
-
+        current_particles : dict
+            Dictionary containing the current particles.
+        
         Returns
         -------
-        u : ``np.ndarray``
-            Mutated scaled positions of particles.
-        x : ``np.ndarray``
-            Mutated unscaled (original) positions of particles.
-        J : ``np.ndarray``
-            Mutated logarithms of the absolute determinant of the Jacobian of the scaling transform.
-        L : ``np.ndarray``
-            Mutated log-likelihood values of particles
-        P : ``np.ndarray``
-            Mutated log-prior values of particles
+        termination : bool
+            True if termination criterion is not satisfied.
+        """
+        log_weights = self.particles.compute_logw(1.0, self.ess_threshold)
+        weights = np.exp(log_weights - np.max(log_weights))
+        weights /= np.sum(weights)
+        ess = 1.0 / np.sum(weights**2.0)
+
+        return 1.0 - current_particles.get("beta") >= 1e-4 or ess < self.n_total
+
+    
+    def _mutate(self, current_particles):
+        """
+        Evolve particles using MCMC.
+
+        Parameters
+        ----------
+        current_particles : dict
+            Dictionary containing the current particles.
+        
+        Returns
+        -------
+        current_particles : dict
+            Dictionary containing the updated particles.
         """
         state_dict = dict(
-            u=u.copy(),
-            x=x.copy(),
-            J=J.copy(),
-            L=L.copy(),
-            P=P.copy(),
-            beta=self.beta
+            u=current_particles.get("u").copy(),
+            x=current_particles.get("x").copy(),
+            logdetj=current_particles.get("logdetj").copy(),
+            logp=current_particles.get("logp").copy(),
+            logl=current_particles.get("logl").copy(),
+            beta=current_particles.get("beta"),
         )
 
         function_dict = dict(
             loglike=self._log_like,
-            logprior=self._log_prior,
+            logprior=self.log_prior,
             scaler=self.scaler,
-            flow=self.flow
+            flow=self.flow,
+            u_geometry=self.u_geometry,
+            theta_geometry=self.theta_geometry,
         )
 
         option_dict = dict(
-            nmin=self.n_min,
-            nmax=self.n_max,
-            corr_threshold=self.gamma,
-            sigma=self.scale,
-            progress_bar=self.pbar
+            nmax=self.max_steps,
+            progress_bar=self.pbar,
+            patience=self.patience,
         )
 
-        if self.use_flow:
-            results = preconditioned_metropolis(
+        if self.preconditioned and self.sample == "pcn":
+            results = preconditioned_pcn(
                 state_dict,
                 function_dict,
                 option_dict
-            )
-        else:
-            results = metropolis(
+                )
+        elif self.preconditioned and self.sample == "rwm":
+            results = preconditioned_rwm(
                 state_dict,
                 function_dict,
                 option_dict
-            )
+                )
+        elif not self.preconditioned and self.sample == "pcn":
+            results = pcn(
+                state_dict,
+                function_dict,
+                option_dict
+                )
+        elif not self.preconditioned and self.sample == "rwm":
+            results = rwm(
+                state_dict,
+                function_dict,
+                option_dict
+                )
 
-        u = results.get('u').copy()
-        x = results.get('x').copy()
-        J = results.get('J').copy()
-        L = results.get('L').copy()
-        P = results.get('P').copy()
+        current_particles["u"] = results.get('u').copy()
+        current_particles["x"] = results.get('x').copy()
+        current_particles["logdetj"] = results.get('logdetj').copy()
+        current_particles["logl"] = results.get('logl').copy()
+        current_particles["logp"] = results.get('logp').copy()
+        current_particles["efficiency"] = results.get('efficiency') / (2.38 / self.n_dim ** 0.5)
+        current_particles["steps"] = results.get('steps')
+        current_particles["accept"] = results.get('accept')
+        current_particles["calls"] = current_particles.get("calls") + results.get('calls')
 
-        self.scale = results.get('scale')
-        n_steps = results.get('steps')
-        self.accept = results.get('accept')
+        return current_particles
 
-        self.n_call += results.get('calls')
 
-        self.saved_n_call.append(self.n_call)
-        self.saved_accept.append(self.accept)
-        self.saved_scale.append(self.scale / self.ideal_scale)
-        self.saved_steps.append(n_steps)
-
-        return u, x, J, L, P
-
-    def _train(self, u):
+    def _train(self, current_particles):
         """
-            Method which trains the normalising flow.
+        Train normalizing flow.
 
         Parameters
         ----------
-        u : ``np.ndarray``
-            Input training data (i.e. positions of particles)
+        current_particles : dict
+            Dictionary containing the current particles.
+        
+        Returns
+        -------
+        current_particles : dict
+            Dictionary containing the updated particles.
         """
-        if (self.scale < self.threshold * self.ideal_scale and self.t > 1) or self.use_flow:
-            y = np.copy(u)
-            np.random.shuffle(y)
-            self.flow.fit(numpy_to_torch(y))
-            self.use_flow = True
+        u = current_particles.get("u")
+        w = current_particles.get("weights")
+
+        self.u_geometry.fit(u, weights=w)
+
+        if self.preconditioned:
+
+            self.flow.fit(numpy_to_torch(u),
+                          weights=numpy_to_torch(w),
+                          validation_split=self.train_config["validation_split"],
+                          epochs=self.train_config["epochs"],
+                          batch_size=int(np.minimum(len(u)//2, self.train_config["batch_size"])),
+                          gaussian_scale=self.train_config["gaussian_scale"],
+                          laplace_scale=self.train_config["laplace_scale"],
+                          patience=self.train_config["patience"],
+                          learning_rate=self.train_config["learning_rate"],
+                          annealing=self.train_config["annealing"],
+                          noise=self.train_config["noise"],
+                          shuffle=self.train_config["shuffle"],
+                          clip_grad_norm=self.train_config["clip_grad_norm"],
+                          verbose=self.train_config["verbose"],
+                          )
+            
+            theta = flow_numpy_wrapper(self.flow).forward(u)[0]
+            self.theta_geometry.fit(theta, weights=w)
         else:
             pass
 
-    def _resample(self, u, x, J, L, P):
+
+
+        return current_particles
+
+    def _resample(self, current_particles):
         """
-            Method which resamples particle positions
+        Resample particles.
 
         Parameters
         ----------
-        u : ``np.ndarray``
-            Scaled positions of particles.
-        x : ``np.ndarray``
-            Unscaled (original) positions of particles.
-        J : ``np.ndarray``
-            Logarithms of the absolute determinant of the Jacobian of the scaling transform.
-        L : ``np.ndarray``
-            log-likelihood values of particles
-        P : ``np.ndarray``
-            log-prior values of particles
+        current_particles : dict
+            Dictionary containing the current particles.
 
         Returns
         -------
-        u : ``np.ndarray``
-            Resampled scaled positions of particles.
-        x : ``np.ndarray``
-            Resampled unscaled (original) positions of particles.
-        J : ``np.ndarray``
-            Resampled logarithms of the absolute determinant of the Jacobian of the scaling transform.
-        L : ``np.ndarray``
-            Resampled log-likelihood values of particles
-        P : ``np.ndarray``
-            Resampled log-prior values of particles
+        current_particles : dict
+            Dictionary containing the updated particles.
         """
-        self.saved_samples.append(x)
-        self.saved_logl.append(L)
-        self.saved_logp.append(P)
-        w = np.exp(self.logw - np.max(self.logw))
-        w /= np.sum(w)
+        u = current_particles.get("u")
+        x = current_particles.get("x")
+        logdetj = current_particles.get("logdetj")
+        logl = current_particles.get("logl")
+        logp = current_particles.get("logp")
+        weights = current_particles.get("weights")
 
-        assert np.all(~np.isnan(self.logw))
-        assert np.all(np.isfinite(self.logw))
-        assert np.all(~np.isnan(w))
-        assert np.all(np.isfinite(w))
+        idx_resampled = systematic_resample(self.n_active, weights=weights)
 
-        try:
-            idx = resample_equal(np.arange(len(u)), w, self.random_state)
-        except IndexError:
-            #warnings.warn("Systematic resampling failed. Trying multinomial resampling.")
-            idx = np.random.choice(np.arange(len(u)), p=w, size=len(w))
-        self.logw = 0.0
+        current_particles["u"] = u[idx_resampled]
+        current_particles["x"] = x[idx_resampled]
+        current_particles["logdetj"] = logdetj[idx_resampled]
+        current_particles["logl"] = logl[idx_resampled]
+        current_particles["logp"] = logp[idx_resampled]
+    
+        return current_particles
 
-        return u[idx], x[idx], J[idx], L[idx], P[idx]
-
-    def _update_beta(self):
+    def _reweight(self, current_particles):
         """
-            Update beta level and evidence estimate.
+        Reweight particles.
+
+        Parameters
+        ----------
+        current_particles : dict
+            Dictionary containing the current particles.
+
+        Returns
+        -------
+        current_particles : dict
+            Dictionary containing the updated particles.
         """
         # Update iteration index
         self.t += 1
-        self.saved_iter.append(self.t)
         self.pbar.update_iter()
 
-        beta_prev = np.copy(self.beta)
+        beta_prev = self.particles.get("beta", index=-1)
         beta_max = 1.0
         beta_min = np.copy(beta_prev)
-        logw_prev = np.copy(self.logw)
 
-        while True:
-            beta = (beta_max + beta_min) * 0.5
-            self.logw = logw_prev + self.L * (beta - beta_prev)
-            ess_est = compute_ess(self.logw)
+        def get_weights_and_ess(beta):
+            logw = self.particles.compute_logw(beta)
+            weights = np.exp(logw - np.max(logw))
+            weights /= np.sum(weights)
+            ess_est = 1.0 / np.sum(weights**2.0)
+            return weights, ess_est
 
-            if len(self.saved_beta) > 1:
-                dbeta = self.saved_beta[-1] - self.saved_beta[-2]
+        weights_prev, ess_est_prev = get_weights_and_ess(beta_prev)
+        weights_max, ess_est_max = get_weights_and_ess(beta_max)
 
-                if 1.0 - beta < dbeta * 0.1:
-                    beta = 1.0
 
-            if np.abs(ess_est - self.ess) < min(0.001 * self.ess, 0.001) or beta == 1.0:
-                self.saved_beta.append(beta)
-                self.saved_logw.append(self.logw)
-                self.sum_logw += self.logw
-                self.saved_ess.append(ess_est)
-                self.beta = beta
-                self.pbar.update_stats(dict(beta=self.beta, ESS=ess_est))
-                # Update evidence 
-                self.logz += increment_logz(self.logw)
-                self.saved_logz.append(self.logz)
-                self.pbar.update_stats(dict(logZ=self.logz))
-                break
-
-            elif ess_est < self.ess:
-                beta_max = beta
-            else:
-                beta_min = beta
-
-    def _log_prior(self, x):
-        """
-            Compute the log-prior values of the particles.
-
-        Parameters
-        ----------
-        x : ``np.ndarray``
-            Input array of particle positions.
-
-        Returns
-        -------
-        P : ``np.ndarray``
-            Array of log-prior values of particles.
-        """
-        if self.vectorize_prior:
-            return self.log_prior(x)
-        elif self.parallelize_prior and self.pool is not None:
-            return np.array(list(self.distribute(self.log_prior, x)))
+        if ess_est_prev <= self.n_ess:
+            beta = beta_prev
+            weights = weights_prev
+            logz = self.particles.get("logz", index=-1)
+            self.pbar.update_stats(dict(beta=beta, ESS=ess_est_prev, logZ=logz))
+        elif ess_est_max >= self.n_ess:
+            beta = beta_max 
+            weights = weights_max
+            logz = self.particles.compute_logz(beta)
+            self.pbar.update_stats(dict(beta=beta, ESS=ess_est_max, logZ=logz))
         else:
-            return np.array(list(map(self.log_prior, x)))
+            while True:
+                beta = (beta_max + beta_min) * 0.5
+
+                weights, ess_est = get_weights_and_ess(beta)
+
+                if np.abs(ess_est - self.n_ess) < 0.01 * self.n_ess or beta == 1.0:
+                    logz = self.particles.compute_logz(beta)
+                    self.pbar.update_stats(dict(beta=beta, ESS=ess_est, logZ=logz))
+                    break
+                elif ess_est < self.n_ess:
+                    beta_max = beta
+                else:
+                    beta_min = beta
+
+        logw = self.particles.compute_logw(beta, self.ess_threshold)
+        weights = np.exp(logw - np.max(logw))
+        weights /= np.sum(weights)
+
+        idx, weights = trim_weights(np.arange(len(weights)), weights, ess=0.99, bins=1000)
+        current_particles["u"] = self.particles.get("u", index=None, flat=True)[idx]
+        current_particles["x"] = self.particles.get("x", index=None, flat=True)[idx]
+        current_particles["logdetj"] = self.particles.get("logdetj", index=None, flat=True)[idx]
+        current_particles["logl"] = self.particles.get("logl", index=None, flat=True)[idx]
+        current_particles["logp"] = self.particles.get("logp", index=None, flat=True)[idx]
+        current_particles["logz"] = logz
+        current_particles["beta"] = beta
+        current_particles["weights"] = weights
+
+        return current_particles
 
     def _log_like(self, x):
         """
-            Compute the log-likelihood values of the particles.
+        Compute log likelihood.
 
         Parameters
         ----------
-        x : ``np.ndarray``
-            Input array of particle positions.
-
+        x : array_like
+            Array of parameter values.
+        
         Returns
         -------
-        L : ``np.ndarray``
-            Array of log-likelihood values of particles.
+        logl : float
+            Log likelihood.
         """
         if self.vectorize_likelihood:
             return self.log_likelihood(x)
@@ -710,6 +603,46 @@ class Sampler:
             return np.array(list(self.distribute(self.log_likelihood, x)))
         else:
             return np.array(list(map(self.log_likelihood, x)))
+        
+    def evidence(self):
+        """
+        Return the log evidence estimate and error.
+        """
+        return self.logz, self.logz_err
+        
+    def _compute_evidence(self, n=5_000):
+        """
+        Estimate the evidence using importance sampling.
+
+        Parameters
+        ----------
+        n : int
+            Number of importance samples (default is ``n=5_000``).
+        
+        Returns
+        -------
+        logz : float
+            Estimate of the log evidence.
+        dlogz : float
+            Estimate of the error on the log evidence.
+        """
+        with torch.no_grad():
+            theta_q, logq = self.flow.sample(n)
+            theta_q = torch_to_numpy(theta_q)
+            logq = torch_to_numpy(logq)
+
+        x_q, logdetj = self.scaler.inverse(theta_q)
+        logl = self._log_like(x_q)
+        logp = self.log_prior(x_q)
+
+        logw = logl + logp + logdetj - logq 
+        logz = np.logaddexp.reduce(logw) - np.log(len(logw))
+
+        dlogz = np.std([np.logaddexp.reduce(logw[np.random.choice(len(logw), len(logw))]) - np.log(len(logw)) for _ in range(np.maximum(n,1000))])
+
+        self.logz = logz
+        self.logz_err = dlogz
+        return logz, dlogz
 
     def __getstate__(self):
         """
@@ -730,31 +663,68 @@ class Sampler:
 
         return state
 
+    def posterior(self, resample=False, trim_importance_weights=True, return_logw=False, ess_trim=0.99, bins_trim=1_000):
+        """
+        Return posterior samples.
+
+        Parameters
+        ----------
+        resample : bool
+            If True, resample particles (default is ``resample=False``).
+        trim_importance_weights : bool
+            If True, trim importance weights (default is ``trim_importance_weights=True``).
+        return_logw : bool
+            If True, return log importance weights (default is ``return_logw=False``).
+        ess_trim : float
+            Effective sample size threshold for trimming (default is ``ess_trim=0.99``).
+        bins_trim : int
+            Number of bins for trimming (default is ``bins_trim=1_000``).
+
+        Returns
+        -------
+        samples : ``np.ndarray``
+            Samples from the posterior.
+        weights : ``np.ndarray``
+            Importance weights.
+        logl : ``np.ndarray``
+            Log likelihoods.
+        logp : ``np.ndarray``
+            Log priors.
+        """
+        samples = self.particles.get("x", flat=True)
+        logl = self.particles.get("logl", flat=True)
+        logp = self.particles.get("logp", flat=True)
+        logw = self.particles.compute_logw(1.0, self.ess_threshold)
+        weights = np.exp(logw)
+
+        if trim_importance_weights:
+            idx, weights = trim_weights(np.arange(len(samples)), weights, ess=ess_trim, bins=bins_trim)
+            samples = samples[idx]
+            logl = logl[idx]
+            logp = logp[idx]
+            logw = logw[idx]
+
+        if resample:
+            idx_resampled = systematic_resample(len(weights), weights=weights)
+            return samples[idx_resampled], logl[idx_resampled], logp[idx_resampled]
+            
+        else:
+            if return_logw:
+                return samples, logw, logl, logp
+            else:
+                return samples, weights, logl, logp
+
     @property
     def results(self):
         """
-            Results dictionary. Includes the following properties: 
-            ``samples``, ``loglikelihood``, ``logprior``, ``iter``
-            ``logw``, ``logl``, ``logp``, ``logz``, ``ess``, ``ncall``,
-            ``beta``, ``accept``, ``scale``, and ``steps``.
+        Return results.
+
+        Returns
+        -------
+        results : dict
+            Dictionary containing the results.
         """
-        return {
-            'samples': np.vstack(self.saved_posterior_samples),
-            'loglikelihood': np.hstack(self.saved_posterior_logl),
-            'logprior': np.hstack(self.saved_posterior_logp),
-            'logz': np.array(self.saved_logz),
-            'iter': np.array(self.saved_iter),
-            'x': np.array(self.saved_samples),
-            'logl': np.array(self.saved_logl),
-            'logp': np.array(self.saved_logp),
-            'logw': np.array(self.saved_logw),
-            'ess': np.array(self.saved_ess),
-            'ncall': np.array(self.saved_n_call),
-            'beta': np.array(self.saved_beta),
-            'accept': np.array(self.saved_accept),
-            'scale': np.array(self.saved_scale),
-            'steps': np.array(self.saved_steps)
-        }
+        return self.particles.compute_results()
 
     def save_state(self, path: Union[str, Path]):
         """Save current state of sampler to file.
@@ -790,82 +760,3 @@ class Sampler:
             state = dill.load(file=f)
         self.__dict__ = {**self.__dict__, **state}
 
-    def bridge_sampling(self, maxiter=2000, rtol=1e-13, xtol=1e-13, thin=1):
-        r"""
-            Bridge Sampling estimator for the log model evidence.
-            This implements the Gaussianised Bridge Sampling 
-            algorithm https://arxiv.org/abs/1912.06073 which
-            utilises a normalising flow as the auxiliary distribution.
-
-        Parameters
-        ----------
-        maxiter : ``int``
-            Maximum number of iterations of root-finding procedure.
-        rtol : ``float``
-            Relative numerical tolerance of root-finding procedure.
-        xtol : ``float``
-            Absolute numerical tolerance of root-finding procedure.
-        thin : ``int``
-            Thin the samples by a integer factor. Default is ``thin=1``
-            (no thinning).
-        Returns
-        -------
-        logr : ``float``
-            Estimate of log model evidence.
-        logr_err : ``float``
-            Estimate of the 1-sigma uncertainty of the log model evidence.
-        """
-
-        x = self.results.get("samples")[::thin]
-        l = self.results.get("loglikelihood")[::thin]
-        p = self.results.get("logprior")[::thin]
-        ess = self.ess
-
-        N1 = len(x)
-        N2 = len(x)
-
-        s1 = N1 / (N1+N2)
-        s2 = N2 / (N1+N2)
-
-        theta_prop = torch.randn((N2, self.n_dim))
-        u_prop, log_abs_det_jac = self.flow.inverse(theta_prop)
-        logg_i = torch.sum(self.flow.flow.base_dist.log_prob(theta_prop) - log_abs_det_jac, dim=1)
-        u_prop = torch_to_numpy(u_prop)
-        x_prop, J_prop = self.scaler.inverse(u_prop)
-        logg_i = torch_to_numpy(logg_i) - J_prop
-
-        u = self.scaler.forward(x)
-        x, J = self.scaler.inverse(u)
-        logg_j = torch_to_numpy(self.flow.logprob(numpy_to_torch(u))) - J
-
-        log_prior_tmp = self._log_prior(x_prop)
-        finite_prior_mask = np.isfinite(log_prior_tmp)
-        log_like_tmp = np.full((len(x_prop), ), -np.inf)
-        log_like_tmp[finite_prior_mask] = self._log_like(x_prop[finite_prior_mask])
-        logp_i = log_prior_tmp + log_like_tmp
-        logp_j = p + l
-
-        _a = logg_j - logp_j - np.log(N1 / N2)
-        _b = logp_i - logg_i + np.log(N1 / N2)
-
-        def score(logr):
-            _c = logsumexp(logr + _a - logsumexp(np.array((logr + _a,
-                        np.zeros_like(_a))), axis=0))
-            _d = logsumexp(-logr + _b - logsumexp(np.array((-logr + _b,
-                        np.zeros_like(_b))), axis=0))
-            return _c - _d
-
-        logr = root_scalar(score, x0=0, x1=5, maxiter=maxiter, rtol=rtol, xtol=xtol).root
-
-        # Uncertainty
-        f1 = np.exp(logp_i - logr - logsumexp(np.array((logp_i - logr +
-                    np.log(s1), logg_i + np.log(s2))), axis=0))
-        f2 = np.exp(logg_j - logsumexp(np.array((logp_j - logr +
-                    np.log(s1), logg_j + np.log(s2))), axis=0))
-        re2_q = np.var(f1) / np.mean(f1)**2 / N2
-
-        tau = 1.0 / ess
-        re2_p = tau * np.var(f2) / np.mean(f2)**2 / N1
-        logr_err = (re2_p + re2_q)**0.5
-
-        return logr, logr_err

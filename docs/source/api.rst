@@ -8,8 +8,8 @@ API Reference
     :maxdepth: 1
 
     api/sampler
+    api/prior
     api/flow
-    api/plotting
     api/tools
     api/mcmc
     api/scaler

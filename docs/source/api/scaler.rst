@@ -1,5 +1,5 @@
 Scaler
 ======
 
-.. autoclass:: pocomc.scaler.Reparameterise
+.. autoclass:: pocomc.scaler.Reparameterize
     :members:
