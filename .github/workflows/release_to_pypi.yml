@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'pocomc/_version.py'  # Only run workflow on pushes where _version.py was changed
+  workflow_dispatch:  # Allows you to run this workflow manually from the Actions tab
 
 jobs:
   build-n-publish:
