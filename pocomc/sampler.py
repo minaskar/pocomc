@@ -4,10 +4,7 @@ from typing import Union
 import dill
 import numpy as np
 import torch
-from scipy.special import logsumexp
-from scipy.optimize import root_scalar
 
-from .input_validation import assert_array_2d
 from .mcmc import preconditioned_pcn, preconditioned_rwm, pcn, rwm
 from .tools import systematic_resample, FunctionWrapper, numpy_to_torch, torch_to_numpy, trim_weights, ProgressBar, flow_numpy_wrapper
 from .scaler import Reparameterize
@@ -51,8 +48,8 @@ class Sampler:
         keys: ``"validation_split"``, ``"epochs"``, ``"batch_size"``, ``"patience"``,
         ``"learning_rate"``, ``"annealing"``, ``"gaussian_scale"``, ``"laplace_scale"``,
         ``"noise"``, ``"shuffle"``, ``"clip_grad_norm"``, ``"verbose"``.
-    preconditioned : bool
-        If True, use preconditioned MCMC (default is ``preconditioned=True``). If False,
+    precondition : bool
+        If True, use preconditioned MCMC (default is ``precondition=True``). If False,
         use standard MCMC without normalizing flow.
     sample : ``str``
         Type of MCMC sampler to use (default is ``sample="pcn"``). Options are
@@ -88,9 +85,9 @@ class Sampler:
                  likelihood_kwargs: dict = None,
                  vectorize: bool = False,
                  pool=None,
-                 train_config: dict = None,
                  flow=None,
-                 preconditioned: bool = True,
+                 train_config: dict = None,
+                 precondition: bool = True,
                  sample: str = None,
                  max_steps: int = None,
                  patience: int = None,
@@ -195,7 +192,7 @@ class Sampler:
             self.output_label = output_label
 
         # Other
-        self.preconditioned = preconditioned
+        self.preconditioned = precondition
 
         if sample is None:
             self.sample = 'pcn'

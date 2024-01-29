@@ -4,7 +4,6 @@
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://github.com/minaskar/pocomc/blob/master/LICENSE)
 [![Documentation Status](https://readthedocs.org/projects/pocomc/badge/?version=latest)](https://pocomc.readthedocs.io/en/latest/?badge=latest)
-[![build](https://github.com/minaskar/pocomc/actions/workflows/setup_and_run_tests.yml/badge.svg)](https://github.com/minaskar/pocomc/actions/workflows/setup_and_run_tests.yml)
 
 
 # Getting started

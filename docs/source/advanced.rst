@@ -125,108 +125,225 @@ The next step is to import ``pocoMC`` and initialise the ``Sampler`` class::
 
     import pocomc as pc
 
-    sampler = pc.Sampler(n_particles = n_particles,
-                         n_dim = n_dim,
-                         log_likelihood = log_like,
-                         log_prior = log_prior,
-                         bounds = bounds,
+    sampler = pc.Sampler(prior = prior,
+                         likelihood = log_like,
                         )
 
 The sampler also accepts other arguments, for a full list see :doc:`api`. Those include:
- 
-- Additional arguments passed to the log-likelihood using the arguments ``log_likelihood_args`` and ``log_likelihood_kwargs``,
-  or to the log-prior using the arguments ``log_prior_args`` and ``log_prior_kwargs``.
-- The arguments ``vectorize_likelihood`` and ``vectorize_prior`` which accept boolean values allow the user to use vectorized
-  log-likelihood and log-prior functions.
-- The ``periodic`` and  ``reflective`` arguments that accept a list of indices corresponding to parameters of the model that
-  have *periodic* or *reflective* boundary conditions. The first kind include *phase* parameters that might be periodic e.g. 
-  on a range :math:`[0,2\pi]`. The latter can arise in cases where parameters are ratios where :math:`a/b` and :math:`b/a`
-  are equivalent.
-- The Sampler class also accepts a dictionary ``flow_config`` with various options for the configuration of the normalising
-  flow. An example showing some of the default values and what each parameter means is shown below::
 
-    flow_config = dict(n_blocks = 6, # Number of blocks
-                       hidden_size = 3 * ndim, # Number of neurons per layer
-                       n_hidden = 1, # Number of layers per block
-                       flow_type = 'maf' # Type of normalising flow. Options include 'maf' and 'realnvp'
-                      )
+- An optional ``n_dim`` argument that specifies the dimensionality of the problem. If not provided, the sampler will
+  try to infer it from the ``prior``.
 
-- Apart from the ``flow_config``, the sampler accepts the ``train_config`` dictionary which includes arguments related to
-  the training procedure of the normalising flow. An example showing some of the default values and what each parameter
-  means is shown below::
+- An optional ``n_ess`` argument that specifies the number of effectively independent particles to use. If not provided, 
+  ``1000`` is used by default. This determines the speed and robustness of the sampling procedure. Generally, higher values
+  of ``n_ess`` are better but they also require more computational resources. Higher-dimensional problems or problems with
+  complex posteriors may require higher values of ``n_ess``.
 
-    train_config = dict(validation_split = 0.2, # Percentage of particles to use for validation
-                        epochs = 1000, # Maximum number of epochs
-                        batch_size = n_particles, # Batch size used for training
-                        patience = 30, # Number of iterations to wait with no improvement in the (monitor) loss until stopping.
-                        monitor = 'val_loss', # Which loss to monitor for early stopping. Options are 'val_loss' and 'loss'.
-                        shuffle = True, # Shuffle the particles
-                        lr = [1e-2, 1e-3, 1e-4, 1e-5], # Learning rates. If more than one is provided then they are used as an annealing schedule.
-                        weight_decay = 1e-8, # Weight decay parameter.
-                        clip_grad_norm = 1.0, # Clip huge gradients to avoid training issues.
-                        laplace_prior_scale = 0.2, # Scale of the Laplace prior put on the weights.
-                        gaussian_prior_scale = None, # Scale of the Gaussian prior put on the weights.
-                        device = 'cpu', # Device to use for training. Currently only 'cpu' is supported.
-                       )
-  
+- An optional ``n_active`` argument that specifies the number of active particles to use. If not provided, ``250`` is used
+  by default. Generally, ``n_active`` should be less than ``n_ess // 2``. The active particles are the ones (out of the total 
+  ``n_ess`` particles) that are updated in each iteration. Therefore, one can think of ``n_active`` as the batch size used
+  for the sampling procedure. 
+
+- Additional arguments passed to the log-likelihood using the arguments ``likelihood_args`` and ``likelihood_kwargs``. For instance,
+  if the log-likelihood function accepts an extra argument ``data`` we would do something like::
+
+    sampler = pc.Sampler(prior = prior,
+                         likelihood = log_like,
+                         likelihood_args = [data],
+                        )
+
+- The argument ``vectorize`` that accepts a boolean value (i.e., ``True`` or ``False``) allows the user to use a vectorized
+  log-likelihood function. This can be useful when the vectorized log-likelihood function is cheaper to evaluate or a parallel
+  version of the log-likelihood function is available. For instance, if we have a vectorized log-likelihood function ``log_like_vec``
+  we would do something like::
+    
+        sampler = pc.Sampler(prior = prior,
+                             likelihood = log_like_vec,
+                             vectorize = True,
+                            )
+
+- The ``pool`` argument allows the user to specify a ``pool`` object to use for parallelisation. For more details see the
+  Parallelisation section below.
+
+- The ``flow`` argument allows the user to specify the normalising flow to use. For more details see the Normalizing Flow section below
+  section. Generally, the default normalising flow is a good choice for most problems.
+
+- The ``train_config`` argument allows the user to specify the training configuration of the normalising flow. For more details
+  see the Normalizing Flow section below. Generally, the default training configuration is a good choice for most problems.
+
+- The ``precondition`` argument allows the user to specify whether to use the preconditioning of the normalising flow. For more
+  details see the Normalizing Flow section below. Generally, using normalizing flow preconditioning is a good choice for most
+  problems as the latent space is usually less correlated than the parameter space.
+
+- The ``sample`` argument determines the MCMC sampling method to use. By default ``sampler='pcn'`` is selected and the preconditioned
+  Crank-Nicolson (PCN) method is used. The alternative is to use ``sampler='rwm'`` and the standard Random-walk Metropolis method.
+
+- The ``max_steps`` argument determines the maximum number of MCMC steps to use per iteration. By default ``max_steps=5*n_dim`` is selected.
+  This is the maximum number of steps that the MCMC sampler will take in order to update the active particles. The actual number of
+  steps is determined adaptively by the sampler. The default value of ``max_steps`` is usually a good choice for most problems.
+
+- The ``patience`` arguments determines the maximum number of MCMC steps after which the sampler will stop updating the active particles
+  if the average ``logP`` has not increased. By default this parameter is determined automatically by the sampler and depends on the dimensionality
+  of the problem, the acceptance rate, and the proposal scale. The default value of ``patience`` is usually a good choice for most problems
+  and we do not recommend changing it.
+
+- The ``ess_threshold`` defines the minimum effective sample size (ESS) of an iteration for the sampler to consider using particles from
+  that iteration to update the active particles. By default ``ess_threshold=4*n_dim`` is selected. This means that if the ESS of an iteration
+  is less than ``4*n_dim`` then the sampler will not use any particles from that iteration to update the active particles during resampling.
+  The default value of ``ess_threshold`` is usually a good choice for most problems and we do not recommend changing it.
+
+- The ``output_dir`` argument allows the user to specify the directory in which the output files will be saved. By default ``output_dir=None``
+  is selected and the output files will be saved in the ``state`` directory.
+
+- The ``output_label`` is the label used in state files. Defaullt is ``None`` which corresponds to ``"pmc"``. The saved states are named
+  as ``"{output_dir}/{output_label}_{i}.state"`` where ``i`` is the iteration index.  Output files can be used to resume a run.
+
+- The ``random_state`` argument allows the user to specify the random state of the sampler (i.e., any integer value). By default
+  ``random_state=None`` is selected and the random state is not fixed. This can be useful for debugging purposes.
 
 Running the sampler
 -------------------
 
 Running the actual sampling procedure that will produce, among other things, a collection of samples from the posterior as well as 
-an unbiased estimate of the model evidence, can be done by providing the ``prior_samples`` to the ``run`` method of the sampler::
+an unbiased estimate of the model evidence, can be done by using the ``run`` method of the sampler::
 
-    sampler.run(prior_samples)
+    sampler.run()
 
 Running the above also produces a progress bar similar to the one shown below::
 
-    Iter: 6it [00:17,  3.18s/it, beta=0.00239, calls=35000, ESS=0.95, logZ=-3.52, accept=0.232, N=6, scale=0.964, corr=0.728] 
+    Iter: 64it [03:50,  3.59s/it, calls=77500, beta=1, logZ=-21.5, ESS=5e+3, acc=0.704, steps=3, logP=-25.2, eff=1]
 
-The ``scale`` parameter in the above progress bar is perhaps the most important metric of the sampling performance. It is defined
-as the ratio of the actual Metropolis-Hastings proposal scale (in latent space) to the optimal one :math:`2.38/\sqrt{D}`. Its 
-value reflects the quality of the NF preconditioner. A value of ``scale=1.0`` corresponds to perfect preconditioning and maximum
-sampling efficiency. It is normal for this value to drop up to ``0.5`` during the run when the NF struggles to capture the
-geometry of the posterior. However, if the value of the ``scale`` parameter becomes significantly less than one (e.g. ``0.1``)
-this is usually an indication that something is wrong. A possible way to increase the scale parameter is to increase the number
-of particles.
+The ``calls`` argument shows the total number of log-likelihood calls. The ``beta`` argument shows the current value of the inverse
+temperature. The ``logZ`` argument shows the current estimate of the logarithm of the model evidence. The ``ESS`` argument shows the
+current estimate of the effective sample size. The ``acc`` argument shows the current acceptance rate. The ``steps`` argument shows
+the current number of MCMC steps per iteration. The ``logP`` argument shows the current average log-posterior. The ``eff`` argument
+shows the current efficiency of the sampling procedure. Generally, as long as the acceptance rate remains above ``0.15`` and the
+efficiency remains above ``0.2`` the sampling procedure is working well. Low values of the efficiency can indicate that the normalizing
+flow is struggling to approximate the posterior. In such cases, one can try to use a more powerful normalizing flow (e.g. more layers
+or more hidden units per layer) or a different training configuration (e.g. more epochs or a smaller learning rate).
 
-We can also use the ``run`` method to specify the desired *effective sample size (ESS)*, the :math:`\gamma` factor, as well as
-the minimum and maximum number of MCMC steps per iteration (the actual number is determined adaptively)::
 
-    sampler.run(prior_samples = prior_samples,
-                ess = 0.95,
-                gamma = 0.75,
-                nmin = 5,
-                nmax = 50
+We can also use the ``run`` method to specify the desired number of total effective samples and the number of evidence samples to use
+for the estimate of the model evidence. For instance, if we want to use ``5000`` total effective samples and ``5000`` evidence samples
+we would do something like::
+
+    sampler.run(n_total=5000,
+                n_evidence=5000,
+                progress=True,
                )
+
+The ``progress`` argument allows the user to specify whether to show a progress bar or not. By default ``progress=True`` is selected
+and a progress bar is shown. If ``progress=False`` is selected then no progress bar is shown. This can be useful when running the
+sampler in a computing cluster.
 
 
 Results
 -------
 
-Once the run is complete and we have optionally added extra samples, it is time to look at the results. This can be done using the 
-``results`` dictionary, as follows::
+Once the run is complete we can look at the results. This can be done in two ways. The first is to use the ``posterior`` and ``evidence``
+methods of the sampler. For instance, if we want to get the samples from the posterior we would do::
+
+    samples, weights, logl, logp = sampler.posterior()
+
+The ``samples`` argument is an array with the samples from the posterior. The ``weights`` argument is an array with the weights of the
+samples from the posterior. The ``logl`` argument is an array with the values of the log-likelihood for the samples from the posterior.
+The ``logp`` argument is an array with the values of the log-prior for the samples from the posterior.
+
+If we want to get samples from the posterior without the weights we would do::
+
+    samples, logl, logp = sampler.posterior(resample=True)
+
+This resamples the particles and is useful when we want to use the samples for parameter inference and we do not want to deal with the weights.
+
+The samples from the posterior can be used for parameter inference. For instance, we can get the mean and standard deviation of the
+posterior for each parameter by doing::
+
+    mean = np.mean(samples, axis=0)
+    std = np.std(samples, axis=0)
+
+Or, we can utilize a third-party package such as ``corner`` (`available here <https://corner.readthedocs.io/en/latest/>`_) to plot the posterior samples::
+
+    import corner
+
+    fig = corner.corner(samples, labels=[f"$x_{i}$" for i in range(n_dim)]); # If we do not want to use the weights.
+    # fig = corner.corner(samples, weights=weights, labels=[f"$x_{i}$" for i in range(n_dim)]); # If we want to use the weights.
+
+Similarly, we can also get the estimate of the model evidence / marginal likelihood by doing::
+
+    logZ, logZerr = sampler.evidence()
+
+The ``logZ`` argument is the estimate of the logarithm of the model evidence. The ``logZerr`` argument is the error on the estimate
+of the logarithm of the model evidence. The error is estimated using the bootstrap method.
+
+An alternative, and more advanced way, to look at the results is to use the ``results`` dictionary of the sampler, as follows::
 
     results = sampler.results
 
-This is a dictionary which includes the following arrays:
+This is a dictionary includes the following keys::
 
-1. ``results['samples']`` - Array with the **samples drawn from posterior**. This is usually what you need for parameter inference.
-2. ``results['loglikelihood']`` - Array with the **values of the log-likelihood** for the posterior samples given by ``results['samples']``.
-3. ``results['logprior']`` - Array with the **values of the log-prior** for the posterior samples given by ``results['samples']``.
-4. ``results['logz']`` - Array with the evolution of the estimate of the **logarithm of the model evidence** :math:`\log\mathcal{Z}`. This is usually what you need for model comparison.
-5. ``results['iter']`` - Array with number iteration indices (e.g. ``np.array([0, 1, 2, ...])``)
-6. ``results['x']`` - Array with the final samples from all the intermediate distributions.
-7. ``results['logl']`` - Array with the values of the log-likelihood for the samples from all the intermediate distributions.
-8. ``results['logp']`` - Array with the values of the log-prior for the samples from all the intermediate distributions.
-9.  ``results['logw']`` - Array with the values of the log-weights for the samples from all the intermediate distributions.
-10. ``results['ess']`` - Array with the evolution of the ESS during the run.
-11. ``results['ncall']`` - Array with the evolution of the number of log-likelihood calls during the run.
-12. ``results['beta']`` - Array with the values of beta.
-13. ``results['accept']`` - Array with the Metropolis-Hastings acceptance rates during the run.
-14. ``results['scale']`` - Array with the evolution of the scale factor during the run.
-15. ``results['steps']`` - Array with the number of MCMC steps per iteration during the run.
+    ``u``, ``x``, ``logdetj``, ``logl``, ``logp``, ``logw``, ``iter``, ``logz``, ``calls``, ``steps``, ``efficiency``, ``ess``, ``accept``, ``beta``.
 
+The ``u`` key is an array with the samples from the latent space. The ``x`` key is an array with the samples from the parameter space.
+The ``logdetj`` key is an array with the values of the log-determinant of the Jacobian of the normalizing flow for each sample. The ``logl``
+key is an array with the values of the log-likelihood for each sample. The ``logp`` key is an array with the values of the log-prior for
+each sample. The ``logw`` key is an array with the values of the log-importance weights for each sample. The ``iter`` key is an array with
+the iteration index for each sample. The ``logz`` key is an array with the values of the logarithm of the model evidence for each iteration.
+The ``calls`` key is an array with the total number of log-likelihood calls for each iteration. The ``steps`` key is an array with the
+number of MCMC steps per iteration. The ``efficiency`` key is an array with the efficiency of the sampling procedure for each iteration.
+The ``ess`` key is an array with the effective sample size for each iteration. The ``accept`` key is an array with the acceptance rate
+for each iteration. The ``beta`` key is an array with the value of the inverse temperature for each iteration.
+
+Normalizing Flow
+================
+
+The default normalizing flow used by ``pocoMC`` is a Masked Autoregressive Flow (MAF) with 6 blocks of 3 layers each. Each layer has 64
+hidden units with a residual connection and uses a ``relu`` activation function. Both the normalizing flow and the training configuration
+can be changed by the user. For instance, if we want to use a MAF with 12 blocks of 2 layers each and 128 hidden units per layer we would do::
+
+    import zuko
+
+    flow = zuko.flows.MAF(n_dim, 
+                          transforms=12, 
+                          hidden_features=[128] * 3,
+                          residual=True,
+                         )
+
+    sampler = pc.Sampler(prior=prior,
+                         likelihood = log_like,
+                         flow = flow,
+                        )
+
+Any normalizing flow provided by the ``zuko`` package can be used. For a full list `see here <https://zuko.readthedocs.io/en/stable/index.html>`_.
+
+Additionally, the training configuration of the normalizing flow can also be changed as follows::
+
+    sampler = pc.Sampler(prior = prior,
+                         likelihood = log_like,
+                         flow = flow,
+                         train_config=dict(validation_split=0.5,
+                                           epochs=2000,
+                                           batch_size=512,
+                                           patience=50,
+                                           learning_rate=1e-3,
+                                           annealing=False,
+                                           gaussian_scale=None,
+                                           laplace_scale=None,
+                                           noise=None,
+                                           shuffle=True,
+                                           clip_grad_norm=1.0,
+                                           verbose=0,
+                                          )
+                        )
+
+The above is the default training configuration and is a good choice for most problems. The ``validation_split`` argument determines
+the fraction of the training data to use as validation data. The ``epochs`` argument determines the maximum number of epochs to use for training.
+The ``batch_size`` argument determines the batch size to use for training. The ``patience`` argument determines the number of epochs to wait
+before early stopping if the validation loss does not improve. The ``learning_rate`` argument determines the learning rate to use for training.
+The ``annealing`` argument determines whether to use learning rate annealing or not. The ``gaussian_scale`` argument determines the scale of the Gaussian 
+prior applied to the weights of the normalizing flow. The ``laplace_scale`` argument determines the scale of the Laplace prior applied to the weights
+of the normalizing flow. The ``noise`` argument determines the standard deviation of the Gaussian noise to add to the input of the normalizing flow.
+The ``shuffle`` argument determines whether to shuffle the training data or not. The ``clip_grad_norm`` argument determines the maximum norm of the
+gradients to use for training. The ``verbose`` argument determines whether to print the training progress or not.                       
 
 Parallelisation
 ===============

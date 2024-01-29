@@ -3,11 +3,18 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
+|
+
 .. title:: pocoMC documentation
 
 .. figure:: ./../../logo.svg
     :scale: 30 %
     :align: center
+
+|
+
+pocoMC
+======
 
 ``pocoMC`` is a Python implementation of `Preconditioned Monte Carlo (PMC)`.
 Using ``pocoMC`` one can perform Bayesian inference, including model comparison, 
@@ -87,6 +94,14 @@ Copyright 2022-2024 Minas Karamanis and contributors.
 
 Changelog
 =========
+
+**1.0.0 (28/01/24)**
+
+- First stable release.
+- Major refactoring of the code.
+- Added support for multiple normalizing flows through ``zuko``.
+- Added preconditioned Crank-Nicolson sampler.
+- Added support for multilayer SMC.
 
 **0.2.2 (22/08/22)**
 
