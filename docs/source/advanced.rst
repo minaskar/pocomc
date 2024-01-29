@@ -175,6 +175,9 @@ The sampler also accepts other arguments, for a full list see :doc:`api`. Those 
   details see the Normalizing Flow section below. Generally, using normalizing flow preconditioning is a good choice for most
   problems as the latent space is usually less correlated than the parameter space.
 
+- The ``n_prior`` argument allows the user to specify the number of prior samples to draw in the beginning of the run. By default
+  ``n_prior=2*(n_ess//n_active)*n_active`` is selected. This is useful for the initialisation of the sampler and we do not recommend changing it.
+
 - The ``sample`` argument determines the MCMC sampling method to use. By default ``sampler='pcn'`` is selected and the preconditioned
   Crank-Nicolson (PCN) method is used. The alternative is to use ``sampler='rwm'`` and the standard Random-walk Metropolis method.
 

@@ -51,6 +51,8 @@ class Sampler:
     precondition : bool
         If True, use preconditioned MCMC (default is ``precondition=True``). If False,
         use standard MCMC without normalizing flow.
+    n_prior : int
+        Number of prior samples to draw (default is ``n_prior=2*(n_ess//n_active)*n_active``).
     sample : ``str``
         Type of MCMC sampler to use (default is ``sample="pcn"``). Options are
         ``"pcn"`` (Preconditioned Crank-Nicolson) or ``"rwm"`` (Random-Walk Metropolis).
@@ -88,6 +90,7 @@ class Sampler:
                  flow=None,
                  train_config: dict = None,
                  precondition: bool = True,
+                 n_prior: int = None,
                  sample: str = None,
                  max_steps: int = None,
                  patience: int = None,
@@ -201,10 +204,21 @@ class Sampler:
         elif sample in ['rwm', 'mh']:
             self.sample = 'rwm'
 
+        # Prior samples to draw
+        if n_prior is None:
+            self.n_prior = int(2 * (self.n_ess//self.n_active) * self.n_active)
+        else:
+            self.n_prior = int((n_prior/self.n_active) * self.n_active)
+        self.prior_samples = None
+
         self.patience = patience
 
         self.logz = None
         self.logz_err = None
+
+        self.current_particles = None
+        self.warmup = True
+        self.calls = 0
         
         self.progress = None
         self.pbar = None
@@ -244,6 +258,9 @@ class Sampler:
             t0 = self.t
             # Initialise progress bar
             self.pbar = ProgressBar(self.progress)
+            self.pbar.update_stats(dict(calls=self.particles.get("calls", -1),
+                                        beta=self.particles.get("beta", -1),
+                                        logZ=self.particles.get("logz", -1)))
         else:
             t0 = self.t
             # Run parameters
@@ -253,57 +270,60 @@ class Sampler:
             # Initialise progress bar
             self.pbar = ProgressBar(self.progress)
 
-            calls = 0
-            scaler_fitted = False
-            while calls < int(2.0 * self.n_ess):
+        # Initialise particles
+        if self.prior_samples is None:
+            self.prior_samples = self.sample_prior(self.n_prior)
+            self.scaler.fit(self.prior_samples)
+
+        if self.warmup:
+            for i in range(self.n_prior//self.n_active):
                 if save_every is not None:
                     if (self.t - t0) % int(save_every) == 0 and self.t != t0:
                         self.save_state(Path(self.output_dir) / f'{self.output_label}_{self.t}.state')
                 # Set state parameters
-                x = self.sample_prior(self.n_active)
-                if not scaler_fitted:
-                    self.scaler.fit(x)
-                    scaler_fitted = True
+                x = self.prior_samples[i*self.n_active:(i+1)*self.n_active]
                 u = self.scaler.forward(x)
                 logdetj = self.scaler.inverse(u)[1]
                 logp = self.log_prior(x)
                 logl = self._log_like(x)
-                calls += self.n_active
+                self.calls += self.n_active
 
-                current_particles = dict(u=u,x=x,logl=logl,logp=logp,logdetj=logdetj,
+                self.current_particles = dict(u=u,x=x,logl=logl,logp=logp,logdetj=logdetj,
                                     logw=-1e300 * np.ones(self.n_active), iter=self.t,
-                                    calls=calls, steps=1, efficiency=1.0, ess=0.0, 
+                                    calls=self.calls, steps=1, efficiency=1.0, ess=0.0, 
                                     accept=1.0, beta=0.0, logz=0.0)
                 
-                self.particles.update(current_particles)
+                self.particles.update(self.current_particles)
 
                 self.pbar.update_stats(dict(calls=self.particles.get("calls", -1), 
                                             beta=self.particles.get("beta", -1), 
                                             logZ=self.particles.get("logz", -1)))
                 
                 self.pbar.update_iter()
+
                 self.t += 1
+            self.warmup = False
 
         # Run Sequential Monte Carlo
-        while self._not_termination(current_particles):
+        while self._not_termination(self.current_particles):
             if save_every is not None:
                 if (self.t - t0) % int(save_every) == 0 and self.t != t0:
                     self.save_state(Path(self.output_dir) / f'{self.output_label}_{self.t}.state')
 
             # Choose next beta based on ESS of weights
-            current_particles = self._reweight(current_particles)
+            self.current_particles = self._reweight(self.current_particles)
 
             # Train Preconditioner
-            current_particles = self._train(current_particles)
+            self.current_particles = self._train(self.current_particles)
 
             # Resample particles
-            current_particles = self._resample(current_particles)
+            self.current_particles = self._resample(self.current_particles)
 
             # Evolve particles using MCMC
-            current_particles = self._mutate(current_particles)   
+            self.current_particles = self._mutate(self.current_particles)   
 
             # Save particles
-            self.particles.update(current_particles)
+            self.particles.update(self.current_particles)
 
         # Compute evidence
         if n_evidence > 0 and self.preconditioned:

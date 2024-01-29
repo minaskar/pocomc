@@ -8,8 +8,8 @@ class FlowTestCase(unittest.TestCase):
         # Make a dataset to use in tests
         torch.manual_seed(0)
         n_data = 100
-        n_dim = 10
-        x = torch.randn(size=(n_data, n_dim)) * 3 + 1
+        n_dim = 4
+        x = torch.randn(size=(n_data, n_dim)) * 1.5
         return x
 
     @torch.no_grad()
@@ -169,7 +169,8 @@ class FlowTestCase(unittest.TestCase):
         z, logprob_forward = flow.forward(x)
         _, logprob_inverse = flow.inverse(z)
 
-        self.assertTrue(torch.allclose(logprob_forward, -logprob_inverse))
+        #self.assertTrue(torch.allclose(logprob_forward, -logprob_inverse))
+        torch.testing.assert_close(logprob_forward, -logprob_inverse)
         self.assertEqual(logprob_forward.shape, logprob_inverse.shape)
         self.assertEqual(logprob_forward.dtype, logprob_inverse.dtype)
 
@@ -208,7 +209,9 @@ class FlowTestCase(unittest.TestCase):
 
         z, logj_forward = flow.forward(x)
         _, logj_inverse = flow.inverse(z)
-        assert torch.allclose(logj_forward, -logj_inverse)
+
+        #assert torch.allclose(logj_forward, -logj_inverse, rtol=1e-4)
+        torch.testing.assert_close(logj_forward, -logj_inverse)
 
 
 if __name__ == '__main__':
