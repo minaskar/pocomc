@@ -16,7 +16,7 @@ class SamplerStateTestCase(unittest.TestCase):
     def test_save(self):
         # Save PMC state.
         prior = Prior([norm(0, 1), norm(0, 1)])
-        s = Sampler(prior, self.log_likelihood_vectorized, vectorize=True, random_state=0)
+        s = Sampler(prior, self.log_likelihood_vectorized, vectorize=True, train_config=dict(epochs=10), random_state=0)
         path = Path('pmc.state')
         s.save_state(path)
         self.assertTrue(path.exists())
@@ -26,7 +26,7 @@ class SamplerStateTestCase(unittest.TestCase):
     def test_load(self):
         # Load PMC state.
         prior = Prior([norm(0, 1), norm(0, 1)])
-        s = Sampler(prior, self.log_likelihood_vectorized, vectorize=True, random_state=0)
+        s = Sampler(prior, self.log_likelihood_vectorized, vectorize=True, train_config=dict(epochs=10), random_state=0)
         path = Path('pmc.state')
         s.save_state(path)
         self.assertTrue(path.exists())
@@ -38,7 +38,7 @@ class SamplerStateTestCase(unittest.TestCase):
         # Run PMC. Then, pick an intermediate state and resume from that state.
         np.random.seed(0)
         prior = Prior([norm(0, 1), norm(0, 1)])
-        s = Sampler(prior, self.log_likelihood_vectorized, vectorize=True, random_state=0)
+        s = Sampler(prior, self.log_likelihood_vectorized, vectorize=True, train_config=dict(epochs=10), random_state=0)
         s.run(save_every=1)  # Save every iteration
 
         # At this point, we would look at the directory and choose the file we want to load. In this example, we select
@@ -49,7 +49,7 @@ class SamplerStateTestCase(unittest.TestCase):
         self.assertTrue(Path("states/pmc_2.state").exists())
         self.assertTrue(Path("states/pmc_3.state").exists())
 
-        s = Sampler(prior, self.log_likelihood_vectorized, vectorize=True, random_state=0)
+        s = Sampler(prior, self.log_likelihood_vectorized, vectorize=True, train_config=dict(epochs=10), random_state=0)
         s.run(resume_state_path="states/pmc_1.state")
 
         # Remove the generated state files

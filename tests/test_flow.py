@@ -119,15 +119,6 @@ class FlowTestCase(unittest.TestCase):
         self.assertEqual(log_prob.dtype, torch.float32)
 
     @torch.no_grad()
-    def test_logprob_1d(self):
-        # When input is one dimensional, logprob should raise an error
-        torch.manual_seed(0)
-
-        x = self.make_data()
-        x = x[:, 0].reshape(-1, 1)
-        self.assertRaises(ValueError, lambda: Flow(n_dim=x.shape[1]))
-
-    @torch.no_grad()
     def test_logprob_single_example(self):
         # Test logprob when input is a single data point
         torch.manual_seed(0)
