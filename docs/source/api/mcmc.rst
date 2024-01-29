@@ -4,15 +4,11 @@ MCMC
 Samplers
 --------
 
-.. autofunction:: pocomc.mcmc.preconditioned_metropolis
+.. autofunction:: pocomc.mcmc.preconditioned_pcn
 
+.. autofunction:: pocomc.mcmc.preconditioned_rwm
 
-.. autofunction:: pocomc.mcmc.metropolis
+.. autofunction:: pocomc.mcmc.pcn
 
-Helper functions and classes
-----------------------------
+.. autofunction:: pocomc.mcmc.rwm
 
-.. autoclass:: pocomc.mcmc.Pearson
-    :members:
-
-.. autofunction:: pocomc.mcmc.log_prob

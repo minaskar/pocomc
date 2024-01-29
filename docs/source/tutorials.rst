@@ -6,4 +6,3 @@ Tutorials
 
     tutorials/fitting
     tutorials/model_comparison
-    tutorials/bridge_sampling

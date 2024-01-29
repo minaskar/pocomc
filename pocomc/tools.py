@@ -1,10 +1,74 @@
 import numpy as np
 import math
+from scipy.special import gammaln
 import torch
 from tqdm import tqdm
 import warnings
 
 SQRTEPS = math.sqrt(float(np.finfo(np.float64).eps))
+
+def mean_minimum_distance(N : int = None, 
+                          D : int = None):
+    r"""
+        Compute the average minimum (1st neighbor) distance between N samples from a D-dimensional uniform distribution.
+
+    Parameters
+    ----------
+    N : ``int``
+        Number of samples
+    D : ``int``
+        Number of dimensions.
+    Returns
+    -------
+    distance : float
+        Mean minimum distance.
+    """
+    return np.exp(gammaln(D/2 + 1)/D + gammaln(1+1/D) + gammaln(N) - gammaln(N + 1/D) - 0.5 * np.log(np.pi))
+
+def trim_weights(samples, weights, ess=0.99, bins=1000):
+    """
+        Trim samples and weights to a given effective sample size.
+
+    Parameters
+    ----------
+    samples : ``np.ndarray``
+        Samples.
+    weights : ``np.ndarray``
+        Weights.
+    ess : ``float``
+        Effective sample size threshold.
+    bins : ``int``
+        Number of bins to use for trimming.
+
+    Returns
+    -------
+    samples_trimmed : ``np.ndarray``
+        Trimmed samples.
+    weights_trimmed : ``np.ndarray``
+        Trimmed weights.
+    """
+
+    # normalize weights
+    weights /= np.sum(weights)
+    # compute untrimmed ess
+    ess_total = 1.0 / np.sum(weights**2.0)
+    # define percentile grid
+    percentiles = np.linspace(0, 99, bins)
+
+    i = bins - 1
+    while True:
+        p = percentiles[i]
+        # compute weight threshold
+        threshold = np.percentile(weights, p)
+        mask = weights >= threshold
+        weights_trimmed = weights[mask]
+        weights_trimmed /= np.sum(weights_trimmed)
+        ess_trimmed = 1.0 / np.sum(weights_trimmed**2.0)
+        if ess_trimmed / ess_total >= ess:
+            break 
+        i -= 1
+    
+    return samples[mask], weights_trimmed
 
 
 def compute_ess(logw: np.ndarray):
@@ -43,9 +107,61 @@ def increment_logz(logw: np.ndarray):
     """
     logw_max = np.max(logw)
     logw_normed = logw - logw_max
-    N = len(logw)
 
-    return logw_max + np.logaddexp.reduce(logw_normed) - np.log(N)
+    return logw_max + np.logaddexp.reduce(logw_normed)
+
+
+def systematic_resample(size: np.ndarray, 
+                        weights: np.ndarray, 
+                        random_state: int = None):
+    """
+        Resample a new set of points from the weighted set of inputs
+        such that they all have equal weight.
+
+    Parameters
+    ----------
+    size : `int`
+        Number of samples to draw.
+    weights : `~numpy.ndarray` with shape (nsamples,)
+        Corresponding weight of each sample.
+    random_state : `int`, optional
+        Random seed.    
+
+    Returns
+    -------
+    indeces : `~numpy.ndarray` with shape (nsamples,)
+        Indices of the resampled array.
+    
+    Examples
+    --------
+    >>> x = np.array([[1., 1.], [2., 2.], [3., 3.], [4., 4.]])
+    >>> w = np.array([0.6, 0.2, 0.15, 0.05])
+    >>> systematic_resample(4, w)
+    array([0, 0, 0, 2])
+
+    Notes
+    -----
+    Implements the systematic resampling method.
+    """
+    
+    if random_state is not None:
+        np.random.seed(random_state)
+
+    if abs(np.sum(weights) - 1.) > SQRTEPS:
+        weights = np.array(weights) / np.sum(weights)
+
+    positions = (np.random.random() + np.arange(size)) / size
+
+    j = 0
+    cumulative_sum = weights[0]
+    indeces = np.empty(size, dtype=int)
+    for i in range(size):
+        while positions[i] > cumulative_sum:
+            j += 1
+            cumulative_sum += weights[j]
+        indeces[i] = j
+    
+    return indeces
 
 
 def resample_equal(samples: np.ndarray,
@@ -242,3 +358,36 @@ def torch_double_to_float(x: torch.Tensor, warn: bool = True):
         return x
     else:
         raise ValueError(f"Unsupported datatype for input data: {x.dtype}")
+
+class flow_numpy_wrapper:
+    """
+    Wrapper class for numpy flows.
+
+    Parameters
+    ----------
+    flow : Flow object
+        Flow object that implements forward and inverse
+        transformations.
+    
+    Returns
+    -------
+    Flow object
+    """
+    def __init__(self, flow):
+        self.flow = flow
+
+    @torch.no_grad()
+    def forward(self, v):
+        v = numpy_to_torch(v)
+        theta, logdetj = self.flow.forward(v)
+        theta = torch_to_numpy(theta)
+        logdetj = - torch_to_numpy(logdetj)
+        return theta, logdetj
+
+    @torch.no_grad()
+    def inverse(self, theta):
+        theta = numpy_to_torch(theta)
+        v, logdetj = self.flow.inverse(theta)
+        v = torch_to_numpy(v)
+        logdetj = torch_to_numpy(logdetj)
+        return v, logdetj

@@ -3,11 +3,18 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
+|
+
 .. title:: pocoMC documentation
 
-.. figure:: ./../../logo.png
+.. figure:: ./../../logo.svg
     :scale: 30 %
     :align: center
+
+|
+
+pocoMC
+======
 
 ``pocoMC`` is a Python implementation of `Preconditioned Monte Carlo (PMC)`.
 Using ``pocoMC`` one can perform Bayesian inference, including model comparison, 
@@ -21,9 +28,9 @@ problems that include multimodal and highly non--Gaussian target distributions.
 
     🖥 A good place to get started is with the :doc:`install` and then the
     :doc:`pages/quickstart` guide. If you are not familiar with Bayesian inference
-    or how PMC works have a look at the :doc:`background`.
+    have a look at the :doc:`background`.
 
-    📖 For more details, check out the :doc:`advanced`, :doc:`tutorials` and :doc:`examples`,
+    📖 For more details, check out the :doc:`advanced` and :doc:`tutorials`,
     including the full :doc:`api` documentation.
 
     💡 If you're running into problems getting ``pocoMC`` to do what you want, first
@@ -46,7 +53,6 @@ problems that include multimodal and highly non--Gaussian target distributions.
    background
    advanced
    tutorials
-   examples
    faq
    api
    GitHub Repository <https://github.com/minaskar/pocomc>
@@ -81,13 +87,21 @@ research. The BibTeX entries for the papers are::
 Authors & License
 =================
 
-Copyright 2022 Minas Karamanis and contributors.
+Copyright 2022-2024 Minas Karamanis and contributors.
 
 ``pocoMC`` is free software made available under the ``GPL-3.0 License``.
 
 
 Changelog
 =========
+
+**1.0.0 (28/01/24)**
+
+- First stable release.
+- Major refactoring of the code.
+- Added support for multiple normalizing flows through ``zuko``.
+- Added preconditioned Crank-Nicolson sampler.
+- Added support for multilayer SMC.
 
 **0.2.2 (22/08/22)**
 

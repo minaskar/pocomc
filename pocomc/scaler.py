@@ -3,10 +3,9 @@ from typing import Union, List
 import numpy as np
 from scipy.special import erf, erfinv
 
-from pocomc.input_validation import assert_array_float, assert_array_within_interval
+from .input_validation import assert_array_float, assert_array_within_interval
 
-
-class Reparameterise:
+class Reparameterize:
     """
     Class that reparameterises the model using change-of-variables parameter transformations.
 
@@ -27,6 +26,21 @@ class Reparameterise:
         Rescale parameters to zero mean and unit variance (default is true)
     diagonal : ``bool``
         Use diagonal transformation (i.e. ignore covariance) (default is true)
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from pocomc.reparameterize import Reparameterize
+    >>> bounds = np.array([[0, 1], [0, 1]])
+    >>> reparam = Reparameterize(2, bounds)
+    >>> x = np.array([[0.5, 0.5], [0.5, 0.5]])
+    >>> reparam.forward(x)
+    array([[0., 0.],
+           [0., 0.]])
+    >>> u = np.array([[0, 0], [0, 0]])
+    >>> reparam.inverse(u)
+    (array([[0.5, 0.5],
+           [0.5, 0.5]]), array([0., 0.]))
     """
     def __init__(self,
                  n_dim: int,
@@ -40,7 +54,7 @@ class Reparameterise:
         self.ndim = n_dim
 
         if bounds is None:
-            bounds = np.full((self.ndim, 2), np.nan)
+            bounds = np.full((self.ndim, 2), np.inf)
         elif len(bounds) == 2 and not np.shape(bounds) == (2, 2):
             bounds = np.tile(np.array(bounds, dtype=np.float32).reshape(2, 1), self.ndim).T
         assert_array_float(bounds)
@@ -452,17 +466,17 @@ class Reparameterise:
 
         # TODO: Do this more elegantly, it's a shame
         for i in range(self.ndim):
-            if np.isnan(self.low[i]) and np.isnan(self.high[i]):
+            if not np.isfinite(self.low[i]) and not np.isfinite(self.high[i]):
                 self.mask_none[i] = True
                 self.mask_left[i] = False
                 self.mask_right[i] = False
                 self.mask_both[i] = False
-            elif np.isnan(self.low[i]) and not np.isnan(self.high[i]):
+            elif not np.isfinite(self.low[i]) and np.isfinite(self.high[i]):
                 self.mask_none[i] = False
                 self.mask_left[i] = False
                 self.mask_right[i] = True
                 self.mask_both[i] = False
-            elif not np.isnan(self.low[i]) and np.isnan(self.high[i]):
+            elif np.isfinite(self.low[i]) and not np.isfinite(self.high[i]):
                 self.mask_none[i] = False
                 self.mask_left[i] = True
                 self.mask_right[i] = False
