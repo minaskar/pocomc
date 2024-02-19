@@ -266,7 +266,7 @@ class Reparameterize:
         x[:, self.mask_right], J[:, self.mask_right] = self._inverse_right(u)
         x[:, self.mask_both], J[:, self.mask_both] = self._inverse_both(u)
 
-        log_det_J = np.array([np.linalg.slogdet(Ji * np.identity(len(Ji)))[1] for Ji in J])
+        log_det_J = np.log(np.prod(J, axis=1))
 
         return x, log_det_J
 
