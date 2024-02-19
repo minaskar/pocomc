@@ -95,6 +95,10 @@ Copyright 2022-2024 Minas Karamanis and contributors.
 Changelog
 =========
 
+**1.0.2 (18/02/24)**
+
+- Minor improvements and bug fixes.
+
 **1.0.0 (28/01/24)**
 
 - First stable release.
