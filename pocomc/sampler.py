@@ -11,6 +11,7 @@ from .scaler import Reparameterize
 from .flow import Flow
 from .particles import Particles
 from .geometry import Geometry
+from .threading import configure_threads
 
 class Sampler:
     r"""Preconditioned Monte Carlo class.
@@ -39,6 +40,9 @@ class Sampler:
     pool : pool
         Provided ``MPI`` or ``multiprocessing`` pool for
         parallelisation (default is ``pool=None``).
+    pytorch_threads : int
+        Maximum number of threads to use for torch. If ``None`` torch uses all
+        available threads while training the normalizing flow (default is ``pytorch_threads=1``).
     flow : ``torch.nn.Module`` or ``None``
         Normalizing flow (default is ``None``). The default is a Masked Autoregressive Flow
         (MAF) with 6 blocks of 3x64 layers and residual connections.
@@ -87,6 +91,7 @@ class Sampler:
                  likelihood_kwargs: dict = None,
                  vectorize: bool = False,
                  pool=None,
+                 pytorch_threads=1,
                  flow=None,
                  train_config: dict = None,
                  precondition: bool = True,
@@ -104,6 +109,9 @@ class Sampler:
             np.random.seed(random_state)
             torch.manual_seed(random_state)
         self.random_state = random_state
+
+        # Configure threads
+        configure_threads(pytorch_threads=pytorch_threads)
 
         # Prior
         self.prior = prior
