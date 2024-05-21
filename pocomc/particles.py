@@ -66,10 +66,9 @@ class Particles:
         each particle.
     """
 
-    def __init__(self, n_particles, n_dim, ess_threshold=None):
+    def __init__(self, n_particles, n_dim):
         self.n_particles = n_particles
         self.n_dim = n_dim
-        self.ess_threshold = ess_threshold
 
         self.past = dict(
             u = [],
@@ -83,7 +82,7 @@ class Particles:
             calls = [],
             steps = [],
             efficiency = [],
-            ess = [],
+            #ess = [],
             accept = [],
             beta = [],
         )
@@ -210,103 +209,23 @@ class Particles:
         else:
             return self.past.get(key)[index]
         
-    def compute_logw(self, beta, ess_threshold=None):
-        """
-        Compute the log-weights of the particles for the given inverse
-        temperature.
+    def compute_logw_and_logz(self, beta_final=1.0, normalize=True):
 
-        Parameters
-        ----------
-        beta : float
-            Inverse temperature.
-        ess_threshold : float, optional
-            Threshold for the effective sample size. If the effective sample
-            size is below this threshold, the weights are set to zero. This is
-            useful for the case where the effective sample size is very small,
-            but not exactly zero, due to numerical errors.
-        
-        Returns
-        -------
-        logw : numpy.ndarray
-            Array of shape (n_particles,) containing the log-weights.
-        
-        Notes
-        -----
-        The log-weights are computed as
-            logw = (beta - beta_original) * logl
-        where beta_original is the inverse temperature of each particle and
-        logl is the log-likelihood of each particle.
-
-        Examples
-        --------
-        >>> particles = Particles(n_particles=10, n_dim=2)
-        >>> particles.update(dict(u=np.random.randn(10,2)))
-        >>> particles.compute_logw(beta=1.0).shape
-        (10,)
-        """
-        logl = self.get("logl")
-        beta_original = self.get("beta")
-
-        logw = (beta - beta_original[:,None]) * logl
-        logw -= np.logaddexp.reduce(logw, axis=1)[:,None]
-        log_ess = - np.logaddexp.reduce(2.0 * logw, axis=1)
-        ###
-        if ess_threshold is not None:
-            mask = np.exp(log_ess) < ess_threshold
-            log_ess[mask] = -1e300
-        ###
-        log_ess -= np.logaddexp.reduce(log_ess)
-        logw += log_ess[:,None]
-        logw = logw.reshape(-1)
-        logw -= np.logaddexp.reduce(logw)
-        
-        return logw
-    
-    def compute_logz(self, beta):
-        """
-        Compute the log-evidence of the particles for the given inverse
-        temperature.
-
-        Parameters
-        ----------
-        beta : float
-            Inverse temperature.
-        
-        Returns
-        -------
-        logz : float
-            Log-evidence.
-
-        Notes
-        -----
-        The log-evidence is computed as
-            logz = logsumexp(log_ess + logz + logz_increments)
-        where log_ess is the log-effective sample size of each particle,
-        logz is the log-evidence of each particle and logz_increments is the
-        log-evidence increment of each particle.
-
-        Examples
-        --------
-        >>> particles = Particles(n_particles=10, n_dim=2)
-        >>> particles.update(dict(u=np.random.randn(10,2)))
-        >>> particles.compute_logz(beta=1.0)
-        """
         logz = self.get("logz")
-
         logl = self.get("logl")
-        beta_original = self.get("beta")
+        beta = self.get("beta")
 
-        logw = (beta - beta_original[:,None]) * logl
-        logw_normed = logw - np.logaddexp.reduce(logw, axis=1)[:,None]
+        A = logl * beta_final
+        b = np.array([logl * beta[i] - logz[i] for i in range(len(beta))])
+        B = np.logaddexp.reduce(b, axis=0) - np.log(len(beta))
+        logw = A - B
+        logw = np.concatenate(logw)
+        logz_new = np.logaddexp.reduce(logw) - np.log(len(logw))
 
-        logz_increments = np.logaddexp.reduce(logw, axis=1) - np.log(logw.shape[1])
-        
-        log_ess = - np.logaddexp.reduce(2.0 * logw_normed, axis=1)
-        log_ess_normed = log_ess - np.logaddexp.reduce(log_ess)
+        if normalize:
+            logw -= np.logaddexp.reduce(logw)
 
-        logz_new = np.logaddexp.reduce(log_ess_normed + logz + logz_increments)
-
-        return logz_new
+        return logw, logz_new
     
     def compute_results(self):
         """
@@ -347,9 +266,6 @@ class Particles:
             efficiency : numpy.ndarray
                 Array of shape (n_particles,) containing the efficiency of
                 each particle.
-            ess : numpy.ndarray
-                Array of shape (n_particles,) containing the effective sample
-                size of each particle.
             accept : numpy.ndarray
                 Array of shape (n_particles,) containing the acceptance rate
                 of each particle.
@@ -362,29 +278,17 @@ class Particles:
         >>> particles = Particles(n_particles=10, n_dim=2)
         >>> particles.update(dict(u=np.random.randn(10,2)))
         >>> particles.compute_results().keys()
-        dict_keys(['u', 'logdetj', 'logl', 'logp', 'logw', 'iter', 'logz', 'calls', 'steps', 'efficiency', 'ess', 'accept', 'beta'])
+        dict_keys(['u', 'logdetj', 'logl', 'logp', 'logw', 'iter', 'logz', 'calls', 'steps', 'efficiency', 'accept', 'beta'])
         """
         if self.results_dict is None:
             self.results_dict = dict()
             for key in self.past.keys():
                 self.results_dict[key] = self.get(key)
-        
-            logl = self.get("logl")
-            beta_original = self.get("beta")
 
-            logw = (1.0 - beta_original[:,None]) * logl
-            logw -= np.logaddexp.reduce(logw, axis=1)[:,None]
-            log_ess = - np.logaddexp.reduce(2.0 * logw, axis=1)
-            ###
-            if self.ess_threshold is not None:
-                mask = np.exp(log_ess) < self.ess_threshold
-                log_ess[mask] = -1e300
-            ###
-            log_ess -= np.logaddexp.reduce(log_ess)
-            logw += log_ess[:,None]
+            logw, _ = self.compute_logw_and_logz(1.0)
 
             self.results_dict["logw"] = logw
-            self.results_dict["ess"] = np.exp(log_ess)
+            #self.results_dict["ess"] = np.exp(log_ess)
 
         return self.results_dict
 

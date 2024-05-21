@@ -43,9 +43,9 @@ def preconditioned_pcn(state_dict: dict,
     geometry = function_dict.get('theta_geometry')
 
     # Get MCMC options
-    n_max = option_dict.get('nmax')
+    n_max = option_dict.get('n_max')
+    n_steps = option_dict.get('n_steps')
     progress_bar = option_dict.get('progress_bar')
-    patience = option_dict.get('patience')
 
     # Get number of particles and parameters/dimensions
     n_walkers, n_dim = x.shape
@@ -55,9 +55,6 @@ def preconditioned_pcn(state_dict: dict,
 
     sigma = np.minimum(2.38 / n_dim**0.5, 0.99)
 
-    #mu, cov, nu = fit_mvstud(theta)
-    #if ~np.isfinite(nu):
-    #    nu = 1e6
     mu = geometry.t_mean
     cov = geometry.t_cov
     nu = geometry.t_nu
@@ -80,7 +77,7 @@ def preconditioned_pcn(state_dict: dict,
         # Propose new points in theta space
         theta_prime = np.empty((n_walkers, n_dim))
         for k in range(n_walkers):
-            theta_prime[k] = mu + (1.0 - sigma ** 2.0) ** 0.5 * diff[k] + sigma * np.sqrt(s[k]) * np.dot(chol_cov, np.random.randn(n_dim))        
+            theta_prime[k] = mu + (1.0 - sigma ** 2.0) ** 0.5 * diff[k] + sigma * np.sqrt(s[k]) * np.dot(chol_cov, np.random.randn(n_dim))      
 
         # Transform to u space
         u_prime, logdetj_flow_prime = flow.inverse(theta_prime)
@@ -88,13 +85,23 @@ def preconditioned_pcn(state_dict: dict,
         # Transform to x space
         x_prime, logdetj_prime = scaler.inverse(u_prime)
 
+        # Compute finite mask
+        finite_mask_logdetj_prime = np.isfinite(logdetj_prime)
+        finite_mask_x_prime = np.isfinite(x_prime).all(axis=1)
+        finite_mask = finite_mask_logdetj_prime & finite_mask_x_prime
+
         # Compute log-likelihood, log-prior, and log-posterior
         u_rand = np.random.rand(n_walkers)
 
-        logl_prime = log_like(x_prime)
-        logp_prime = log_prior(x_prime)
+        logl_prime = np.empty(n_walkers)
+        logp_prime = np.empty(n_walkers)
+        logl_prime[finite_mask] = log_like(x_prime[finite_mask])
+        logp_prime[finite_mask] = log_prior(x_prime[finite_mask])
+        logl_prime[~finite_mask] = -np.inf
+        logp_prime[~finite_mask] = -np.inf
 
-        n_calls += len(logl_prime)
+        #n_calls += len(logl_prime)
+        n_calls += np.sum(finite_mask)
 
         # Compute Metropolis factors
         diff_prime = theta_prime-mu
@@ -122,7 +129,8 @@ def preconditioned_pcn(state_dict: dict,
         logp[mask] = logp_prime[mask]
 
         # Adapt scale parameter using diminishing adaptation
-        sigma = np.abs(np.minimum(sigma + 1 / (i + 1) * (np.mean(alpha) - 0.234), np.minimum(2.38 / n_dim**0.5, 0.99)))
+        sigma = np.abs(np.minimum(sigma + 1 / (i + 1)**0.75 * (np.mean(alpha) - 0.234), np.minimum(2.38 / n_dim**0.5, 0.99)))
+        #sigma = np.minimum(sigma + 1 / (i + 1)**0.5 * (np.mean(alpha) - 0.234), 0.99)
 
         # Adapt mean parameter using diminishing adaptation
         mu = mu + 1.0 / (i + 1.0) * (np.mean(theta, axis=0) - mu)
@@ -130,7 +138,7 @@ def preconditioned_pcn(state_dict: dict,
         # Update progress bar if available
         if progress_bar is not None:
             progress_bar.update_stats(
-                dict(calls=progress_bar.info['calls'] + n_walkers,
+                dict(calls=progress_bar.info['calls'] + np.sum(finite_mask),
                     acc=np.mean(alpha),
                     steps=i,
                     logP=np.mean(logl + logp),
@@ -145,11 +153,7 @@ def preconditioned_pcn(state_dict: dict,
             logp2_val = logp2_val_new
         else:
             cnt += 1
-        if patience is None:
-            if cnt >= n_dim // 2 * ((2.38 / n_dim**0.5) / sigma)**1.5 * np.minimum(1.0, np.abs(0.234 / np.mean(alpha))):
-                break
-        else:
-            if cnt >= patience:
+            if cnt >= n_steps * ((2.38 / n_dim**0.5) / sigma)**2.0:
                 break
 
         if i >= n_max:
@@ -196,7 +200,8 @@ def preconditioned_rwm(state_dict: dict,
     geometry = function_dict.get('theta_geometry')
 
     # Get MCMC options
-    n_max = option_dict.get('nmax')
+    n_max = option_dict.get('n_max')
+    n_steps = option_dict.get('n_steps')
     progress_bar = option_dict.get('progress_bar')
 
     # Get number of particles and parameters/dimensions
@@ -217,8 +222,6 @@ def preconditioned_rwm(state_dict: dict,
     while True:
         i += 1
 
-        # Propose new points in theta space
-        #theta_prime = theta + sigma * np.random.randn(n_walkers, n_dim)
         # Propose new points in theta space
         theta_prime = np.empty((n_walkers, n_dim))
         for k in range(n_walkers):
@@ -277,8 +280,8 @@ def preconditioned_rwm(state_dict: dict,
             logp2_val = logp2_val_new
         else:
             cnt += 1
-        if cnt >= n_dim // 2 * (np.minimum(1.0, (2.38 / n_dim**0.5) / sigma))**2.0 * np.minimum(1.0, np.abs(0.234 / np.mean(alpha))):
-            break
+            if cnt >= n_steps * (np.minimum(1.0, (2.38 / n_dim**0.5) / sigma))**2.0:
+                break
 
         if i >= n_max:
             break
@@ -324,7 +327,8 @@ def pcn(state_dict: dict,
     geometry = function_dict.get('u_geometry')
 
     # Get MCMC options
-    n_max = option_dict.get('nmax')
+    n_max = option_dict.get('n_max')
+    n_steps = option_dict.get('n_steps')
     progress_bar = option_dict.get('progress_bar')
 
     # Get number of particles and parameters/dimensions
@@ -391,7 +395,7 @@ def pcn(state_dict: dict,
         logp[mask] = logp_prime[mask]
 
         # Adapt scale parameter using diminishing adaptation
-        sigma = np.abs(np.minimum(sigma + 1 / (i + 1) * (np.mean(alpha) - 0.234), np.minimum(2.38 / n_dim**0.5, 0.5)))
+        sigma = np.abs(np.minimum(sigma + 1 / (i + 1)**0.75 * (np.mean(alpha) - 0.234), np.minimum(2.38 / n_dim**0.5, 0.99)))
 
         # Update progress bar if available
         if progress_bar is not None:
@@ -410,8 +414,8 @@ def pcn(state_dict: dict,
             logp2_val = logp2_val_new
         else:
             cnt += 1
-        if cnt >= n_dim // 2 * ((2.38 / n_dim**0.5) / sigma)**1.5 * np.minimum(1.0, np.abs(0.234 / np.mean(alpha))):
-            break
+            if cnt >= n_steps * ((2.38 / n_dim**0.5) / sigma)**2.0:
+                break
 
         if i >= n_max:
             break
@@ -455,7 +459,8 @@ def rwm(state_dict: dict,
     geometry = function_dict.get('u_geometry')
 
     # Get MCMC options
-    n_max = option_dict.get('nmax')
+    n_max = option_dict.get('n_max')
+    n_steps = option_dict.get('n_steps')
     progress_bar = option_dict.get('progress_bar')
 
     # Get number of particles and parameters/dimensions
@@ -526,8 +531,8 @@ def rwm(state_dict: dict,
             logp2_val = logp2_val_new
         else:
             cnt += 1
-        if cnt >= n_dim // 2 * ((2.38 / n_dim**0.5) / sigma)**2.0 * np.minimum(1.0, np.abs(0.234 / np.mean(alpha))):
-            break
+            if cnt >= n_steps * ((2.38 / n_dim**0.5) / sigma)**2.0:
+                break
 
         if i >= n_max:
             break

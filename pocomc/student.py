@@ -1,4 +1,4 @@
-import numpy
+import numpy as np
 from scipy import optimize
 from scipy import special
 
@@ -41,41 +41,46 @@ def fit_mvstud(data, tolerance=1e-6, max_iter=100):
     def opt_nu(delta_iobs, nu):
         def func0(nu):
             w_iobs = (nu + dim) / (nu + delta_iobs)
-            f = -special.psi(nu/2) + numpy.log(nu/2) + numpy.sum(numpy.log(w_iobs))/n - numpy.sum(w_iobs)/n + 1 + special.psi((nu+dim)/2) - numpy.log((nu+dim)/2)
+            f = -special.psi(nu/2) + np.log(nu/2) + np.sum(np.log(w_iobs))/n - np.sum(w_iobs)/n + 1 + special.psi((nu+dim)/2) - np.log((nu+dim)/2)
             return f
 
-        if func0(1e6) >= 0:
-            nu = numpy.inf
+        if func0(1e300) >= 0:
+            nu = np.inf
         else:
-            nu = optimize.brentq(func0, 1e-6, 1e6)
+            #nu = optimize.brentq(func0, 1e-60, 1e60)
+            nu = optimize.bisect(func0, 1e-300, 1e300)
         return nu
 
     data = data.T
     (dim,n) = data.shape
-    mu = numpy.array([numpy.median(data,1)]).T
-    Sigma = numpy.cov(data)*(n-1)/n + 1e-1*numpy.eye(dim)
+    mu = np.array([np.median(data,1)]).T
+    Sigma = np.cov(data)*(n-1)/n + (1/n)*np.diag(np.var(data, axis=1))
     nu = 20
 
     last_nu = 0
     i = 0
-    while numpy.abs(last_nu - nu) > tolerance and i < max_iter:
+    while np.abs(last_nu - nu) > tolerance and i < max_iter:
         i += 1
         diffs = data - mu
-        delta_iobs = numpy.sum(diffs * numpy.linalg.solve(Sigma,diffs), 0)
+        delta_iobs = np.sum(diffs * np.linalg.solve(Sigma,diffs), 0)
         
         # update nu
         last_nu = nu
         nu = opt_nu(delta_iobs, nu)
-        if nu == numpy.inf:
+        if nu == np.inf:
             return mu.T[0], Sigma, nu
 
-        w_iobs = (nu + dim) / (nu + delta_iobs)
-
         # update Sigma
-        Sigma = numpy.dot(w_iobs*diffs, diffs.T) / n
+        w_iobs = (nu + dim) / (nu + delta_iobs)
+        Sigma = np.dot(w_iobs*diffs, diffs.T) / n
 
         # update mu
-        mu = numpy.sum(w_iobs * data, 1) / sum(w_iobs)
-        mu = numpy.array([mu]).T
+        mu = np.sum(w_iobs * data, 1) / sum(w_iobs)
+        mu = np.array([mu]).T
+
+    if i == max_iter:
+        print("Warning: EM algorithm did not converge.")
+        print("Last nu: ", last_nu)
+        print("Current nu: ", nu)
 
     return mu.T[0], Sigma, nu

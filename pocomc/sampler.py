@@ -25,48 +25,68 @@ class Sampler:
     n_dim : int
         The total number of parameters/dimensions (Optional as it can be infered from the prior class).
     n_ess : int
-        The effective sample size maintained during the run (default is ``n_ess=1000``).
+        The effective sample size maintained during the run (default is ``n_ess=512``). Higher values
+        lead to more accurate results but also increase the computational cost. 
     n_active : int
-        The number of active particles (default is ``n_active=250``). It must be smaller than ``n_ess``.
+        The number of active particles (default is ``n_active=256``). It must be smaller than ``n_ess``.
+        This is the number of particles that are evolved using MCMC at each iteration. If a pool is provided,
+        the number of active particles should be a multiple of the number of processes in the pool to ensure
+        efficient parallelisation.
     likelihood_args : list
-        Extra arguments to be passed to likelihood
-        (default is ``likelihood_args=None``).
+        Extra arguments to be passed to likelihood (default is ``likelihood_args=None``). Example:
+        ``likelihood_args=[data]``.
     likelihood_kwargs : dict
-        Extra arguments to be passed to likelihood
-        (default is ``likelihood_kwargs=None``).
+        Extra arguments to be passed to likelihood (default is ``likelihood_kwargs=None``). Example:
+        ``likelihood_kwargs={"data": data}``.
     vectorize : bool
-        If True, vectorize ``likelihood``
-        calculation (default is ``vectorize=False``).
+        If True, vectorize ``likelihood`` calculation (default is ``vectorize=False``). If False,
+        the likelihood is calculated for each particle individually. If ``vectorize=True``, the likelihood
+        is calculated for all particles simultaneously. This can lead to a significant speed-up if the likelihood
+        function is computationally expensive. However, it requires that the likelihood function can handle
+        arrays of shape ``(n_active, n_dim)`` as input and return an array of shape ``(n_active,)`` as output.
     pool : pool
-        Provided ``MPI`` or ``multiprocessing`` pool for
-        parallelisation (default is ``pool=None``).
+        Provided ``MPI`` or ``multiprocessing`` pool for parallelisation (default is ``pool=None``).
+        For ``MPI``, the pool should be an instance of ``mpi4py.futures.MPIPoolExecutor``. For
+        ``multiprocessing``, the pool should be an instance of ``multiprocessing.Pool``. If a pool is provided,
+        the number of active particles should be a multiple of the number of processes in the pool to ensure
+        efficient parallelisation. If ``pool=None``, the code runs in serial mode. When a pool is provided,
+        please ensure that the likelihood function is picklable. 
     pytorch_threads : int
         Maximum number of threads to use for torch. If ``None`` torch uses all
-        available threads while training the normalizing flow (default is ``pytorch_threads=1``).
+        available threads while training the normalizing flow (default is ``pytorch_threads=1``). 
     flow : ``torch.nn.Module`` or ``None``
         Normalizing flow (default is ``None``). The default is a Masked Autoregressive Flow
-        (MAF) with 6 blocks of 3x64 layers and residual connections.
+        (MAF) with 6 blocks of 3x(3xn_dim) layers and residual connections.
     train_config : dict or ``None``
         Configuration for training the normalizing flow
         (default is ``train_config=None``). Options include a dictionary with the following
         keys: ``"validation_split"``, ``"epochs"``, ``"batch_size"``, ``"patience"``,
         ``"learning_rate"``, ``"annealing"``, ``"gaussian_scale"``, ``"laplace_scale"``,
-        ``"noise"``, ``"shuffle"``, ``"clip_grad_norm"``, ``"verbose"``.
+        ``"noise"``, ``"shuffle"``, ``"clip_grad_norm"``.
     precondition : bool
         If True, use preconditioned MCMC (default is ``precondition=True``). If False,
-        use standard MCMC without normalizing flow.
+        use standard MCMC without normalizing flow. The use of preconditioned MCMC is
+        recommended as it is more efficient and scales better with the number of parameters. 
+        However, it requires the use of a normalizing flow and the training of the flow
+        can be computationally expensive. If ``precondition=False``, the normalizing flow
+        is not used and the sampler runs in standard mode. This works well for targets that
+        are not multimodal or have strong non-linear correlations between parameters.
     n_prior : int
         Number of prior samples to draw (default is ``n_prior=2*(n_ess//n_active)*n_active``).
     sample : ``str``
         Type of MCMC sampler to use (default is ``sample="pcn"``). Options are
         ``"pcn"`` (Preconditioned Crank-Nicolson) or ``"rwm"`` (Random-Walk Metropolis).
-    max_steps : int
-        Maximum number of MCMC steps (default is ``max_steps=5*n_dim``).
-    patience : int
-        Number of steps for early stopping of MCMC (default is ``patience=None``). If ``patience=None``,
-        MCMC terminates automatically.
-    ess_threshold : int
-        Effective sample size threshold for resampling (default is ``ess_threshold=4*n_dim``).
+        Preconditioned Crank-Nicolson is the default and recommended sampler for PMC as it
+        is more efficient and scales better with the number of parameters.
+    n_steps : int
+        Number of MCMC steps after logP plateau (default is ``n_steps=n_dim//2``). This is used
+        for early stopping of MCMC. Higher values can lead to better exploration but also
+        increase the computational cost. If ``n_steps=None``, the default value is ``n_steps=n_dim//2``.
+    n_max_steps : int
+        Maximum number of MCMC steps (default is ``n_max_steps=10*n_dim``).
+    resample : ``str``
+        Resampling scheme to use (default is ``resample="systematic"``). Options are
+        ``"systematic"`` (systematic resampling) or ``"multinomial"`` (multinomial resampling).
     output_dir : ``str`` or ``None``
         Output directory for storing the state files of the
         sampler. Default is ``None`` which creates a ``states``
@@ -85,8 +105,8 @@ class Sampler:
                  prior: callable,
                  likelihood: callable,
                  n_dim: int = None,
-                 n_ess: int = 1000,
-                 n_active: int = 250,
+                 n_ess: int = 512,
+                 n_active: int = 256,
                  likelihood_args: list = None,
                  likelihood_kwargs: dict = None,
                  vectorize: bool = False,
@@ -97,9 +117,9 @@ class Sampler:
                  precondition: bool = True,
                  n_prior: int = None,
                  sample: str = None,
-                 max_steps: int = None,
-                 patience: int = None,
-                 ess_threshold: int = None,
+                 n_steps: int = None,
+                 n_max_steps: int = None,
+                 resample: str = None,
                  output_dir: str = None,
                  output_label: str = None,
                  random_state: int = None):
@@ -138,22 +158,23 @@ class Sampler:
         # Number of active particles
         self.n_active = int(n_active)
 
-        # Maximum number of MCMC steps
-        if max_steps is None:
-            self.max_steps = 5 * self.n_dim 
+        # Number of MCMC steps after logP plateau
+        if n_steps is None:
+            self.n_steps = int(self.n_dim//2)
         else:
-            self.max_steps = int(max_steps)
+            self.n_steps = int(n_steps)
 
-        # Total number of effectively  independent samples
+        # Maximum number of MCMC steps
+        if n_max_steps is None:
+            self.n_max_steps = 10 * self.n_steps
+        else:
+            self.n_max_steps = int(n_max_steps)
+
+        # Total ESS for termination
         self.n_total = None
 
         # Particle manager
-        if ess_threshold is None:
-            self.ess_threshold = int(4 * self.n_dim)
-        else:
-            self.ess_threshold = ess_threshold
-
-        self.particles = Particles(n_active, n_dim, ess_threshold)
+        self.particles = Particles(n_active, n_dim)
 
         # Sampling
         self.t = 0
@@ -174,7 +195,7 @@ class Sampler:
         self.flow = Flow(self.n_dim, flow)
         self.train_config = dict(validation_split=0.5,
                                  epochs=2000,
-                                 batch_size=512,
+                                 batch_size=np.minimum(int(n_ess)//2, 512),
                                  patience=50,
                                  learning_rate=1e-3,
                                  annealing=False,
@@ -212,14 +233,19 @@ class Sampler:
         elif sample in ['rwm', 'mh']:
             self.sample = 'rwm'
 
+        if resample is None:
+            self.resample = 'systematic'
+        elif resample in ['systematic', 'systematic_resample', 'systematic_resampling', 'syst']:
+            self.resample = 'systematic'
+        elif resample in ['multinomial', 'multinomial_resample', 'multinomial_resampling', 'mult']:
+            self.resample = 'multinomial'
+
         # Prior samples to draw
         if n_prior is None:
             self.n_prior = int(2 * (self.n_ess//self.n_active) * self.n_active)
         else:
             self.n_prior = int((n_prior/self.n_active) * self.n_active)
         self.prior_samples = None
-
-        self.patience = patience
 
         self.logz = None
         self.logz_err = None
@@ -337,7 +363,7 @@ class Sampler:
         if n_evidence > 0 and self.preconditioned:
             self._compute_evidence(int(n_evidence))
         else:
-            self.logz = self.particles.compute_logz(1.0)
+            _, self.logz = self.particles.compute_logw_and_logz(1.0)
             self.logz_err = None
 
         self.pbar.close()
@@ -356,7 +382,7 @@ class Sampler:
         termination : bool
             True if termination criterion is not satisfied.
         """
-        log_weights = self.particles.compute_logw(1.0, self.ess_threshold)
+        log_weights, _ = self.particles.compute_logw_and_logz(1.0)
         weights = np.exp(log_weights - np.max(log_weights))
         weights /= np.sum(weights)
         ess = 1.0 / np.sum(weights**2.0)
@@ -397,9 +423,9 @@ class Sampler:
         )
 
         option_dict = dict(
-            nmax=self.max_steps,
+            n_max=self.n_max_steps,
+            n_steps=self.n_steps,
             progress_bar=self.pbar,
-            patience=self.patience,
         )
 
         if self.preconditioned and self.sample == "pcn":
@@ -457,8 +483,6 @@ class Sampler:
         u = current_particles.get("u")
         w = current_particles.get("weights")
 
-        self.u_geometry.fit(u, weights=w)
-
         if self.preconditioned:
 
             self.flow.fit(numpy_to_torch(u),
@@ -480,7 +504,7 @@ class Sampler:
             theta = flow_numpy_wrapper(self.flow).forward(u)[0]
             self.theta_geometry.fit(theta, weights=w)
         else:
-            pass
+            self.u_geometry.fit(u, weights=w)
 
 
 
@@ -507,7 +531,10 @@ class Sampler:
         logp = current_particles.get("logp")
         weights = current_particles.get("weights")
 
-        idx_resampled = systematic_resample(self.n_active, weights=weights)
+        if self.resample == 'multinomial':
+            idx_resampled = np.random.choice(np.arange(len(weights)), size=self.n_active, replace=True, p=weights)
+        elif self.resample == 'systematic':
+            idx_resampled = systematic_resample(self.n_active, weights=weights)
 
         current_particles["u"] = u[idx_resampled]
         current_particles["x"] = x[idx_resampled]
@@ -540,7 +567,7 @@ class Sampler:
         beta_min = np.copy(beta_prev)
 
         def get_weights_and_ess(beta):
-            logw = self.particles.compute_logw(beta)
+            logw, _ = self.particles.compute_logw_and_logz(beta)
             weights = np.exp(logw - np.max(logw))
             weights /= np.sum(weights)
             ess_est = 1.0 / np.sum(weights**2.0)
@@ -558,7 +585,7 @@ class Sampler:
         elif ess_est_max >= self.n_ess:
             beta = beta_max 
             weights = weights_max
-            logz = self.particles.compute_logz(beta)
+            _, logz = self.particles.compute_logw_and_logz(beta)
             self.pbar.update_stats(dict(beta=beta, ESS=ess_est_max, logZ=logz))
         else:
             while True:
@@ -567,7 +594,7 @@ class Sampler:
                 weights, ess_est = get_weights_and_ess(beta)
 
                 if np.abs(ess_est - self.n_ess) < 0.01 * self.n_ess or beta == 1.0:
-                    logz = self.particles.compute_logz(beta)
+                    _, logz = self.particles.compute_logw_and_logz(beta)
                     self.pbar.update_stats(dict(beta=beta, ESS=ess_est, logZ=logz))
                     break
                 elif ess_est < self.n_ess:
@@ -575,7 +602,7 @@ class Sampler:
                 else:
                     beta_min = beta
 
-        logw = self.particles.compute_logw(beta, self.ess_threshold)
+        logw, _ = self.particles.compute_logw_and_logz(beta)
         weights = np.exp(logw - np.max(logw))
         weights /= np.sum(weights)
 
@@ -702,7 +729,7 @@ class Sampler:
         samples = self.particles.get("x", flat=True)
         logl = self.particles.get("logl", flat=True)
         logp = self.particles.get("logp", flat=True)
-        logw = self.particles.compute_logw(1.0, self.ess_threshold)
+        logw, _ = self.particles.compute_logw_and_logz(1.0)
         weights = np.exp(logw)
 
         if trim_importance_weights:
@@ -713,7 +740,10 @@ class Sampler:
             logw = logw[idx]
 
         if resample:
-            idx_resampled = systematic_resample(len(weights), weights=weights)
+            if self.resample == 'multinomial':
+                idx_resampled = np.random.choice(np.arange(len(weights)), size=len(samples), replace=True, p=weights)
+            elif self.resample == 'systematic':
+                idx_resampled = systematic_resample(len(weights), weights=weights)
             return samples[idx_resampled], logl[idx_resampled], logp[idx_resampled]
             
         else:
