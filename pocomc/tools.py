@@ -7,23 +7,6 @@ import warnings
 
 SQRTEPS = math.sqrt(float(np.finfo(np.float64).eps))
 
-def mean_minimum_distance(N : int = None, 
-                          D : int = None):
-    r"""
-        Compute the average minimum (1st neighbor) distance between N samples from a D-dimensional uniform distribution.
-
-    Parameters
-    ----------
-    N : ``int``
-        Number of samples
-    D : ``int``
-        Number of dimensions.
-    Returns
-    -------
-    distance : float
-        Mean minimum distance.
-    """
-    return np.exp(gammaln(D/2 + 1)/D + gammaln(1+1/D) + gammaln(N) - gammaln(N + 1/D) - 0.5 * np.log(np.pi))
 
 def trim_weights(samples, weights, ess=0.99, bins=1000):
     """

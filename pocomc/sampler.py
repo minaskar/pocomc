@@ -115,6 +115,7 @@ class Sampler:
                  flow=None,
                  train_config: dict = None,
                  precondition: bool = True,
+                 dynamic: bool = False,
                  n_prior: int = None,
                  sample: str = None,
                  n_steps: int = None,
@@ -226,6 +227,8 @@ class Sampler:
         # Other
         self.preconditioned = precondition
 
+        self.dynamic = dynamic
+
         if sample is None:
             self.sample = 'pcn'
         elif sample in ['pcn']:
@@ -242,9 +245,9 @@ class Sampler:
 
         # Prior samples to draw
         if n_prior is None:
-            self.n_prior = int(2 * (self.n_ess//self.n_active) * self.n_active)
+            self.n_prior = int(2 * np.maximum(self.n_ess//self.n_active, 1) * self.n_active)
         else:
-            self.n_prior = int((n_prior/self.n_active) * self.n_active)
+            self.n_prior = int(np.maximum(n_prior/self.n_active, 1) * self.n_active)
         self.prior_samples = None
 
         self.logz = None
@@ -566,12 +569,20 @@ class Sampler:
         beta_max = 1.0
         beta_min = np.copy(beta_prev)
 
-        def get_weights_and_ess(beta):
+        def get_weights_and_ess_(beta):
             logw, _ = self.particles.compute_logw_and_logz(beta)
             weights = np.exp(logw - np.max(logw))
             weights /= np.sum(weights)
             ess_est = 1.0 / np.sum(weights**2.0)
             return weights, ess_est
+        
+        def get_weights_and_ess(beta):
+            logw, _ = self.particles.compute_logw_and_logz(beta)
+            weights = np.exp(logw - np.max(logw))
+            weights /= np.sum(weights)
+            #ess_est = 1.0 / np.sum(weights**2.0)
+            expected_unique_all = np.sum(1-(1-weights)**len(weights))
+            return weights, expected_unique_all
 
         weights_prev, ess_est_prev = get_weights_and_ess(beta_prev)
         weights_max, ess_est_max = get_weights_and_ess(beta_max)
@@ -605,6 +616,15 @@ class Sampler:
         logw, _ = self.particles.compute_logw_and_logz(beta)
         weights = np.exp(logw - np.max(logw))
         weights /= np.sum(weights)
+
+        #expected_unique = np.sum(1-(1-weights)**self.n_active)
+        #expected_unique_all = np.sum(1-(1-weights)**len(weights))
+        #print("Expected unique particles: ", expected_unique)
+        #print("Expected unique particles (all): ", expected_unique_all)
+        if self.dynamic:
+            n_unique_active = np.sum(1-(1-weights)**self.n_active)
+            if n_unique_active < self.n_active * 0.75:
+                self.n_ess = int(self.n_active/n_unique_active * self.n_ess)
 
         idx, weights = trim_weights(np.arange(len(weights)), weights, ess=0.99, bins=1000)
         current_particles["u"] = self.particles.get("u", index=None, flat=True)[idx]
