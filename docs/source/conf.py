@@ -75,7 +75,7 @@ html_theme_options = {
     #'collapse_navigation': True, 
     #'navigation_depth': 4,
     "announcement": (
-        "⚠️ The new release 1.0.0 includes major performance and quality-of-life updates. Please check the new syntax and features! ⚠️"
+        "⚠️ The new release 1.1.0 includes major performance and quality-of-life updates. Please check the new syntax and features! ⚠️"
     ),
     'sidebar_hide_name': True,
 }

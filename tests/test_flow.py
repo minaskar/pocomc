@@ -20,7 +20,7 @@ class FlowTestCase(unittest.TestCase):
         torch.manual_seed(0)
 
         data = self.make_data()
-        flow = Flow(n_dim=data.shape[1])
+        flow = Flow(n_dim=data.shape[1], flow='maf3')
         z, _ = flow.forward(data)
 
         self.assertFalse(torch.any(torch.isnan(z)))
@@ -34,7 +34,7 @@ class FlowTestCase(unittest.TestCase):
         torch.manual_seed(0)
 
         z = self.make_data()
-        flow = Flow(n_dim=z.shape[1])
+        flow = Flow(n_dim=z.shape[1], flow='maf3')
         x, _ = flow.inverse(z)
 
         self.assertFalse(torch.any(torch.isnan(x)))
@@ -48,7 +48,7 @@ class FlowTestCase(unittest.TestCase):
         torch.manual_seed(0)
 
         x = self.make_data()
-        flow = Flow(n_dim=x.shape[1])
+        flow = Flow(n_dim=x.shape[1], flow='maf3')
 
         log_prob = flow.log_prob(x)
 
@@ -63,7 +63,7 @@ class FlowTestCase(unittest.TestCase):
         torch.manual_seed(0)
 
         x_tmp = self.make_data()
-        flow = Flow(n_dim=x_tmp.shape[1])
+        flow = Flow(n_dim=x_tmp.shape[1], flow='maf3')
         x, _ = flow.sample(x_tmp.shape[0])
 
         self.assertFalse(torch.any(torch.isnan(x)))
@@ -77,7 +77,7 @@ class FlowTestCase(unittest.TestCase):
         torch.manual_seed(0)
 
         x = self.make_data()
-        flow = Flow(n_dim=x.shape[1])
+        flow = Flow(n_dim=x.shape[1], flow='maf3')
         z, _ = flow.forward(x)
         x_reconstructed, _ = flow.inverse(z)
 
@@ -94,7 +94,7 @@ class FlowTestCase(unittest.TestCase):
 
         x = self.make_data()
         x = x.float()
-        flow = Flow(n_dim=x.shape[1])
+        flow = Flow(n_dim=x.shape[1], flow='maf3')
         log_prob = flow.log_prob(x)
 
         self.assertFalse(torch.any(torch.isnan(log_prob)))
@@ -109,7 +109,7 @@ class FlowTestCase(unittest.TestCase):
 
         x = self.make_data()
         x = x.double()
-        flow = Flow(n_dim=x.shape[1])
+        flow = Flow(n_dim=x.shape[1], flow='maf3')
         with self.assertWarns(UserWarning):
             log_prob = flow.log_prob(x)
 
@@ -125,7 +125,7 @@ class FlowTestCase(unittest.TestCase):
 
         x = self.make_data()
         x = x[0].reshape(1, -1)
-        flow = Flow(n_dim=x.shape[1])
+        flow = Flow(n_dim=x.shape[1], flow='maf3')
         log_prob = flow.log_prob(x)
 
         self.assertFalse(torch.any(torch.isnan(log_prob)))
@@ -138,7 +138,7 @@ class FlowTestCase(unittest.TestCase):
         torch.manual_seed(0)
 
         x = self.make_data()
-        flow = Flow(n_dim=x.shape[1])
+        flow = Flow(n_dim=x.shape[1], flow='maf3')
         log_prob = flow.log_prob(x)
         nll = -torch.mean(log_prob)
         nll.backward()
@@ -156,7 +156,7 @@ class FlowTestCase(unittest.TestCase):
 
         x = self.make_data()
 
-        flow = Flow(n_dim=x.shape[1])
+        flow = Flow(n_dim=x.shape[1], flow='maf3')
         z, logprob_forward = flow.forward(x)
         _, logprob_inverse = flow.inverse(z)
 
@@ -170,7 +170,7 @@ class FlowTestCase(unittest.TestCase):
         torch.manual_seed(0)
 
         x = self.make_data()
-        flow = Flow(n_dim=x.shape[1])
+        flow = Flow(n_dim=x.shape[1], flow='maf3')
         flow.fit(x, epochs=5)
 
         z, _ = flow.forward(x)
@@ -196,7 +196,7 @@ class FlowTestCase(unittest.TestCase):
         torch.manual_seed(0)
 
         x = self.make_data()
-        flow = Flow(n_dim=x.shape[1])
+        flow = Flow(n_dim=x.shape[1], flow='maf3')
 
         z, logj_forward = flow.forward(x)
         _, logj_inverse = flow.inverse(z)
