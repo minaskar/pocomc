@@ -77,6 +77,7 @@ class Particles:
             logl = [],
             logp = [],
             logw = [],
+            blobs = [],
             iter = [],
             logz = [],
             calls = [],
@@ -113,6 +114,8 @@ class Particles:
                 Array of shape (n_particles,) containing the log-priors.
             logw : numpy.ndarray
                 Array of shape (n_particles,) containing the log-weights.
+            blobs : numpy.ndarray
+                Array of shape (n_particles,) containing the blobs (derived parameters).
             iter : numpy.ndarray
                 Array of shape (n_particles,) containing the iteration number
                 of each particle.
@@ -251,6 +254,8 @@ class Particles:
                 Array of shape (n_particles,) containing the log-priors.
             logw : numpy.ndarray
                 Array of shape (n_particles,) containing the log-weights.
+            blobs : numpy.ndarray
+                Array of shape (n_particles,) containing the blobs (derived parameters).
             iter : numpy.ndarray
                 Array of shape (n_particles,) containing the iteration number
                 of each particle.
@@ -278,7 +283,7 @@ class Particles:
         >>> particles = Particles(n_particles=10, n_dim=2)
         >>> particles.update(dict(u=np.random.randn(10,2)))
         >>> particles.compute_results().keys()
-        dict_keys(['u', 'logdetj', 'logl', 'logp', 'logw', 'iter', 'logz', 'calls', 'steps', 'efficiency', 'accept', 'beta'])
+        dict_keys(['u', 'logdetj', 'logl', 'logp', 'logw', 'blobs', 'iter', 'logz', 'calls', 'steps', 'efficiency', 'accept', 'beta'])
         """
         if self.results_dict is None:
             self.results_dict = dict()

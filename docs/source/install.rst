@@ -6,7 +6,8 @@ Installation
 Dependencies
 ------------
 
-**pocoMC** depends on ``numpy``, ``torch``, ``zuko``, ``tqdm``, ``scipy``, and ``dill``.
+**pocoMC** depends on ``numpy``, ``torch``, ``zuko``, ``tqdm``, ``scipy``, ``dill``, and ``multiprocess``.
+
 
 Using pip
 ---------

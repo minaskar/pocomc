@@ -47,7 +47,6 @@ def fit_mvstud(data, tolerance=1e-6, max_iter=100):
         if func0(1e300) >= 0:
             nu = np.inf
         else:
-            #nu = optimize.brentq(func0, 1e-60, 1e60)
             nu = optimize.bisect(func0, 1e-300, 1e300)
         return nu
 

@@ -34,6 +34,11 @@ def preconditioned_pcn(state_dict: dict,
     logl = np.copy(state_dict.get('logl'))
     logp = np.copy(state_dict.get('logp'))
     beta = state_dict.get('beta')
+    blobs = state_dict.get('blobs')
+    if blobs is None:
+        have_blobs = False
+    else:
+        have_blobs = True
 
     # Get functions
     log_like = function_dict.get('loglike')
@@ -92,15 +97,17 @@ def preconditioned_pcn(state_dict: dict,
 
         # Compute log-likelihood, log-prior, and log-posterior
         u_rand = np.random.rand(n_walkers)
-
         logl_prime = np.empty(n_walkers)
         logp_prime = np.empty(n_walkers)
-        logl_prime[finite_mask] = log_like(x_prime[finite_mask])
+        if have_blobs:
+            blobs_prime = np.empty(n_walkers, dtype=np.dtype((blobs[0].dtype, blobs[0].shape)))
+            logl_prime[finite_mask], blobs_prime[finite_mask] = log_like(x_prime[finite_mask])
+        else:
+            logl_prime[finite_mask], _ = log_like(x_prime[finite_mask])
         logp_prime[finite_mask] = log_prior(x_prime[finite_mask])
         logl_prime[~finite_mask] = -np.inf
         logp_prime[~finite_mask] = -np.inf
 
-        #n_calls += len(logl_prime)
         n_calls += np.sum(finite_mask)
 
         # Compute Metropolis factors
@@ -127,6 +134,8 @@ def preconditioned_pcn(state_dict: dict,
         logdetj_flow[mask] = logdetj_flow_prime[mask]
         logl[mask] = logl_prime[mask]
         logp[mask] = logp_prime[mask]
+        if have_blobs:
+            blobs[mask] = blobs_prime[mask]
 
         # Adapt scale parameter using diminishing adaptation
         sigma = np.abs(np.minimum(sigma + 1 / (i + 1)**0.75 * (np.mean(alpha) - 0.234), np.minimum(2.38 / n_dim**0.5, 0.99)))
@@ -159,7 +168,7 @@ def preconditioned_pcn(state_dict: dict,
         if i >= n_max:
             break
 
-    return dict(u=u, x=x, logdetj=logdetj, logl=logl, logp=logp, efficiency=sigma, accept=np.mean(alpha), steps=i, calls=n_calls)
+    return dict(u=u, x=x, logdetj=logdetj, logl=logl, logp=logp, blobs=blobs, efficiency=sigma, accept=np.mean(alpha), steps=i, calls=n_calls)
 
 @torch.no_grad()
 def preconditioned_rwm(state_dict: dict,
@@ -191,6 +200,11 @@ def preconditioned_rwm(state_dict: dict,
     logl = np.copy(state_dict.get('logl'))
     logp = np.copy(state_dict.get('logp'))
     beta = state_dict.get('beta')
+    blobs = state_dict.get('blobs')
+    if blobs is None:
+        have_blobs = False
+    else:
+        have_blobs = True
 
     # Get functions
     log_like = function_dict.get('loglike')
@@ -233,13 +247,25 @@ def preconditioned_rwm(state_dict: dict,
         # Transform to x space
         x_prime, logdetj_prime = scaler.inverse(u_prime)
 
+        # Compute finite mask
+        finite_mask_logdetj_prime = np.isfinite(logdetj_prime)
+        finite_mask_x_prime = np.isfinite(x_prime).all(axis=1)
+        finite_mask = finite_mask_logdetj_prime & finite_mask_x_prime
+
         # Compute log-likelihood, log-prior, and log-posterior
         u_rand = np.random.rand(n_walkers)
+        logl_prime = np.empty(n_walkers)
+        logp_prime = np.empty(n_walkers)
+        if have_blobs:
+            blobs_prime = np.empty(n_walkers, dtype=np.dtype((blobs[0].dtype, blobs[0].shape)))
+            logl_prime[finite_mask], blobs_prime[finite_mask] = log_like(x_prime[finite_mask])
+        else:
+            logl_prime[finite_mask], _ = log_like(x_prime[finite_mask])
+        logp_prime[finite_mask] = log_prior(x_prime[finite_mask])
+        logl_prime[~finite_mask] = -np.inf
+        logp_prime[~finite_mask] = -np.inf
 
-        logl_prime = log_like(x_prime)
-        logp_prime = log_prior(x_prime)
-
-        n_calls += len(logl_prime)
+        n_calls += np.sum(finite_mask)
 
         # Compute Metropolis factors
         alpha = np.minimum(
@@ -259,6 +285,8 @@ def preconditioned_rwm(state_dict: dict,
         logdetj_flow[mask] = logdetj_flow_prime[mask]
         logl[mask] = logl_prime[mask]
         logp[mask] = logp_prime[mask]
+        if have_blobs:
+            blobs[mask] = blobs_prime[mask]
 
         # Adapt scale parameter using diminishing adaptation
         sigma = sigma + 1 / (i + 1) * (np.mean(alpha) - 0.234)
@@ -266,7 +294,7 @@ def preconditioned_rwm(state_dict: dict,
         # Update progress bar if available
         if progress_bar is not None:
             progress_bar.update_stats(
-                dict(calls=progress_bar.info['calls'] + n_walkers,
+                dict(calls=progress_bar.info['calls'] + np.sum(finite_mask),
                     acc=np.mean(alpha),
                     steps=i,
                     logP=np.mean(logl + logp),
@@ -287,7 +315,7 @@ def preconditioned_rwm(state_dict: dict,
             break
 
 
-    return dict(u=u, x=x, logdetj=logdetj, logl=logl, logp=logp, efficiency=sigma, accept=np.mean(alpha), steps=i, calls=n_calls)
+    return dict(u=u, x=x, logdetj=logdetj, logl=logl, logp=logp, blobs=blobs, efficiency=sigma, accept=np.mean(alpha), steps=i, calls=n_calls)
 
 
 def pcn(state_dict: dict,
@@ -319,6 +347,11 @@ def pcn(state_dict: dict,
     logl = np.copy(state_dict.get('logl'))
     logp = np.copy(state_dict.get('logp'))
     beta = state_dict.get('beta')
+    blobs = state_dict.get('blobs')
+    if blobs is None:
+        have_blobs = False
+    else:
+        have_blobs = True
 
     # Get functions
     log_like = function_dict.get('loglike')
@@ -343,7 +376,8 @@ def pcn(state_dict: dict,
     inv_cov = np.linalg.inv(cov)
     chol_cov = np.linalg.cholesky(cov)
 
-    logp2_val = np.mean(logl + logp + logdetj)
+    logp2_val = np.mean(logl + logp)
+    #logp2_val = np.mean(logl * beta + logp)
     cnt = 0
 
     i = 0
@@ -363,13 +397,25 @@ def pcn(state_dict: dict,
         # Transform to x space
         x_prime, logdetj_prime = scaler.inverse(u_prime)
 
+        # Compute finite mask
+        finite_mask_logdetj_prime = np.isfinite(logdetj_prime)
+        finite_mask_x_prime = np.isfinite(x_prime).all(axis=1)
+        finite_mask = finite_mask_logdetj_prime & finite_mask_x_prime
+
         # Compute log-likelihood, log-prior, and log-posterior
         u_rand = np.random.rand(n_walkers)
-
-        logl_prime = log_like(x_prime)
-        logp_prime = log_prior(x_prime)
-
-        n_calls += len(logl_prime)
+        logl_prime = np.empty(n_walkers)
+        logp_prime = np.empty(n_walkers)
+        if have_blobs:
+            blobs_prime = np.empty(n_walkers, dtype=np.dtype((blobs[0].dtype, blobs[0].shape)))
+            logl_prime[finite_mask], blobs_prime[finite_mask] = log_like(x_prime[finite_mask])
+        else:
+            logl_prime[finite_mask], _ = log_like(x_prime[finite_mask])
+        logp_prime[finite_mask] = log_prior(x_prime[finite_mask])
+        logl_prime[~finite_mask] = -np.inf
+        logp_prime[~finite_mask] = -np.inf
+        
+        n_calls += np.sum(finite_mask)
 
         # Compute Metropolis factors
         diff_prime = u_prime - mu
@@ -393,6 +439,8 @@ def pcn(state_dict: dict,
         logdetj[mask] = logdetj_prime[mask]
         logl[mask] = logl_prime[mask]
         logp[mask] = logp_prime[mask]
+        if have_blobs:
+            blobs[mask] = blobs_prime[mask]
 
         # Adapt scale parameter using diminishing adaptation
         sigma = np.abs(np.minimum(sigma + 1 / (i + 1)**0.75 * (np.mean(alpha) - 0.234), np.minimum(2.38 / n_dim**0.5, 0.99)))
@@ -401,7 +449,7 @@ def pcn(state_dict: dict,
         # Update progress bar if available
         if progress_bar is not None:
             progress_bar.update_stats(
-                dict(calls=progress_bar.info['calls'] + n_walkers,
+                dict(calls=progress_bar.info['calls'] + np.sum(finite_mask),
                     acc=np.mean(alpha),
                     steps=i,
                     logP=np.mean(logl + logp),
@@ -409,19 +457,19 @@ def pcn(state_dict: dict,
             )
 
         # Loop termination criteria:
-        logp2_val_new = np.mean(logl + logp + logdetj)
+        logp2_val_new = np.mean(logl + logp)
         if logp2_val_new > logp2_val:
             cnt = 0
             logp2_val = logp2_val_new
         else:
             cnt += 1
-            if cnt >= n_steps * ((2.38 / n_dim**0.5) / sigma)**2.0:
+            if cnt >= n_steps * ((2.38 / n_dim**0.5) / sigma)**2.0 * (0.234 / np.mean(alpha)):
                 break
 
         if i >= n_max:
             break
 
-    return dict(u=u, x=x, logdetj=logdetj, logl=logl, logp=logp, efficiency=sigma, accept=np.mean(alpha), steps=i, calls=n_calls)
+    return dict(u=u, x=x, logdetj=logdetj, logl=logl, logp=logp, blobs=blobs, efficiency=sigma, accept=np.mean(alpha), steps=i, calls=n_calls)
 
 def rwm(state_dict: dict,
         function_dict: dict,
@@ -452,6 +500,11 @@ def rwm(state_dict: dict,
     logl = np.copy(state_dict.get('logl'))
     logp = np.copy(state_dict.get('logp'))
     beta = state_dict.get('beta')
+    blobs = state_dict.get('blobs')
+    if blobs is None:
+        have_blobs = False
+    else:
+        have_blobs = True
 
     # Get functions
     log_like = function_dict.get('loglike')
@@ -487,13 +540,25 @@ def rwm(state_dict: dict,
         # Transform to x space
         x_prime, logdetj_prime = scaler.inverse(u_prime)
 
+        # Compute finite mask
+        finite_mask_logdetj_prime = np.isfinite(logdetj_prime)
+        finite_mask_x_prime = np.isfinite(x_prime).all(axis=1)
+        finite_mask = finite_mask_logdetj_prime & finite_mask_x_prime
+
         # Compute log-likelihood, log-prior, and log-posterior
         u_rand = np.random.rand(n_walkers)
+        logl_prime = np.empty(n_walkers)
+        logp_prime = np.empty(n_walkers)
+        if have_blobs:
+            blobs_prime = np.empty(n_walkers, dtype=np.dtype((blobs[0].dtype, blobs[0].shape)))
+            logl_prime[finite_mask], blobs_prime[finite_mask] = log_like(x_prime[finite_mask])
+        else:
+            logl_prime[finite_mask], _ = log_like(x_prime[finite_mask])
+        logp_prime[finite_mask] = log_prior(x_prime[finite_mask])
+        logl_prime[~finite_mask] = -np.inf
+        logp_prime[~finite_mask] = -np.inf
 
-        logl_prime = log_like(x_prime)
-        logp_prime = log_prior(x_prime)
-
-        n_calls += len(logl_prime)
+        n_calls += np.sum(finite_mask)
 
         # Compute Metropolis factors
         alpha = np.minimum(
@@ -511,6 +576,8 @@ def rwm(state_dict: dict,
         logdetj[mask] = logdetj_prime[mask]
         logl[mask] = logl_prime[mask]
         logp[mask] = logp_prime[mask]
+        if have_blobs:
+            blobs[mask] = blobs_prime[mask]
 
         # Adapt scale parameter using diminishing adaptation
         sigma = np.abs(sigma + 1 / (i + 1) * (np.mean(alpha) - 0.234))
@@ -518,7 +585,7 @@ def rwm(state_dict: dict,
         # Update progress bar if available
         if progress_bar is not None:
             progress_bar.update_stats(
-                dict(calls=progress_bar.info['calls'] + n_walkers,
+                dict(calls=progress_bar.info['calls'] + np.sum(finite_mask),
                     acc=np.mean(alpha),
                     steps=i,
                     logP=np.mean(logl + logp),
@@ -539,4 +606,4 @@ def rwm(state_dict: dict,
             break
 
 
-    return dict(u=u, x=x, logdetj=logdetj, logl=logl, logp=logp, efficiency=sigma, accept=np.mean(alpha), steps=i, calls=n_calls)
+    return dict(u=u, x=x, logdetj=logdetj, logl=logl, logp=logp, blobs=blobs, efficiency=sigma, accept=np.mean(alpha), steps=i, calls=n_calls)
