@@ -10,7 +10,14 @@
 
 ## Brief introduction
 
-``pocoMC`` utilises a *Normalising Flow* in order to precondition the target distribution by removing any correlations between its parameters. The code then generates posterior samples, that can be used for parameter estimation, using a powerful adaptive *Sequential Monte Carlo* algorithm manifesting a sampling effiency that can be orders of magnitude higher than without precondition. Furthermore, ``pocoMC`` also provides an unbiased estimate of the *model evidence* that can be used for the task of *Bayesian model comparison*.
+``pocoMC`` is a Python package for accelerated Bayesian posterior and model evidence estimation. 
+It is designed to be user-friendly, flexible, and efficient, with a focus 
+on scalability and performance. It is built on top of the Preconditioned Monte Carlo (PMC) algorithm, 
+which is a powerful and efficient Bayesian inference method. Often it can be orders of
+magnitude faster than traditional sampling methods like MCMC and Nested Sampling, making it ideal for 
+large-scale scientific problems where the likelihood is expensive to evaluate. ``pocoMC`` provides both
+posterior sampling and model evidence (marginal likelihood) estimation. It has been extensively used in
+multiple published analyses in cosmology and astronomy, and it is actively developed and maintained.
 
 ## Documentation
 
