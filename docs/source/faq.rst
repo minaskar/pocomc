@@ -112,12 +112,10 @@ effective particles to find the optimal number for your problem.
 
 How many active particles should I use?
 ---------------------------------------
-About half the number of effective particles. The number of active particles should be about half the number of effective
-particles. The reason for this is simple. The active particles are a subset of the effective particles. By using significantly
-fewer active particles than effective particles, we can only update the particles that are already independent of each other.
-This allows us to explore the target distribution more efficiently, as we are not wasting computational resources updating
-particles that are already correlated with each other. In practice, we have found that using about half the number of effective
-particles.
+No more than half of the effective particles. The number of active particles that you should use depends on the number of
+effective particles that you are using. In general, we recommend using no more than half of the effective particles as active
+particles. For example, if you are using 512 effective particles, then you should use no more than 256 active particles. Using
+more active particles introduces correlations between the particles, which can reduce the efficiency of the sampler.
 
 
 How do I know if the sampler is working correctly?

@@ -51,6 +51,7 @@ def preconditioned_pcn(state_dict: dict,
     n_max = option_dict.get('n_max')
     n_steps = option_dict.get('n_steps')
     progress_bar = option_dict.get('progress_bar')
+    sigma = np.minimum(option_dict.get('proposal_scale'), 0.99)
 
     # Get number of particles and parameters/dimensions
     n_walkers, n_dim = x.shape
@@ -58,7 +59,6 @@ def preconditioned_pcn(state_dict: dict,
     # Transform u to theta
     theta, logdetj_flow = flow.forward(u)
 
-    sigma = np.minimum(2.38 / n_dim**0.5, 0.99)
 
     mu = geometry.t_mean
     cov = geometry.t_cov
@@ -162,13 +162,14 @@ def preconditioned_pcn(state_dict: dict,
             logp2_val = logp2_val_new
         else:
             cnt += 1
-            if cnt >= n_steps * ((2.38 / n_dim**0.5) / sigma)**2.0 * (0.234 / np.mean(alpha)):
+            if cnt >= n_steps * ((2.38 / n_dim**0.5) / sigma)**2.0:
                 break
 
         if i >= n_max:
             break
 
-    return dict(u=u, x=x, logdetj=logdetj, logl=logl, logp=logp, blobs=blobs, efficiency=sigma, accept=np.mean(alpha), steps=i, calls=n_calls)
+    return dict(u=u, x=x, logdetj=logdetj, logl=logl, logp=logp, blobs=blobs, efficiency=sigma, 
+                accept=np.mean(alpha), steps=i, calls=n_calls, proposal_scale=sigma)
 
 @torch.no_grad()
 def preconditioned_rwm(state_dict: dict,
@@ -217,11 +218,11 @@ def preconditioned_rwm(state_dict: dict,
     n_max = option_dict.get('n_max')
     n_steps = option_dict.get('n_steps')
     progress_bar = option_dict.get('progress_bar')
+    sigma = option_dict.get('proposal_scale')
 
     # Get number of particles and parameters/dimensions
     n_walkers, n_dim = x.shape
 
-    sigma = 2.38/n_dim**0.5
 
     cov = geometry.normal_cov
     chol = np.linalg.cholesky(cov)
@@ -315,7 +316,8 @@ def preconditioned_rwm(state_dict: dict,
             break
 
 
-    return dict(u=u, x=x, logdetj=logdetj, logl=logl, logp=logp, blobs=blobs, efficiency=sigma, accept=np.mean(alpha), steps=i, calls=n_calls)
+    return dict(u=u, x=x, logdetj=logdetj, logl=logl, logp=logp, blobs=blobs, efficiency=sigma, 
+                accept=np.mean(alpha), steps=i, calls=n_calls, proposal_scale=sigma)
 
 
 def pcn(state_dict: dict,
@@ -363,11 +365,10 @@ def pcn(state_dict: dict,
     n_max = option_dict.get('n_max')
     n_steps = option_dict.get('n_steps')
     progress_bar = option_dict.get('progress_bar')
+    sigma = np.minimum(option_dict.get('proposal_scale'), 0.99)
 
     # Get number of particles and parameters/dimensions
     n_walkers, n_dim = x.shape
-
-    sigma = np.minimum(2.38 / n_dim**0.5, 0.99)
 
     mu = geometry.t_mean
     cov = geometry.t_cov
@@ -463,13 +464,14 @@ def pcn(state_dict: dict,
             logp2_val = logp2_val_new
         else:
             cnt += 1
-            if cnt >= n_steps * ((2.38 / n_dim**0.5) / sigma)**2.0 * (0.234 / np.mean(alpha)):
+            if cnt >= n_steps * ((2.38 / n_dim**0.5) / sigma)**2.0:
                 break
 
         if i >= n_max:
             break
 
-    return dict(u=u, x=x, logdetj=logdetj, logl=logl, logp=logp, blobs=blobs, efficiency=sigma, accept=np.mean(alpha), steps=i, calls=n_calls)
+    return dict(u=u, x=x, logdetj=logdetj, logl=logl, logp=logp, blobs=blobs, efficiency=sigma, 
+                accept=np.mean(alpha), steps=i, calls=n_calls, proposal_scale=sigma)
 
 def rwm(state_dict: dict,
         function_dict: dict,
@@ -516,11 +518,10 @@ def rwm(state_dict: dict,
     n_max = option_dict.get('n_max')
     n_steps = option_dict.get('n_steps')
     progress_bar = option_dict.get('progress_bar')
+    sigma = option_dict.get('proposal_scale')
 
     # Get number of particles and parameters/dimensions
     n_walkers, n_dim = x.shape
-
-    sigma = 0.5 * 2.38/n_dim**0.5
 
     cov = geometry.normal_cov
     chol = np.linalg.cholesky(cov)
@@ -606,4 +607,5 @@ def rwm(state_dict: dict,
             break
 
 
-    return dict(u=u, x=x, logdetj=logdetj, logl=logl, logp=logp, blobs=blobs, efficiency=sigma, accept=np.mean(alpha), steps=i, calls=n_calls)
+    return dict(u=u, x=x, logdetj=logdetj, logl=logl, logp=logp, blobs=blobs, efficiency=sigma, 
+                accept=np.mean(alpha), steps=i, calls=n_calls, proposal_scale=sigma)

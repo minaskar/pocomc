@@ -18,8 +18,8 @@ class Flow:
     ----------
     n_dim : ``int``
         Number of dimensions of the distribution to be modeled.
-    flow : ``zuko.flows.Flow``
-        Normalizing flow model. Default: ``zuko.flows.MAF``.
+    flow : ``zuko.flows.Flow`` or str, optional
+        Normalizing flow model. Default: ``nsf3``.
 
     Attributes
     ----------
@@ -43,44 +43,46 @@ class Flow:
     >>> history = flow.fit(x)
     """
 
-    def __init__(self, n_dim, flow=None):
+    def __init__(self, n_dim, flow='nsf3'):
         self.n_dim = n_dim
 
         def next_power_of_2(n):
             return 1 if n == 0 else 2**(n - 1).bit_length()
+        
+        n_hidden = np.maximum(next_power_of_2(3*n_dim), 32)
 
         if flow == 'maf3':
             self.flow = zuko.flows.MAF(n_dim, 
                                        transforms=3, 
-                                       hidden_features=[next_power_of_2(3*n_dim)] * 3,
+                                       hidden_features=[n_hidden] * 3,
                                        residual=True,)
         elif flow == 'maf6':
             self.flow = zuko.flows.MAF(n_dim, 
                                        transforms=6, 
-                                       hidden_features=[next_power_of_2(3*n_dim)] * 3,
+                                       hidden_features=[n_hidden] * 3,
                                        residual=True,)
         elif flow == 'maf12':
             self.flow = zuko.flows.MAF(n_dim, 
                                        transforms=12, 
-                                       hidden_features=[next_power_of_2(3*n_dim)] * 3,
+                                       hidden_features=[n_hidden] * 3,
                                        residual=True,)
         elif flow == 'nsf3':
             self.flow = zuko.flows.NSF(features=n_dim, 
                                        bins=8, 
                                        transforms=3, 
-                                       hidden_features=[next_power_of_2(3*n_dim)] * 3,
+                                       hidden_features=[n_hidden] * 3,
                                        residual=True)
         elif flow == 'nsf6':
             self.flow = zuko.flows.NSF(features=n_dim, 
                                        bins=8, 
                                        transforms=6, 
-                                       hidden_features=[next_power_of_2(3*n_dim)] * 3,
+                                       hidden_features=[n_hidden] * 3,
                                        residual=True)
         elif flow == 'nsf12':
             self.flow = zuko.flows.NSF(features=n_dim, 
                                        bins=8, 
                                        transforms=12, 
-                                       hidden_features=[next_power_of_2(3*n_dim)] * 3,
+                                       hidden_features=[n_hidden] * 3,
                                        residual=True)
         elif isinstance(flow, zuko.flows.Flow):
             self.flow = flow

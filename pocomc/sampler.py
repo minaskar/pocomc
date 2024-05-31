@@ -27,12 +27,16 @@ class Sampler:
         The total number of parameters/dimensions (Optional as it can be infered from the prior class).
     n_effective : int
         The number of effective particles (default is ``n_effective=512``). Higher values
-        lead to more accurate results but also increase the computational cost. 
+        lead to more accurate results but also increase the computational cost.  This should be
+        set to a value that is large enough to ensure that the target distribution is well
+        represented by the particles. The number of effective particles should be greater than
+        the number of active particles. If ``n_effective=None``, the default value is ``n_effective=2*n_active``.
     n_active : int
         The number of active particles (default is ``n_active=256``). It must be smaller than ``n_effective``.
+        For best results, the number of active particles should be no more than half the number of effective particles.
         This is the number of particles that are evolved using MCMC at each iteration. If a pool is provided,
         the number of active particles should be a multiple of the number of processes in the pool to ensure
-        efficient parallelisation.
+        efficient parallelisation. If ``n_active=None``, the default value is ``n_active=n_effective//2``.
     likelihood_args : list
         Extra arguments to be passed to likelihood (default is ``likelihood_args=None``). Example:
         ``likelihood_args=[data]``.
@@ -79,6 +83,11 @@ class Sampler:
         keys: ``"validation_split"``, ``"epochs"``, ``"batch_size"``, ``"patience"``,
         ``"learning_rate"``, ``"annealing"``, ``"gaussian_scale"``, ``"laplace_scale"``,
         ``"noise"``, ``"shuffle"``, ``"clip_grad_norm"``.
+    train_frequency : int or None
+        Frequency of training the normalizing flow (default is ``train_frequency=None``).
+        If ``train_frequency=None``, the normalizing flow is trained every ``n_effective//n_active``
+        iterations. If ``train_frequency=1``, the normalizing flow is trained at every iteration.
+        If ``train_frequency>1``, the normalizing flow is trained every ``train_frequency`` iterations.
     precondition : bool
         If True, use preconditioned MCMC (default is ``precondition=True``). If False,
         use standard MCMC without normalizing flow. The use of preconditioned MCMC is
@@ -99,16 +108,18 @@ class Sampler:
         is increased. If the ESS or USS is above the target threshold, the temperature is decreased. The
         target threshold is set by the ``n_effective`` parameter.
     n_prior : int
-        Number of prior samples to draw (default is ``n_prior=2*(n_effective//n_active)*n_active``).
+        Number of prior samples to draw (default is ``n_prior=2*(n_effective//n_active)*n_active``). This
+        is used to initialise the particles at the beginning of the run. The prior samples are used to
+        warm-up the sampler and ensure that the particles are well distributed across the prior volume.
     sample : ``str``
         Type of MCMC sampler to use (default is ``sample="tpcn"``). Options are
         ``"pcn"`` (t-preconditioned Crank-Nicolson) or ``"rwm"`` (Random-walk Metropolis).
         t-preconditioned Crank-Nicolson is the default and recommended sampler for PMC as it
         is more efficient and scales better with the number of parameters.
     n_steps : int
-        Number of MCMC steps after logP plateau (default is ``n_steps=n_dim//2``). This is used
+        Number of MCMC steps after logP plateau (default is ``n_steps=n_dim``). This is used
         for early stopping of MCMC. Higher values can lead to better exploration but also
-        increase the computational cost. If ``n_steps=None``, the default value is ``n_steps=n_dim//2``.
+        increase the computational cost. If ``n_steps=None``, the default value is ``n_steps=n_dim``.
     n_max_steps : int
         Maximum number of MCMC steps (default is ``n_max_steps=10*n_dim``).
     resample : ``str``
@@ -132,7 +143,7 @@ class Sampler:
                  prior: callable,
                  likelihood: callable,
                  n_dim: int = None,
-                 n_effective: int = None,
+                 n_effective: int = 512,
                  n_active: int = 256,
                  likelihood_args: list = None,
                  likelihood_kwargs: dict = None,
@@ -142,6 +153,7 @@ class Sampler:
                  pytorch_threads=1,
                  flow='nsf3',
                  train_config: dict = None,
+                 train_frequency: int = None,
                  precondition: bool = True,
                  dynamic: bool = True,
                  metric: str = 'ess',
@@ -270,6 +282,13 @@ class Sampler:
         if train_config is not None:
             for key in train_config.keys():
                 self.train_config[key] = train_config[key]
+        
+        if train_frequency is None:
+            self.train_frequency = np.maximum(self.n_effective//(self.n_active*2), 1)
+        else:
+            self.train_frequency = int(train_frequency)
+
+        self.flow_untrained = True
 
         # Scaler
         self.scaler = Reparameterize(self.n_dim, bounds=self.bounds)
@@ -295,12 +314,16 @@ class Sampler:
 
         # Dynamic ESS
         self.dynamic = dynamic
+        self.dynamic_ratio = unique_sample_size(np.ones(self.n_effective), k=self.n_active) / self.n_active
 
         # Sampling algorithm
         if sample not in ['tpcn', 'rwm']:
             raise ValueError(f"Invalid sample {sample}. Options are 'tpcn' or 'rwm'.")
         else:
             self.sample = sample
+
+        # Proposal scale
+        self.proposal_scale = 2.38 / self.n_dim ** 0.5
 
         # Resampling algorithm
         if resample not in ['mult', 'syst']:
@@ -392,14 +415,19 @@ class Sampler:
 
                 self.current_particles = dict(u=u,x=x,logl=logl,logp=logp,logdetj=logdetj,
                                     logw=-1e300 * np.ones(self.n_active), blobs=blobs, iter=self.t,
-                                    calls=self.calls, steps=1, efficiency=1.0, ess=0.0, 
+                                    calls=self.calls, steps=1, efficiency=1.0, ess=self.n_effective, 
                                     accept=1.0, beta=0.0, logz=0.0)
                 
                 self.particles.update(self.current_particles)
 
                 self.pbar.update_stats(dict(calls=self.particles.get("calls", -1), 
                                             beta=self.particles.get("beta", -1), 
-                                            logZ=self.particles.get("logz", -1)))
+                                            logZ=self.particles.get("logz", -1),
+                                            ESS=self.particles.get("ess", -1),
+                                            acc=self.particles.get("accept", -1),
+                                            steps=self.particles.get("steps", -1),
+                                            logP=np.mean(self.particles.get("logp", -1)+self.particles.get("logl", -1)),
+                                            eff=self.particles.get("efficiency", -1)))
                 
                 self.pbar.update_iter()
 
@@ -501,6 +529,7 @@ class Sampler:
             n_max=self.n_max_steps,
             n_steps=self.n_steps,
             progress_bar=self.pbar,
+            proposal_scale=self.proposal_scale,
         )
 
         if self.preconditioned and self.sample == "tpcn":
@@ -539,6 +568,7 @@ class Sampler:
         current_particles["steps"] = results.get('steps')
         current_particles["accept"] = results.get('accept')
         current_particles["calls"] = current_particles.get("calls") + results.get('calls')
+        self.proposal_scale = results.get('proposal_scale')
 
         return current_particles
 
@@ -560,8 +590,8 @@ class Sampler:
         u = current_particles.get("u")
         w = current_particles.get("weights")
 
-        if self.preconditioned:
-
+        if self.preconditioned and (self.t % self.train_frequency == 0 or current_particles.get("beta")==1.0 or self.flow_untrained):
+            self.flow_untrained = False
             self.flow.fit(numpy_to_torch(u),
                           weights=numpy_to_torch(w),
                           validation_split=self.train_config["validation_split"],
@@ -663,11 +693,13 @@ class Sampler:
             beta = beta_prev
             weights = weights_prev
             logz = self.particles.get("logz", index=-1)
+            ess_est = ess_est_prev
             self.pbar.update_stats(dict(beta=beta, ESS=ess_est_prev, logZ=logz))
         elif ess_est_max >= self.n_effective:
             beta = beta_max 
             weights = weights_max
             _, logz = self.particles.compute_logw_and_logz(beta)
+            ess_est = ess_est_max
             self.pbar.update_stats(dict(beta=beta, ESS=ess_est_max, logZ=logz))
         else:
             while True:
@@ -689,10 +721,12 @@ class Sampler:
         weights /= np.sum(weights)
 
         if self.dynamic:
+            # Adjust the number of effective particles based on the expected number of unique particles
             n_unique_active = unique_sample_size(weights, k=self.n_active)
-            if n_unique_active < self.n_active * 0.75:
+            # Maintain the original ratio of unique active to effective particles
+            if n_unique_active < self.n_active * (0.95 * self.dynamic_ratio):
                 self.n_effective = int(self.n_active/n_unique_active * self.n_effective)
-            elif n_unique_active > self.n_active * 0.90:
+            elif n_unique_active > self.n_active * np.minimum(1.05 * self.dynamic_ratio, 1.0):
                 self.n_effective = int(n_unique_active/self.n_active * self.n_effective)
 
         idx, weights = trim_weights(np.arange(len(weights)), weights, ess=0.99, bins=1000)
@@ -706,6 +740,7 @@ class Sampler:
         current_particles["logz"] = logz
         current_particles["beta"] = beta
         current_particles["weights"] = weights
+        current_particles["ess"] = ess_est
 
         return current_particles
 
