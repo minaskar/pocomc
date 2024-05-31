@@ -7,31 +7,28 @@
 
 .. title:: pocoMC documentation
 
-.. figure:: ./../../logo.svg
-    :scale: 30 %
+.. figure:: ./images/logo.gif
+    :scale: 100 %
     :align: center
 
 |
 
-pocoMC
-======
-
-``pocoMC`` is a Python implementation of `Preconditioned Monte Carlo (PMC)`.
-Using ``pocoMC`` one can perform Bayesian inference, including model comparison, 
-for challenging scientific problems. ``pocoMC``'s sophisticated `normalizing flow
-preconditioning` procedures enables efficient sampling from highly correlated posterior
-distributions. ``pocoMC`` is designed to excel in demanding parameter estimation
-problems that include multimodal and highly non--Gaussian target distributions.
+    ``pocoMC`` is a Python package for fast Bayesian posterior and model evidence estimation. It leverages 
+    the Preconditioned Monte Carlo (PMC) algorithm, offering significant speed improvements over 
+    traditional methods like MCMC and Nested Sampling. Ideal for large-scale scientific problems 
+    with expensive likelihood evaluations, non-linear correlations, and multimodality, ``pocoMC`` 
+    provides efficient and scalable posterior sampling and model evidence estimation. Widely used 
+    in cosmology and astronomy, pocoMC is user-friendly, flexible, and actively maintained.
 
 .. admonition:: Where to start?
     :class: tip
 
     🖥 A good place to get started is with the :doc:`install` and then the
-    :doc:`pages/quickstart` guide. If you are not familiar with Bayesian inference
+    :doc:`quickstart` guide. If you are not familiar with Bayesian inference
     have a look at the :doc:`background`.
 
-    📖 For more details, check out the :doc:`advanced` and :doc:`tutorials`,
-    including the full :doc:`api` documentation.
+    📖 For more details, check out the :doc:`likelihood` through :doc:`blobs` information, 
+    as well as the :doc:`fitting` and :doc:`model_comparison` tutorials.
 
     💡 If you're running into problems getting ``pocoMC`` to do what you want, first
     check out the :doc:`faq` page, for some general tips and tricks.
@@ -45,15 +42,42 @@ problems that include multimodal and highly non--Gaussian target distributions.
 
 .. toctree::
    :hidden:
-   :maxdepth: 4
-   :caption: Contents:
+   :maxdepth: 1
+   :caption: User Guide:
 
    install
-   pages/quickstart.ipynb
+   quickstart.ipynb
+   likelihood.ipynb
+   priors
+   sampling.ipynb
+   results
+   parallelization.ipynb
+   flow.ipynb
+   checkpoint.ipynb
+   blobs.ipynb
+
+
+.. toctree::
+   :hidden:
+   :maxdepth: 1
+   :caption: Tutorials:
+
+   fitting
+   model_comparison
+
+.. toctree::
+   :hidden:
+   :maxdepth: 1
+   :caption: Discussion:
+
    background
-   advanced
-   tutorials
    faq
+
+.. toctree::
+   :hidden:
+   :maxdepth: 1
+   :caption: API Documentation:
+
    api
    GitHub Repository <https://github.com/minaskar/pocomc>
 
@@ -94,6 +118,15 @@ Copyright 2022-2024 Minas Karamanis and contributors.
 
 Changelog
 =========
+
+**1.1.0 (31/05/24)**
+
+- Fix robustness issues with the Crank-Nicolson sampler.
+- Added predefined normalizing flows.
+- Added support for derived parameters through the ``blobs`` framework.
+- Added ``dynamic`` mode for determining the ESS based on the unique sample size (USS).
+- Added internal ``multiprocess`` pool for parallelization.
+- Improved documentation and tutorials.
 
 **1.0.2 (18/02/24)**
 

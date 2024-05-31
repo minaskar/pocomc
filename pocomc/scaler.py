@@ -266,7 +266,7 @@ class Reparameterize:
         x[:, self.mask_right], J[:, self.mask_right] = self._inverse_right(u)
         x[:, self.mask_both], J[:, self.mask_both] = self._inverse_both(u)
 
-        log_det_J = np.log(np.prod(J, axis=1))
+        log_det_J = np.sum(J, axis=1)
 
         return x, log_det_J
 
@@ -340,7 +340,7 @@ class Reparameterize:
         """
         p = np.exp(u[:, self.mask_left])
 
-        return p + self.low[self.mask_left], p
+        return np.exp(u[:, self.mask_left]) + self.low[self.mask_left], u[:, self.mask_left]
 
     def _forward_right(self, x: np.ndarray):
         """
@@ -371,9 +371,8 @@ class Reparameterize:
         J : np.array
             Diagonal of Jacobian matrix.
         """
-        p = np.exp(u[:, self.mask_right])
 
-        return self.high[self.mask_right] - p, p
+        return self.high[self.mask_right] - np.exp(u[:, self.mask_right]), u[:, self.mask_right]
 
     def _forward_both(self, x: np.ndarray):
         """
@@ -415,11 +414,11 @@ class Reparameterize:
         if self.transform == "logit":
             p = np.exp(-np.logaddexp(0, -u[:, self.mask_both]))
             x = p * (self.high[self.mask_both] - self.low[self.mask_both]) + self.low[self.mask_both]
-            J = (self.high[self.mask_both] - self.low[self.mask_both]) * p * (1.0 - p)
+            J = np.log(self.high[self.mask_both] - self.low[self.mask_both]) + np.log(p) + np.log(1.0 - p)
         elif self.transform == "probit":
             p = ( erf(u[:, self.mask_both] / np.sqrt(2.0)) + 1.0 ) / 2.0
             x = p * (self.high[self.mask_both] - self.low[self.mask_both]) + self.low[self.mask_both]
-            J = (self.high[self.mask_both] - self.low[self.mask_both]) * np.exp(-u[:, self.mask_both]**2.0 / 2.0) / np.sqrt(2.0 * np.pi)
+            J = np.log(self.high[self.mask_both] - self.low[self.mask_both]) + (-u[:, self.mask_both]**2.0 / 2.0) - np.log(np.sqrt(2.0 * np.pi))
         return x, J
 
     def _forward_none(self, x:np.ndarray):
@@ -452,7 +451,7 @@ class Reparameterize:
         log_det_J : np.array
             Logarithm of determinant of Jacobian matrix transformation.
         """
-        return u[:, self.mask_none], np.ones(u.shape)[:, self.mask_none]
+        return u[:, self.mask_none], np.zeros(u.shape)[:, self.mask_none]
 
     def _create_masks(self):
         """

@@ -12,6 +12,10 @@ Compute effective sample size
 
 .. autofunction:: pocomc.tools.compute_ess
 
+.. autofunction:: pocomc.tools.effective_sample_size
+
+.. autofunction:: pocomc.tools.unique_sample_size
+
 
 Progress bar
 ------------
