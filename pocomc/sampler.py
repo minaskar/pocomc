@@ -962,7 +962,6 @@ class Sampler:
             except BaseException as e:
                 print(e)
 
-            
             dill.dump(file=f, obj=state)
             f.flush()
             os.fsync(f.fileno())
