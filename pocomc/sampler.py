@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Union
 
+import os
 import dill
 import numpy as np
 from multiprocess import Pool
@@ -949,7 +950,8 @@ class Sampler:
         """
         print(f'Saving PMC state to {path}')
         Path(path).parent.mkdir(exist_ok=True)
-        with open(path, 'wb') as f:
+        temp_path = Path(path).with_suffix('.temp')
+        with open(temp_path, 'wb') as f:
             state = self.__dict__.copy()
             del state['pbar']  # Cannot be pickled
             try:
@@ -959,7 +961,13 @@ class Sampler:
                     del state['distribute']  # remove `pool.map` function hook
             except BaseException as e:
                 print(e)
+
+            
             dill.dump(file=f, obj=state)
+            f.flush()
+            os.fsync(f.fileno())
+
+        os.rename(temp_path, path)
 
     def load_state(self, path: Union[str, Path]):
         """Load state of sampler from file.
