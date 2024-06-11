@@ -13,4 +13,5 @@ API Reference
     api/tools
     api/mcmc
     api/scaler
+    api/parallel
 
