@@ -7,7 +7,7 @@ Dependencies
 ------------
 
 **pocoMC** depends on ``numpy``, ``torch``, ``zuko``, ``tqdm``, ``scipy``, ``dill``, and ``multiprocess``.
-
+Optionally, you can install ``mpi4py`` for parallelization using the provided ``MPIPool``.
 
 Using pip
 ---------

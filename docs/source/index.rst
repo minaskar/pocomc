@@ -1,8 +1,3 @@
-.. pocoMC documentation master file, created by
-   sphinx-quickstart on Fri Apr 29 13:25:54 2022.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
-
 |
 
 .. title:: pocoMC documentation
@@ -118,6 +113,13 @@ Copyright 2022-2024 Minas Karamanis and contributors.
 
 Changelog
 =========
+
+**1.2.0 (11/06/24)**
+
+- Added ``MPIPool`` for parallelization.
+- Fixed bugs in checkpointing when using MPI in NFS4 and BeeGFS filesystems.
+- Automatically save final checkpoint file when finishing the run if ``save_every`` is not ``None``.
+- Added option to continue sampling after completing the run.
 
 **1.1.0 (31/05/24)**
 

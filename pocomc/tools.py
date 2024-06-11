@@ -195,8 +195,8 @@ class ProgressBar:
     show : `bool`
         Whether or not to show a progress bar. Default is ``True``.
     """
-    def __init__(self, show: bool = True):
-        self.progress_bar = tqdm(desc='Iter', disable=not show)
+    def __init__(self, show: bool = True, initial=0):
+        self.progress_bar = tqdm(desc='Iter', disable=not show, initial=initial)
         self.info = dict()
 
     def update_stats(self, info):

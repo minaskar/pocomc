@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Union
 
+import os
 import dill
 import numpy as np
 from multiprocess import Pool
@@ -239,6 +240,9 @@ class Sampler:
         # Total ESS for termination
         self.n_total = None
 
+        # Number of samples for evidence estimation
+        self.n_evidence = None
+
         # Particle manager
         self.particles = Particles(n_active, n_dim)
 
@@ -382,18 +386,33 @@ class Sampler:
             self.load_state(resume_state_path)
             t0 = self.t
             # Initialise progress bar
-            self.pbar = ProgressBar(self.progress)
-            self.pbar.update_stats(dict(calls=self.particles.get("calls", -1),
-                                        beta=self.particles.get("beta", -1),
-                                        logZ=self.particles.get("logz", -1)))
+            self.pbar = ProgressBar(self.progress, initial=t0)
+            self.pbar.update_stats(dict(beta=self.particles.get("beta", -1),
+                                        calls=self.particles.get("calls", -1),
+                                        ESS=self.particles.get("ess", -1),
+                                        logZ=self.particles.get("logz", -1),
+                                        logP=np.mean(self.particles.get("logp", -1)+self.particles.get("logl", -1)),
+                                        acc=self.particles.get("accept", -1),
+                                        steps=self.particles.get("steps", -1),
+                                        eff=self.particles.get("efficiency", -1)))
         else:
             t0 = self.t
             # Run parameters
-            self.n_total = int(n_total)
             self.progress = progress
 
             # Initialise progress bar
             self.pbar = ProgressBar(self.progress)
+            self.pbar.update_stats(dict(beta=0.0,
+                                        calls=self.calls,
+                                        ESS=self.n_effective,
+                                        logZ=0.0,
+                                        logP=0.0,
+                                        acc=0.0,
+                                        steps=0,
+                                        eff=0.0))
+            
+        self.n_total = int(n_total)
+        self.n_evidence = int(n_evidence)
 
         # Initialise particles
         if self.prior_samples is None:
@@ -422,11 +441,11 @@ class Sampler:
 
                 self.pbar.update_stats(dict(calls=self.particles.get("calls", -1), 
                                             beta=self.particles.get("beta", -1), 
+                                            ESS=int(self.particles.get("ess", -1)),
                                             logZ=self.particles.get("logz", -1),
-                                            ESS=self.particles.get("ess", -1),
+                                            logP=np.mean(self.particles.get("logp", -1)+self.particles.get("logl", -1)),
                                             acc=self.particles.get("accept", -1),
                                             steps=self.particles.get("steps", -1),
-                                            logP=np.mean(self.particles.get("logp", -1)+self.particles.get("logl", -1)),
                                             eff=self.particles.get("efficiency", -1)))
                 
                 self.pbar.update_iter()
@@ -456,12 +475,17 @@ class Sampler:
             self.particles.update(self.current_particles)
 
         # Compute evidence
-        if n_evidence > 0 and self.preconditioned:
-            self._compute_evidence(int(n_evidence))
+        if self.n_evidence > 0 and self.preconditioned:
+            self._compute_evidence(self.n_evidence)
         else:
             _, self.logz = self.particles.compute_logw_and_logz(1.0)
             self.logz_err = None
-
+        
+        # Save final state
+        if save_every is not None:
+            self.save_state(Path(self.output_dir) / f'{self.output_label}_final.state')
+        
+        # Close progress bar
         self.pbar.close()
 
     def _not_termination(self, current_particles):
@@ -568,6 +592,7 @@ class Sampler:
         current_particles["steps"] = results.get('steps')
         current_particles["accept"] = results.get('accept')
         current_particles["calls"] = current_particles.get("calls") + results.get('calls')
+        self.calls = current_particles.get("calls")
         self.proposal_scale = results.get('proposal_scale')
 
         return current_particles
@@ -694,13 +719,13 @@ class Sampler:
             weights = weights_prev
             logz = self.particles.get("logz", index=-1)
             ess_est = ess_est_prev
-            self.pbar.update_stats(dict(beta=beta, ESS=ess_est_prev, logZ=logz))
+            self.pbar.update_stats(dict(beta=beta, ESS=int(ess_est_prev), logZ=logz))
         elif ess_est_max >= self.n_effective:
             beta = beta_max 
             weights = weights_max
             _, logz = self.particles.compute_logw_and_logz(beta)
             ess_est = ess_est_max
-            self.pbar.update_stats(dict(beta=beta, ESS=ess_est_max, logZ=logz))
+            self.pbar.update_stats(dict(beta=beta, ESS=int(ess_est_max), logZ=logz))
         else:
             while True:
                 beta = (beta_max + beta_min) * 0.5
@@ -709,7 +734,7 @@ class Sampler:
 
                 if np.abs(ess_est - self.n_effective) < 0.01 * self.n_effective or beta == 1.0:
                     _, logz = self.particles.compute_logw_and_logz(beta)
-                    self.pbar.update_stats(dict(beta=beta, ESS=ess_est, logZ=logz))
+                    self.pbar.update_stats(dict(beta=beta, ESS=int(ess_est), logZ=logz))
                     break
                 elif ess_est < self.n_effective:
                     beta_max = beta
@@ -836,6 +861,9 @@ class Sampler:
 
         dlogz = np.std([np.logaddexp.reduce(logw[np.random.choice(len(logw), len(logw))]) - np.log(len(logw)) for _ in range(np.maximum(n,1000))])
 
+        self.calls += n
+        self.pbar.update_stats(dict(calls=self.calls))
+
         self.logz = logz
         self.logz_err = dlogz
         return logz, dlogz
@@ -949,7 +977,8 @@ class Sampler:
         """
         print(f'Saving PMC state to {path}')
         Path(path).parent.mkdir(exist_ok=True)
-        with open(path, 'wb') as f:
+        temp_path = Path(path).with_suffix('.temp')
+        with open(temp_path, 'wb') as f:
             state = self.__dict__.copy()
             del state['pbar']  # Cannot be pickled
             try:
@@ -959,7 +988,12 @@ class Sampler:
                     del state['distribute']  # remove `pool.map` function hook
             except BaseException as e:
                 print(e)
+
             dill.dump(file=f, obj=state)
+            f.flush()
+            os.fsync(f.fileno())
+
+        os.rename(temp_path, path)
 
     def load_state(self, path: Union[str, Path]):
         """Load state of sampler from file.
