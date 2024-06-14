@@ -13,7 +13,7 @@
     traditional methods like MCMC and Nested Sampling. Ideal for large-scale scientific problems 
     with expensive likelihood evaluations, non-linear correlations, and multimodality, ``pocoMC`` 
     provides efficient and scalable posterior sampling and model evidence estimation. Widely used 
-    in cosmology and astronomy, pocoMC is user-friendly, flexible, and actively maintained.
+    in cosmology and astronomy, ``pocoMC`` is user-friendly, flexible, and actively maintained.
 
 .. admonition:: Where to start?
     :class: tip
@@ -113,6 +113,10 @@ Copyright 2022-2024 Minas Karamanis and contributors.
 
 Changelog
 =========
+
+**1.2.1 (14/06/24)**
+
+- Added support for log-likelihoods that return ``-np.inf`` inside the prior volume.
 
 **1.2.0 (11/06/24)**
 

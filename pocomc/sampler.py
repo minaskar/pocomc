@@ -432,6 +432,21 @@ class Sampler:
                 logl, blobs = self._log_like(x)
                 self.calls += self.n_active
 
+                # Resample prior particles with infinite likelihoods
+                inf_logl_mask = np.isinf(logl)
+                if np.any(inf_logl_mask):
+                    all_idx = np.arange(len(x))
+                    infinite_idx = all_idx[inf_logl_mask]
+                    finite_idx = all_idx[~inf_logl_mask]
+                    idx = np.random.choice(finite_idx, size=len(infinite_idx), replace=True)
+                    x[infinite_idx] = x[idx]
+                    u[infinite_idx] = u[idx]
+                    logdetj[infinite_idx] = logdetj[idx]
+                    logp[infinite_idx] = logp[idx]
+                    logl[infinite_idx] = logl[idx]
+                    if self.have_blobs:
+                        blobs[infinite_idx] = blobs[idx]
+
                 self.current_particles = dict(u=u,x=x,logl=logl,logp=logp,logdetj=logdetj,
                                     logw=-1e300 * np.ones(self.n_active), blobs=blobs, iter=self.t,
                                     calls=self.calls, steps=1, efficiency=1.0, ess=self.n_effective, 
