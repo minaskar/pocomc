@@ -947,6 +947,8 @@ class Sampler:
             logl = logl[idx]
             logp = logp[idx]
             logw = logw[idx]
+            if return_blobs:
+                blobs = blobs[idx]
 
         if resample:
             if self.resample == 'mult':

@@ -114,6 +114,10 @@ Copyright 2022-2024 Minas Karamanis and contributors.
 Changelog
 =========
 
+**1.2.2 (20/06/24)**
+
+- Fixed bug in ``posterior`` method related to blobs.
+
 **1.2.1 (14/06/24)**
 
 - Added support for log-likelihoods that return ``-np.inf`` inside the prior volume.
