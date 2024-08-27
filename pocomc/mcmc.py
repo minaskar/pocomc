@@ -90,6 +90,12 @@ def preconditioned_pcn(state_dict: dict,
         # Transform to x space
         x_prime, logdetj_prime = scaler.inverse(u_prime)
 
+        # Apply boundary conditions
+        if (scaler.periodic is not None) or (scaler.reflective is not None):
+            x_prime = scaler.apply_boundary_conditions_x(x_prime)
+            u_prime = scaler.forward(x_prime)
+            x_prime, logdetj_prime = scaler.inverse(u_prime)
+
         # Compute finite mask
         finite_mask_logdetj_prime = np.isfinite(logdetj_prime)
         finite_mask_x_prime = np.isfinite(x_prime).all(axis=1)
@@ -223,7 +229,6 @@ def preconditioned_rwm(state_dict: dict,
     # Get number of particles and parameters/dimensions
     n_walkers, n_dim = x.shape
 
-
     cov = geometry.normal_cov
     chol = np.linalg.cholesky(cov)
 
@@ -247,6 +252,12 @@ def preconditioned_rwm(state_dict: dict,
 
         # Transform to x space
         x_prime, logdetj_prime = scaler.inverse(u_prime)
+
+        # Apply boundary conditions
+        if (scaler.periodic is not None) or (scaler.reflective is not None):
+            x_prime = scaler.apply_boundary_conditions_x(x_prime)
+            u_prime = scaler.forward(x_prime)
+            x_prime, logdetj_prime = scaler.inverse(u_prime)
 
         # Compute finite mask
         finite_mask_logdetj_prime = np.isfinite(logdetj_prime)
@@ -393,10 +404,16 @@ def pcn(state_dict: dict,
         # Propose new points in u space
         u_prime = np.empty((n_walkers, n_dim))
         for k in range(n_walkers):
-            u_prime[k] = mu + (1.0 - sigma ** 2.0) ** 0.5 * diff[k] + sigma * np.sqrt(s[k]) * np.dot(chol_cov, np.random.randn(n_dim))        
+            u_prime[k] = mu + (1.0 - sigma ** 2.0) ** 0.5 * diff[k] + sigma * np.sqrt(s[k]) * np.dot(chol_cov, np.random.randn(n_dim)) 
 
         # Transform to x space
         x_prime, logdetj_prime = scaler.inverse(u_prime)
+
+        # Apply boundary conditions
+        if (scaler.periodic is not None) or (scaler.reflective is not None):
+            x_prime = scaler.apply_boundary_conditions_x(x_prime)
+            u_prime = scaler.forward(x_prime)
+            x_prime, logdetj_prime = scaler.inverse(u_prime)
 
         # Compute finite mask
         finite_mask_logdetj_prime = np.isfinite(logdetj_prime)
@@ -540,6 +557,12 @@ def rwm(state_dict: dict,
 
         # Transform to x space
         x_prime, logdetj_prime = scaler.inverse(u_prime)
+
+        # Apply boundary conditions
+        if (scaler.periodic is not None) or (scaler.reflective is not None):
+            x_prime = scaler.apply_boundary_conditions_x(x_prime)
+            u_prime = scaler.forward(x_prime)
+            x_prime, logdetj_prime = scaler.inverse(u_prime)
 
         # Compute finite mask
         finite_mask_logdetj_prime = np.isfinite(logdetj_prime)

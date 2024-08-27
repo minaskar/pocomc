@@ -18,7 +18,7 @@ class Reparameterize:
     periodic : ``list``
         List of indices corresponding to parameters with periodic boundary conditions
     reflective : ``list``
-        List of indices corresponding to parameters with periodic boundary conditions
+        List of indices corresponding to parameters with reflective boundary conditions
     transform : ``str``
         Type of transform to use for bounded parameters. Options are ``"probit"``
         (default) and ``"logit"``.
@@ -81,9 +81,9 @@ class Reparameterize:
 
         self._create_masks()
 
-    def apply_boundary_conditions(self, x: np.ndarray):
+    def apply_boundary_conditions_x(self, x: np.ndarray):
         """
-        Apply boundary conditions (i.e. periodic or reflective) to input.
+        Apply boundary conditions (i.e. periodic or reflective) to input ``x``.
         The first kind include phase parameters that might be periodic
         e.g. on a range ``[0,2*np.pi]``. The latter can arise in cases
         where parameters are ratios where ``a/b`` and  ``b/a`` are equivalent.
@@ -100,15 +100,15 @@ class Reparameterize:
         if (self.periodic is None) and (self.reflective is None):
             return x
         elif self.periodic is None:
-            return self._apply_reflective_boundary_conditions(x)
+            return self._apply_reflective_boundary_conditions_x(x)
         elif self.reflective is None:
-            return self._apply_periodic_boundary_conditions(x)
+            return self._apply_periodic_boundary_conditions_x(x)
         else:
-            return self._apply_reflective_boundary_conditions(self._apply_periodic_boundary_conditions(x))
+            return self._apply_reflective_boundary_conditions_x(self._apply_periodic_boundary_conditions_x(x))
 
-    def _apply_periodic_boundary_conditions(self, x: np.ndarray):
+    def _apply_periodic_boundary_conditions_x(self, x: np.ndarray):
         """
-        Apply periodic boundary conditions to input.
+        Apply periodic boundary conditions to input ``x``.
         This can be useful for phase parameters that might be periodic
         e.g. on a range ``[0,2*np.pi]``
         
@@ -131,9 +131,9 @@ class Reparameterize:
                         x[j, i] = self.high[i] + x[j, i] - self.low[i]
         return x
 
-    def _apply_reflective_boundary_conditions(self, x: np.ndarray):
+    def _apply_reflective_boundary_conditions_x(self, x: np.ndarray):
         """
-        Apply reflective boundary conditions to input. This can arise in cases
+        Apply reflective boundary conditions to input ``x``. This can arise in cases
         where parameters are ratios where ``a/b`` and  ``b/a`` are equivalent.
         
         Parameters
