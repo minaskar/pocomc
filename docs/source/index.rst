@@ -114,6 +114,11 @@ Copyright 2022-2024 Minas Karamanis and contributors.
 Changelog
 =========
 
+**1.2.3 (27/08/24)**
+
+- Added support for periodic and reflective parameters.
+- Changed default normalizing flow to ``nsf6``.
+
 **1.2.2 (20/06/24)**
 
 - Fixed bug in ``posterior`` method related to blobs.

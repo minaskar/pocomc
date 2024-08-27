@@ -59,6 +59,17 @@ class Sampler:
         returned by the likelihood function (e.g., chi-squared values, residuals, etc.). Blobs are stored as a
         structured array with named fields when the data type is provided. Currently, the blobs feature is not
         compatible with vectorized likelihood calculations.
+    periodic : list or ``None``
+        List of parameter indeces that should be wrapped around the domain (default is ``periodic=None``).
+        This can be useful for phase parameters that might be periodic e.g. on a range ``[0,2*np.pi]``. For example,
+        ``periodic=[0,1]`` will wrap around the first and second parameters.
+    reflective : list or ``None``
+        List of parameter indeces that should be reflected around the domain (default is ``reflective=None``).
+        This can arise in cases where parameters are ratios where ``a/b`` and  ``b/a`` are equivalent. For example,
+        ``reflective=[0,1]`` will reflect the first and second parameters.
+    transform : str
+        Type of transformation to apply to bounded parameters (default is ``transform='probit'``). Available options
+        are ``'probit'`` and ``'logit'``. See ``Reparameterize`` for more details.
     pool : pool or int
         Number of processes to use for parallelisation (default is ``pool=None``). If ``pool`` is an integer
         greater than 1, a ``multiprocessing`` pool is created with the specified number of processes (e.g., ``pool=8``). 
@@ -70,7 +81,7 @@ class Sampler:
         Maximum number of threads to use for torch. If ``None`` torch uses all
         available threads while training the normalizing flow (default is ``pytorch_threads=1``). 
     flow : ``zuko.flow.Flow`` or str
-        Normalizing flow to use for preconditioning (default is ``flow='nsf3'``). Available options are
+        Normalizing flow to use for preconditioning (default is ``flow='nsf6'``). Available options are
         ``'nsf3'``, ``'nsf6'``, ``'nsf12'``, ``'maf3'``, ``'maf6'``, and ``'maf12'``. 'nsf' stands for
         Neural Spline Flows and 'maf' stands for Masked Autoregressive Flows. The number indicates the
         number of transformations in the flow. More transformations lead to more flexibility but also
@@ -99,7 +110,7 @@ class Sampler:
         are not multimodal or have strong non-linear correlations between parameters.
     dynamic : bool
         If True, dynamically adjust the effective sample size (ESS) threshold based on the
-        number of unique particles (default is ``dynamic=False``). This can be useful for
+        number of unique particles (default is ``dynamic=True``). This can be useful for
         targets with a large number of modes or strong non-linear correlations between parameters.
     metric : str
         Metric used for determining the next temperature (``beta``) level (default is ``metric="ess"``).
@@ -150,9 +161,12 @@ class Sampler:
                  likelihood_kwargs: dict = None,
                  vectorize: bool = False,
                  blobs_dtype: str = None,
+                 periodic: list = None,
+                 reflective: list = None,
+                 transform: str = "probit",
                  pool=None,
                  pytorch_threads=1,
-                 flow='nsf3',
+                 flow='nsf6',
                  train_config: dict = None,
                  train_frequency: int = None,
                  precondition: bool = True,
@@ -295,7 +309,13 @@ class Sampler:
         self.flow_untrained = True
 
         # Scaler
-        self.scaler = Reparameterize(self.n_dim, bounds=self.bounds)
+        if transform not in ['probit', 'logit']:
+            raise ValueError(f"Invalid transform {transform}. Options are 'probit' or 'logit'.")
+        self.scaler = Reparameterize(self.n_dim, 
+                                     bounds=self.bounds, 
+                                     periodic=periodic, 
+                                     reflective=reflective,
+                                     transform=transform,)
 
         # Output
         if output_dir is None:
