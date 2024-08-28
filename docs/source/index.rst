@@ -114,6 +114,10 @@ Copyright 2022-2024 Minas Karamanis and contributors.
 Changelog
 =========
 
+**1.2.4 (28/08/24)**
+
+- Fix bug in periodic and reflective parameters.
+
 **1.2.3 (27/08/24)**
 
 - Added support for periodic and reflective parameters.

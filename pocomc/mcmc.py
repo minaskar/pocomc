@@ -93,7 +93,7 @@ def preconditioned_pcn(state_dict: dict,
         # Apply boundary conditions
         if (scaler.periodic is not None) or (scaler.reflective is not None):
             x_prime = scaler.apply_boundary_conditions_x(x_prime)
-            u_prime = scaler.forward(x_prime)
+            u_prime = scaler.forward(x_prime, check_input=False)
             x_prime, logdetj_prime = scaler.inverse(u_prime)
 
         # Compute finite mask
@@ -256,7 +256,7 @@ def preconditioned_rwm(state_dict: dict,
         # Apply boundary conditions
         if (scaler.periodic is not None) or (scaler.reflective is not None):
             x_prime = scaler.apply_boundary_conditions_x(x_prime)
-            u_prime = scaler.forward(x_prime)
+            u_prime = scaler.forward(x_prime, check_input=False)
             x_prime, logdetj_prime = scaler.inverse(u_prime)
 
         # Compute finite mask
@@ -412,7 +412,7 @@ def pcn(state_dict: dict,
         # Apply boundary conditions
         if (scaler.periodic is not None) or (scaler.reflective is not None):
             x_prime = scaler.apply_boundary_conditions_x(x_prime)
-            u_prime = scaler.forward(x_prime)
+            u_prime = scaler.forward(x_prime, check_input=False)
             x_prime, logdetj_prime = scaler.inverse(u_prime)
 
         # Compute finite mask
@@ -561,7 +561,7 @@ def rwm(state_dict: dict,
         # Apply boundary conditions
         if (scaler.periodic is not None) or (scaler.reflective is not None):
             x_prime = scaler.apply_boundary_conditions_x(x_prime)
-            u_prime = scaler.forward(x_prime)
+            u_prime = scaler.forward(x_prime, check_input=False)
             x_prime, logdetj_prime = scaler.inverse(u_prime)
 
         # Compute finite mask
