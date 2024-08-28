@@ -177,7 +177,7 @@ class Reparameterize:
             self.L_inv = np.linalg.inv(self.L)
             self.log_det_L = np.linalg.slogdet(self.L)[1]
 
-    def forward(self, x: np.ndarray):
+    def forward(self, x: np.ndarray, check_input=True):
         """
         Forward transformation (both logit/probit for bounds and affine for all parameters).
 
@@ -185,12 +185,15 @@ class Reparameterize:
         ----------
         x : np.ndarray
             Input data
+        check_input : bool
+            Check if input is within bounds (default: True)
         Returns
         -------
         u : np.ndarray
             Transformed input data
         """
-        assert_array_within_interval(x, self.low, self.high)
+        if check_input:
+            assert_array_within_interval(x, self.low, self.high)
 
         u = self._forward(x)
         if self.scale:
