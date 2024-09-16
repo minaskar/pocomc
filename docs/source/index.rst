@@ -114,6 +114,10 @@ Copyright 2022-2024 Minas Karamanis and contributors.
 Changelog
 =========
 
+**1.2.5 (16/09/24)**
+
+- Removed unnecessary log-likelihood evaluations during MCMC sampling.
+
 **1.2.4 (28/08/24)**
 
 - Fix bug in periodic and reflective parameters.
