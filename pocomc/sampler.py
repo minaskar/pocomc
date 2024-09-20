@@ -882,21 +882,37 @@ class Sampler:
         dlogz : float
             Estimate of the error on the log evidence.
         """
+        # sample from the flow
         with torch.no_grad():
             theta_q, logq = self.flow.sample(n)
             theta_q = torch_to_numpy(theta_q)
             logq = torch_to_numpy(logq)
 
+        # reparameterize
         x_q, logdetj = self.scaler.inverse(theta_q)
-        logl, _ = self._log_like(x_q)
+
+        # compute log prior
         logp = self.log_prior(x_q)
 
+        # keep only finite values
+        x_q = x_q[np.isfinite(logp)]
+        logdetj = logdetj[np.isfinite(logp)]
+        logq = logq[np.isfinite(logp)]
+        logp = logp[np.isfinite(logp)]
+
+        # compute log likelihood
+        logl, _ = self._log_like(x_q)
+
+        # compute log weights
         logw = logl + logp + logdetj - logq 
+
+        # compute log evidence
         logz = np.logaddexp.reduce(logw) - np.log(len(logw))
 
+        # compute error on log evidence
         dlogz = np.std([np.logaddexp.reduce(logw[np.random.choice(len(logw), len(logw))]) - np.log(len(logw)) for _ in range(np.maximum(n,1000))])
 
-        self.calls += n
+        self.calls += len(logw)
         self.pbar.update_stats(dict(calls=self.calls))
 
         self.logz = logz

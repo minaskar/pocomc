@@ -114,6 +114,10 @@ Copyright 2022-2024 Minas Karamanis and contributors.
 Changelog
 =========
 
+**1.2.6 (20/09/24)**
+
+- Removed unnecessary log-likelihood evaluations during evidence estimation
+
 **1.2.5 (16/09/24)**
 
 - Removed unnecessary log-likelihood evaluations during MCMC sampling.
