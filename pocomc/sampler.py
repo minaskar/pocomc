@@ -5,15 +5,13 @@ import os
 import dill
 import numpy as np
 from multiprocess import Pool
-import torch
+import sinflow as sf
 
 from .mcmc import preconditioned_pcn, preconditioned_rwm, pcn, rwm
-from .tools import systematic_resample, FunctionWrapper, numpy_to_torch, torch_to_numpy, trim_weights, ProgressBar, flow_numpy_wrapper, effective_sample_size, unique_sample_size
+from .tools import systematic_resample, FunctionWrapper, trim_weights, ProgressBar, effective_sample_size, unique_sample_size
 from .scaler import Reparameterize
-from .flow import Flow
 from .particles import Particles
 from .geometry import Geometry
-from .threading import configure_threads
 
 class Sampler:
     r"""Preconditioned Monte Carlo class.
@@ -77,24 +75,6 @@ class Sampler:
         If a pool is provided, the number of active particles should be a multiple of the number of processes in 
         the pool to ensure efficient parallelisation. If ``pool=None``, the code runs in serial mode. When a pool 
         is provided, please ensure that the likelihood function is picklable. 
-    pytorch_threads : int
-        Maximum number of threads to use for torch. If ``None`` torch uses all
-        available threads while training the normalizing flow (default is ``pytorch_threads=1``). 
-    flow : ``zuko.flow.Flow`` or str
-        Normalizing flow to use for preconditioning (default is ``flow='nsf6'``). Available options are
-        ``'nsf3'``, ``'nsf6'``, ``'nsf12'``, ``'maf3'``, ``'maf6'``, and ``'maf12'``. 'nsf' stands for
-        Neural Spline Flows and 'maf' stands for Masked Autoregressive Flows. The number indicates the
-        number of transformations in the flow. More transformations lead to more flexibility but also
-        increase the computational cost. If a ``zuko.flow.Flow`` instance is provided, the normalizing 
-        flow is used as is. If a string is provided, a new instance of the normalizing flow is created 
-        with the specified architecture. The normalizing flow is used to precondition the MCMC sampler 
-        and improve the efficiency of the sampling.
-    train_config : dict or ``None``
-        Configuration for training the normalizing flow
-        (default is ``train_config=None``). Options include a dictionary with the following
-        keys: ``"validation_split"``, ``"epochs"``, ``"batch_size"``, ``"patience"``,
-        ``"learning_rate"``, ``"annealing"``, ``"gaussian_scale"``, ``"laplace_scale"``,
-        ``"noise"``, ``"shuffle"``, ``"clip_grad_norm"``.
     train_frequency : int or None
         Frequency of training the normalizing flow (default is ``train_frequency=None``).
         If ``train_frequency=None``, the normalizing flow is trained every ``n_effective//n_active``
@@ -165,9 +145,6 @@ class Sampler:
                  reflective: list = None,
                  transform: str = "probit",
                  pool=None,
-                 pytorch_threads=1,
-                 flow='nsf6',
-                 train_config: dict = None,
                  train_frequency: int = None,
                  precondition: bool = True,
                  dynamic: bool = True,
@@ -181,7 +158,10 @@ class Sampler:
                  output_label: str = None,
                  random_state: int = None,
                  # deprecated
-                 n_ess: int = None,
+                 n_ess=None,
+                 pytorch_threads=None,
+                 flow=None,
+                 train_config=None,
                  ):
         
         # Deprecation warnings
@@ -191,14 +171,25 @@ class Sampler:
             import warnings
             warnings.warn("n_ess is deprecated. Use n_effective instead.", DeprecationWarning, stacklevel=2)
 
+        if pytorch_threads is not None:
+            # raise warning and print it but do not raise exception
+            import warnings
+            warnings.warn("pytorch_threads is deprecated.", DeprecationWarning, stacklevel=2)
+        
+        if flow is not None:
+            # raise warning and print it but do not raise exception
+            import warnings
+            warnings.warn("flow is deprecated.", DeprecationWarning, stacklevel=2)
+
+        if train_config is not None:
+            # raise warning and print it but do not raise exception
+            import warnings
+            warnings.warn("train_config is deprecated.", DeprecationWarning, stacklevel=2)
+
         # Random seed
         if random_state is not None:
             np.random.seed(random_state)
-            torch.manual_seed(random_state)
         self.random_state = random_state
-
-        # Configure PyTorch threads
-        configure_threads(pytorch_threads=pytorch_threads)
 
         # Prior distribution
         self.prior = prior
@@ -283,26 +274,15 @@ class Sampler:
         self.theta_geometry = Geometry()
 
         # Normalizing Flow
-        self.flow = Flow(self.n_dim, flow)
-        self.train_config = dict(validation_split=0.5,
-                                 epochs=5000,
-                                 batch_size=np.minimum(self.n_effective//2, 512),
-                                 patience=int(self.n_dim),
-                                 learning_rate=1e-3,
-                                 annealing=False,
-                                 gaussian_scale=None,
-                                 laplace_scale=None,
-                                 noise=None,
-                                 shuffle=True,
-                                 clip_grad_norm=1.0,
-                                 verbose=0,
-                                )
-        if train_config is not None:
-            for key in train_config.keys():
-                self.train_config[key] = train_config[key]
+        self.flow = sf.Flow(n_transforms=500,
+                            n_knots=1000,
+                            validation_fraction=0.2,
+                            early_stopping=True,
+                            n_iter_no_change=2*self.n_dim,)
+
         
         if train_frequency is None:
-            self.train_frequency = np.maximum(self.n_effective//(self.n_active*2), 1)
+            self.train_frequency = np.maximum(self.n_effective//self.n_active, 1)
         else:
             self.train_frequency = int(train_frequency)
 
@@ -652,23 +632,10 @@ class Sampler:
 
         if self.preconditioned and (self.t % self.train_frequency == 0 or current_particles.get("beta")==1.0 or self.flow_untrained):
             self.flow_untrained = False
-            self.flow.fit(numpy_to_torch(u),
-                          weights=numpy_to_torch(w),
-                          validation_split=self.train_config["validation_split"],
-                          epochs=self.train_config["epochs"],
-                          batch_size=int(np.minimum(len(u)//2, self.train_config["batch_size"])),
-                          gaussian_scale=self.train_config["gaussian_scale"],
-                          laplace_scale=self.train_config["laplace_scale"],
-                          patience=self.train_config["patience"],
-                          learning_rate=self.train_config["learning_rate"],
-                          annealing=self.train_config["annealing"],
-                          noise=self.train_config["noise"],
-                          shuffle=self.train_config["shuffle"],
-                          clip_grad_norm=self.train_config["clip_grad_norm"],
-                          verbose=self.train_config["verbose"],
-                          )
-            
-            theta = flow_numpy_wrapper(self.flow).forward(u)[0]
+            u_resampled = u[np.random.choice(np.arange(len(u)), size=len(u), replace=True, p=w)]
+            self.flow.fit(u_resampled)
+        
+            theta = self.flow.forward(u)[0]
             self.theta_geometry.fit(theta, weights=w)
         else:
             self.u_geometry.fit(u, weights=w)
@@ -883,10 +850,10 @@ class Sampler:
             Estimate of the error on the log evidence.
         """
         # sample from the flow
-        with torch.no_grad():
-            theta_q, logq = self.flow.sample(n)
-            theta_q = torch_to_numpy(theta_q)
-            logq = torch_to_numpy(logq)
+       
+
+        theta_q = self.flow.sample(n)
+        logq = self.flow.log_prob(theta_q)
 
         # reparameterize
         x_q, logdetj = self.scaler.inverse(theta_q)

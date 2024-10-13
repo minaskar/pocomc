@@ -1,6 +1,5 @@
 import numpy as np
 import math
-import torch
 from tqdm import tqdm
 import warnings
 
@@ -258,92 +257,3 @@ class FunctionWrapper(object):
             f(x)
         """
         return self.f(x, *self.args, **self.kwargs)
-
-
-def torch_to_numpy(x: torch.Tensor) -> np.ndarray:
-    """
-    Cast torch tensor to numpy.
-
-    Parameters
-    ----------
-    x : torch.Tensor
-        Input tensor.
-
-    Returns
-    -------
-        Numpy array corresponding to the input tensor.
-    """
-    return x.detach().numpy()
-
-
-def numpy_to_torch(x: np.ndarray) -> torch.Tensor:
-    """
-    Cast numpy array to torch tensor.
-
-    Parameters
-    ----------
-    x : np.ndarray
-        Input array.
-
-    Returns
-    -------
-        Torch tensor corresponding to the input array.
-    """
-    return torch.tensor(x, dtype=torch.float32)
-
-
-def torch_double_to_float(x: torch.Tensor, warn: bool = True):
-    """
-    Cast double precision (Float64) torch tensor to single precision (Float32).
-
-    Parameters
-    ----------
-    x: torch.Tensor
-        Input tensor.
-    warn: bool
-        If True, warn the user about the typecast.
-
-    Returns
-    -------
-        Single precision (Float32) torch tensor.
-    """
-    if x.dtype == torch.float64 and warn:
-        warnings.warn(f"Float64 data is currently unsupported, casting to Float32. Output will also have type Float32.")
-        return x.float()
-    elif x.dtype == torch.float32:
-        return x
-    else:
-        raise ValueError(f"Unsupported datatype for input data: {x.dtype}")
-
-class flow_numpy_wrapper:
-    """
-    Wrapper class for numpy flows.
-
-    Parameters
-    ----------
-    flow : Flow object
-        Flow object that implements forward and inverse
-        transformations.
-    
-    Returns
-    -------
-    Flow object
-    """
-    def __init__(self, flow):
-        self.flow = flow
-
-    @torch.no_grad()
-    def forward(self, v):
-        v = numpy_to_torch(v)
-        theta, logdetj = self.flow.forward(v)
-        theta = torch_to_numpy(theta)
-        logdetj = - torch_to_numpy(logdetj)
-        return theta, logdetj
-
-    @torch.no_grad()
-    def inverse(self, theta):
-        theta = numpy_to_torch(theta)
-        v, logdetj = self.flow.inverse(theta)
-        v = torch_to_numpy(v)
-        logdetj = torch_to_numpy(logdetj)
-        return v, logdetj

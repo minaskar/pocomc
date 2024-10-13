@@ -1,10 +1,6 @@
 import numpy as np
-import torch
-
-from .tools import numpy_to_torch, torch_to_numpy, flow_numpy_wrapper
 from .student import fit_mvstud
 
-@torch.no_grad()
 def preconditioned_pcn(state_dict: dict,
                        function_dict: dict,
                        option_dict: dict):
@@ -44,7 +40,7 @@ def preconditioned_pcn(state_dict: dict,
     log_like = function_dict.get('loglike')
     log_prior = function_dict.get('logprior')
     scaler = function_dict.get('scaler')
-    flow = flow_numpy_wrapper(function_dict.get('flow'))
+    flow = function_dict.get('flow')
     geometry = function_dict.get('theta_geometry')
 
     # Get MCMC options
@@ -58,7 +54,7 @@ def preconditioned_pcn(state_dict: dict,
 
     # Transform u to theta
     theta, logdetj_flow = flow.forward(u)
-
+    logdetj_flow = - logdetj_flow
 
     mu = geometry.t_mean
     cov = geometry.t_cov
@@ -182,7 +178,6 @@ def preconditioned_pcn(state_dict: dict,
     return dict(u=u, x=x, logdetj=logdetj, logl=logl, logp=logp, blobs=blobs, efficiency=sigma, 
                 accept=np.mean(alpha), steps=i, calls=n_calls, proposal_scale=sigma)
 
-@torch.no_grad()
 def preconditioned_rwm(state_dict: dict,
                        function_dict: dict,
                        option_dict: dict):
@@ -222,7 +217,7 @@ def preconditioned_rwm(state_dict: dict,
     log_like = function_dict.get('loglike')
     log_prior = function_dict.get('logprior')
     scaler = function_dict.get('scaler')
-    flow = flow_numpy_wrapper(function_dict.get('flow'))
+    flow = function_dict.get('flow')
     geometry = function_dict.get('theta_geometry')
 
     # Get MCMC options
@@ -239,6 +234,7 @@ def preconditioned_rwm(state_dict: dict,
 
     # Transform u to theta
     theta, logdetj_flow = flow.forward(u)
+    logdetj_flow = - logdetj_flow
 
     logp2_val = np.mean(logl + logp + logdetj)
     cnt = 0
