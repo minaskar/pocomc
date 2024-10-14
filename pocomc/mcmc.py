@@ -86,12 +86,6 @@ def preconditioned_pcn(state_dict: dict,
         # Transform to x space
         x_prime, logdetj_prime = scaler.inverse(u_prime)
 
-        # Apply boundary conditions
-        if (scaler.periodic is not None) or (scaler.reflective is not None):
-            x_prime = scaler.apply_boundary_conditions_x(x_prime)
-            u_prime = scaler.forward(x_prime, check_input=False)
-            x_prime, logdetj_prime = scaler.inverse(u_prime)
-
         # Compute finite mask
         finite_mask_logdetj_prime = np.isfinite(logdetj_prime)
         finite_mask_x_prime = np.isfinite(x_prime).all(axis=1)
@@ -254,12 +248,6 @@ def preconditioned_rwm(state_dict: dict,
         # Transform to x space
         x_prime, logdetj_prime = scaler.inverse(u_prime)
 
-        # Apply boundary conditions
-        if (scaler.periodic is not None) or (scaler.reflective is not None):
-            x_prime = scaler.apply_boundary_conditions_x(x_prime)
-            u_prime = scaler.forward(x_prime, check_input=False)
-            x_prime, logdetj_prime = scaler.inverse(u_prime)
-
         # Compute finite mask
         finite_mask_logdetj_prime = np.isfinite(logdetj_prime)
         finite_mask_x_prime = np.isfinite(x_prime).all(axis=1)
@@ -415,12 +403,6 @@ def pcn(state_dict: dict,
         # Transform to x space
         x_prime, logdetj_prime = scaler.inverse(u_prime)
 
-        # Apply boundary conditions
-        if (scaler.periodic is not None) or (scaler.reflective is not None):
-            x_prime = scaler.apply_boundary_conditions_x(x_prime)
-            u_prime = scaler.forward(x_prime, check_input=False)
-            x_prime, logdetj_prime = scaler.inverse(u_prime)
-
         # Compute finite mask
         finite_mask_logdetj_prime = np.isfinite(logdetj_prime)
         finite_mask_x_prime = np.isfinite(x_prime).all(axis=1)
@@ -568,12 +550,6 @@ def rwm(state_dict: dict,
 
         # Transform to x space
         x_prime, logdetj_prime = scaler.inverse(u_prime)
-
-        # Apply boundary conditions
-        if (scaler.periodic is not None) or (scaler.reflective is not None):
-            x_prime = scaler.apply_boundary_conditions_x(x_prime)
-            u_prime = scaler.forward(x_prime, check_input=False)
-            x_prime, logdetj_prime = scaler.inverse(u_prime)
 
         # Compute finite mask
         finite_mask_logdetj_prime = np.isfinite(logdetj_prime)

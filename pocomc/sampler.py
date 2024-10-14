@@ -9,7 +9,7 @@ import sinflow as sf
 
 from .mcmc import preconditioned_pcn, preconditioned_rwm, pcn, rwm
 from .tools import systematic_resample, FunctionWrapper, trim_weights, ProgressBar, effective_sample_size, unique_sample_size
-from .scaler import Reparameterize
+from .scaler import MultivariateTransform
 from .particles import Particles
 from .geometry import Geometry
 
@@ -291,12 +291,9 @@ class Sampler:
         # Scaler
         if transform not in ['probit', 'logit']:
             raise ValueError(f"Invalid transform {transform}. Options are 'probit' or 'logit'.")
-        self.scaler = Reparameterize(self.n_dim, 
-                                     bounds=self.bounds, 
-                                     periodic=periodic, 
-                                     reflective=reflective,
-                                     transform=transform,)
-
+        self.scaler = MultivariateTransform(bounds=self.bounds, 
+                                            periodic=periodic, 
+                                            transform_type=transform)
         # Output
         if output_dir is None:
             self.output_dir = Path("states")
@@ -426,8 +423,8 @@ class Sampler:
                         self.save_state(Path(self.output_dir) / f'{self.output_label}_{self.t}.state')
                 # Set state parameters
                 x = self.prior_samples[i*self.n_active:(i+1)*self.n_active]
-                u = self.scaler.forward(x)
-                logdetj = self.scaler.inverse(u)[1]
+                u, logdetj = self.scaler.forward(x)
+                logdetj = -logdetj
                 logp = self.log_prior(x)
                 logl, blobs = self._log_like(x)
                 self.calls += self.n_active
@@ -757,9 +754,12 @@ class Sampler:
                 self.n_effective = int(n_unique_active/self.n_active * self.n_effective)
 
         idx, weights = trim_weights(np.arange(len(weights)), weights, ess=0.99, bins=1000)
-        current_particles["u"] = self.particles.get("u", index=None, flat=True)[idx]
+        #current_particles["u"] = self.particles.get("u", index=None, flat=True)[idx]
         current_particles["x"] = self.particles.get("x", index=None, flat=True)[idx]
-        current_particles["logdetj"] = self.particles.get("logdetj", index=None, flat=True)[idx]
+        self.scaler.fit(current_particles["x"])
+        current_particles["u"], current_particles["logdetj"] = self.scaler.forward(current_particles["x"])
+        current_particles["logdetj"] = -current_particles["logdetj"]
+        #current_particles["logdetj"] = self.particles.get("logdetj", index=None, flat=True)[idx]
         current_particles["logl"] = self.particles.get("logl", index=None, flat=True)[idx]
         current_particles["logp"] = self.particles.get("logp", index=None, flat=True)[idx]
         if self.have_blobs:
