@@ -9,7 +9,7 @@ import torch
 
 from .mcmc import preconditioned_pcn, preconditioned_rwm, pcn, rwm
 from .tools import systematic_resample, FunctionWrapper, numpy_to_torch, torch_to_numpy, trim_weights, ProgressBar, flow_numpy_wrapper, effective_sample_size, unique_sample_size
-from .scaler import Reparameterize
+from .scaler import MultivariateTransform
 from .flow import Flow
 from .particles import Particles
 from .geometry import Geometry
@@ -169,6 +169,7 @@ class Sampler:
                  flow='nsf6',
                  train_config: dict = None,
                  train_frequency: int = None,
+                 post_annealing_train: bool = False,
                  precondition: bool = True,
                  dynamic: bool = True,
                  metric: str = 'ess',
@@ -308,14 +309,14 @@ class Sampler:
 
         self.flow_untrained = True
 
+        self.post_annealing_train = post_annealing_train
+
         # Scaler
         if transform not in ['probit', 'logit']:
             raise ValueError(f"Invalid transform {transform}. Options are 'probit' or 'logit'.")
-        self.scaler = Reparameterize(self.n_dim, 
-                                     bounds=self.bounds, 
-                                     periodic=periodic, 
-                                     reflective=reflective,
-                                     transform=transform,)
+        self.scaler = MultivariateTransform(bounds=self.bounds,
+                                            periodic=periodic,
+                                            transform_type=transform)
 
         # Output
         if output_dir is None:
@@ -446,8 +447,8 @@ class Sampler:
                         self.save_state(Path(self.output_dir) / f'{self.output_label}_{self.t}.state')
                 # Set state parameters
                 x = self.prior_samples[i*self.n_active:(i+1)*self.n_active]
-                u = self.scaler.forward(x)
-                logdetj = self.scaler.inverse(u)[1]
+                u, logdetj = self.scaler.forward(x)
+                logdetj = -logdetj
                 logp = self.log_prior(x)
                 logl, blobs = self._log_like(x)
                 self.calls += self.n_active
@@ -650,9 +651,10 @@ class Sampler:
         u = current_particles.get("u")
         w = current_particles.get("weights")
 
-        if self.preconditioned and (self.t % self.train_frequency == 0 or current_particles.get("beta")==1.0 or self.flow_untrained):
-            self.flow_untrained = False
-            self.flow.fit(numpy_to_torch(u),
+        if self.preconditioned and (self.t % self.train_frequency == 0 or self.flow_untrained):
+            if self.current_particles.get("beta") < 1.0 or self.post_annealing_train:
+                self.flow_untrained = False
+                self.flow.fit(numpy_to_torch(u),
                           weights=numpy_to_torch(w),
                           validation_split=self.train_config["validation_split"],
                           epochs=self.train_config["epochs"],
@@ -668,12 +670,10 @@ class Sampler:
                           verbose=self.train_config["verbose"],
                           )
             
-            theta = flow_numpy_wrapper(self.flow).forward(u)[0]
-            self.theta_geometry.fit(theta, weights=w)
+                theta = flow_numpy_wrapper(self.flow).forward(u)[0]
+                self.theta_geometry.fit(theta, weights=w)
         else:
             self.u_geometry.fit(u, weights=w)
-
-
 
         return current_particles
 
@@ -790,9 +790,10 @@ class Sampler:
                 self.n_effective = int(n_unique_active/self.n_active * self.n_effective)
 
         idx, weights = trim_weights(np.arange(len(weights)), weights, ess=0.99, bins=1000)
-        current_particles["u"] = self.particles.get("u", index=None, flat=True)[idx]
         current_particles["x"] = self.particles.get("x", index=None, flat=True)[idx]
-        current_particles["logdetj"] = self.particles.get("logdetj", index=None, flat=True)[idx]
+        self.scaler.fit(current_particles["x"])
+        current_particles["u"], current_particles["logdetj"] = self.scaler.forward(current_particles["x"])
+        current_particles["logdetj"] = -current_particles["logdetj"]
         current_particles["logl"] = self.particles.get("logl", index=None, flat=True)[idx]
         current_particles["logp"] = self.particles.get("logp", index=None, flat=True)[idx]
         if self.have_blobs:
