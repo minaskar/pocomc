@@ -206,8 +206,8 @@ class PeriodicTranslation:
         x = np.asarray(x)
         if x.ndim != 1:
             raise ValueError("Input x must be a 1D array.")
-        if np.any(x < self.lower) or np.any(x >= self.upper):
-            raise ValueError("All elements of x must be within [lower, upper).")
+        if np.any(x < self.lower) or np.any(x > self.upper):
+            raise ValueError("All elements of x must be within [lower, upper].")
 
         # Map x to angles in [0, 2*pi)
         angles = 2 * np.pi * (x - self.lower) / self.width
@@ -246,8 +246,8 @@ class PeriodicTranslation:
         x = np.asarray(x)
         if x.ndim != 1:
             raise ValueError("Input x must be a 1D array.")
-        if np.any(x < self.lower) or np.any(x >= self.upper):
-            raise ValueError("All elements of x must be within [lower, upper).")
+        if np.any(x < self.lower) or np.any(x > self.upper):
+            raise ValueError("All elements of x must be within [lower, upper].")
 
         # Apply shift and wrap around using modulo
         x_shifted = self.lower + ((x + self.shift - self.lower) % self.width)
@@ -271,8 +271,8 @@ class PeriodicTranslation:
         x = np.asarray(x)
         if x.ndim != 1:
             raise ValueError("Input x must be a 1D array.")
-        if np.any(x < self.lower) or np.any(x >= self.upper):
-            raise ValueError("All elements of x must be within [lower, upper).")
+        if np.any(x < self.lower) or np.any(x > self.upper):
+            raise ValueError("All elements of x must be within [lower, upper].")
 
         # Apply inverse shift and wrap around using modulo
         x_inverted = self.lower + ((x - self.shift - self.lower) % self.width)
