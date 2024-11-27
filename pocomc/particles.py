@@ -73,9 +73,7 @@ class Particles:
         self.past = dict(
             u = [],
             x = [],
-            logdetj = [],
             logl = [],
-            logp = [],
             logw = [],
             blobs = [],
             iter = [],

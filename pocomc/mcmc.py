@@ -1,630 +1,434 @@
 import numpy as np
-import torch
+from typing import Callable, Optional, Tuple
 
-from .tools import numpy_to_torch, torch_to_numpy, flow_numpy_wrapper
-from .student import fit_mvstud
-
-@torch.no_grad()
-def preconditioned_pcn(state_dict: dict,
-                       function_dict: dict,
-                       option_dict: dict):
+def parallel_mcmc(
+    u: np.ndarray,
+    x: np.ndarray,
+    logl: np.ndarray,
+    blobs: Optional[np.ndarray],
+    assignments: np.ndarray,
+    beta: float,
+    means: np.ndarray,
+    covariances: np.ndarray,
+    degrees_of_freedom: np.ndarray,
+    log_likelihood: Callable[[np.ndarray], Tuple[np.ndarray, Optional[np.ndarray]]],
+    prior_transform: Callable[[np.ndarray], np.ndarray],
+    progress_bar: Optional[Callable] = None,
+    n_steps: int = 100,
+    n_max: int = 1000,
+    verbose: bool = True,
+):
     """
-    Doubly Preconditioned Crank-Nicolson
-    
+    Perform parallel MCMC sampling with t-preconditioned Crank-Nicolson or Random Walk Metropolis.
+
     Parameters
     ----------
-    state_dict : dict
-        Dictionary of current state
-    function_dict : dict
-        Dictionary of functions.
-    option_dict : dict
-        Dictionary of options.
-    
+    u : np.ndarray
+        Array of transformed parameters (shape: [n_walkers, n_dim]).
+    x : np.ndarray
+        Array of parameters in original space (shape: [n_walkers, n_dim]).
+    logl : np.ndarray
+        Array of log-likelihoods (shape: [n_walkers]).
+    blobs : Optional[np.ndarray]
+        Array of blobs or auxiliary information (shape: [n_walkers, ...]).
+    assignments : np.ndarray
+        Array of cluster assignments for each walker (shape: [n_walkers]).
+    beta : float
+        Inverse temperature parameter.
+    means : np.ndarray
+        Array of means for each cluster (shape: [n_clusters, n_dim]).
+    covariances : np.ndarray
+        Array of covariance matrices for each cluster (shape: [n_clusters, n_dim, n_dim]).
+    degrees_of_freedom : np.ndarray
+        Degrees of freedom for each cluster (shape: [n_clusters]).
+    log_likelihood : Callable
+        Function to compute log-likelihood given parameters in x space.
+    prior_transform : Callable
+        Function to transform parameters from u space to x space.
+    progress_bar : Optional[Callable], optional
+        Function to update progress, by default None.
+    n_steps : int, optional
+        Number of steps for termination based on adaptation, by default 1000.
+
     Returns
     -------
-    Results dictionary
+    Tuple containing updated u, x, logl, blobs, average efficiency, average acceptance rate,
+    number of iterations, and number of likelihood calls.
     """
-    # Likelihood call counter
-    n_calls = 0
 
-    # Clone state variables
-    u = np.copy(state_dict.get('u'))
-    x = np.copy(state_dict.get('x'))
-    logdetj = np.copy(state_dict.get('logdetj'))
-    logl = np.copy(state_dict.get('logl'))
-    logp = np.copy(state_dict.get('logp'))
-    beta = state_dict.get('beta')
-    blobs = state_dict.get('blobs')
-    if blobs is None:
-        have_blobs = False
+    if means is None:
+        return parallel_random_walk_metropolis(u, x, logl, blobs, assignments, beta, 
+                                               covariances, log_likelihood, prior_transform, 
+                                               progress_bar, n_steps, n_max, verbose)
     else:
-        have_blobs = True
+        return parallel_t_preconditioned_crank_nicolson(u, x, logl, blobs, assignments, beta, 
+                                                         means, covariances, degrees_of_freedom, 
+                                                         log_likelihood, prior_transform, 
+                                                         progress_bar, n_steps, n_max, verbose)
 
-    # Get functions
-    log_like = function_dict.get('loglike')
-    log_prior = function_dict.get('logprior')
-    scaler = function_dict.get('scaler')
-    flow = flow_numpy_wrapper(function_dict.get('flow'))
-    geometry = function_dict.get('theta_geometry')
 
-    # Get MCMC options
-    n_max = option_dict.get('n_max')
-    n_steps = option_dict.get('n_steps')
-    progress_bar = option_dict.get('progress_bar')
-    sigma = np.minimum(option_dict.get('proposal_scale'), 0.99)
+def parallel_t_preconditioned_crank_nicolson(
+    u: np.ndarray,
+    x: np.ndarray,
+    logl: np.ndarray,
+    blobs: Optional[np.ndarray],
+    assignments: np.ndarray,
+    beta: float,
+    means: np.ndarray,
+    covariances: np.ndarray,
+    degrees_of_freedom: np.ndarray,
+    log_likelihood: Callable[[np.ndarray], Tuple[np.ndarray, Optional[np.ndarray]]],
+    prior_transform: Callable[[np.ndarray], np.ndarray],
+    progress_bar: Optional[Callable] = None,
+    n_steps: int = 100,
+    n_max: int = 1000,
+    verbose: bool = True,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, Optional[np.ndarray], float, float, int, int]:
+    """
+    Perform parallel t-preconditioned Crank-Nicolson updates for MCMC sampling.
 
-    # Get number of particles and parameters/dimensions
+    Parameters
+    ----------
+    u : np.ndarray
+        Array of transformed parameters (shape: [n_walkers, n_dim]).
+    x : np.ndarray
+        Array of parameters in original space (shape: [n_walkers, n_dim]).
+    logl : np.ndarray
+        Array of log-likelihoods (shape: [n_walkers]).
+    blobs : Optional[np.ndarray]
+        Array of blobs or auxiliary information (shape: [n_walkers, ...]).
+    assignments : np.ndarray
+        Array of cluster assignments for each walker (shape: [n_walkers]).
+    beta : float
+        Inverse temperature parameter.
+    means : np.ndarray
+        Array of means for each cluster (shape: [n_clusters, n_dim]).
+    covariances : np.ndarray
+        Array of covariance matrices for each cluster (shape: [n_clusters, n_dim, n_dim]).
+    degrees_of_freedom : np.ndarray
+        Degrees of freedom for each cluster (shape: [n_clusters]).
+    log_likelihood : Callable
+        Function to compute log-likelihood given parameters in x space.
+    prior_transform : Callable
+        Function to transform parameters from u space to x space.
+    progress_bar : Optional[Callable], optional
+        Function to update progress, by default None.
+    n_steps : int, optional
+        Number of steps for termination based on adaptation, by default 1000.
+    n_max : int, optional
+        Maximum number of iterations, by default 10000.
+
+    Returns
+    -------
+    Tuple containing updated u, x, logl, blobs, average efficiency, average acceptance rate,
+    number of iterations, and number of likelihood calls.
+    """
+    n_calls = 0
     n_walkers, n_dim = x.shape
+    n_clusters = means.shape[0]
 
-    # Transform u to theta
-    theta, logdetj_flow = flow.forward(u)
+    # Clone state variables to avoid modifying inputs
+    u = u.copy()
+    x = x.copy()
+    logl = logl.copy()
+    if blobs is not None:
+        blobs = blobs.copy()
+    assignments = assignments.copy()
+    means = means.copy()
+    covariances = covariances.copy()
+    degrees_of_freedom = degrees_of_freedom.copy()
 
+    # Precompute sigmas, inverses, and Cholesky decompositions
+    sigma_0 = 2.38 / np.sqrt(n_dim)
+    sigmas = np.ones(n_clusters) * np.minimum(sigma_0, 0.99)
 
-    mu = geometry.t_mean
-    cov = geometry.t_cov
-    nu = geometry.t_nu
+    inv_covs = np.linalg.inv(covariances)  # Shape: [n_clusters, n_dim, n_dim]
+    chol_covs = np.linalg.cholesky(covariances)  # Shape: [n_clusters, n_dim, n_dim]
 
-    inv_cov = np.linalg.inv(cov)
-    chol_cov = np.linalg.cholesky(cov)
-
-    logp2_val = np.mean(logl + logp)
+    best_average_logl = np.mean(logl)
     cnt = 0
+    iteration = 0
 
-    i = 0
     while True:
-        i += 1
+        iteration += 1
 
-        diff = theta - mu
-        s = np.empty(n_walkers)
+        # Compute differences for all walkers
+        means_assigned = means[assignments]  # Shape: [n_walkers, n_dim]
+        diff = u - means_assigned  # Shape: [n_walkers, n_dim]
+
+        # Compute scaling factors s for all walkers
+        dot_products = np.einsum('ij,ijk,ik->i', diff, inv_covs[assignments], diff)
+        gamma_shape = (n_dim + degrees_of_freedom[assignments]) / 2
+        gamma_scale = 2.0 / (degrees_of_freedom[assignments] + dot_products)
+        s = 1.0 / np.random.gamma(shape=gamma_shape, scale=gamma_scale)
+
+        # Initialize u_prime
+        u_prime = np.empty_like(u)
+
+        # Propose new u_prime for each walker, ensuring all components are within [0, 1]
         for k in range(n_walkers):
-            s[k] = 1./np.random.gamma((n_dim + nu) / 2, 2.0/(nu + np.dot(diff[k],np.dot(inv_cov,diff[k]))))
-
-        # Propose new points in theta space
-        theta_prime = np.empty((n_walkers, n_dim))
-        for k in range(n_walkers):
-            theta_prime[k] = mu + (1.0 - sigma ** 2.0) ** 0.5 * diff[k] + sigma * np.sqrt(s[k]) * np.dot(chol_cov, np.random.randn(n_dim))      
-
-        # Transform to u space
-        u_prime, logdetj_flow_prime = flow.inverse(theta_prime)
+            mu = means[assignments[k]]
+            chol_cov = chol_covs[assignments[k]]
+            sigma = sigmas[assignments[k]]
+            while True:
+                proposal = (
+                    mu
+                    + np.sqrt(1.0 - sigma ** 2.0) * diff[k]
+                    + sigma * np.sqrt(s[k]) * chol_cov @ np.random.randn(n_dim)
+                )
+                if np.all(proposal >= 0) and np.all(proposal <= 1):
+                    u_prime[k] = proposal
+                    break
 
         # Transform to x space
-        x_prime, logdetj_prime = scaler.inverse(u_prime)
+        x_prime = np.array([prior_transform(u_p) for u_p in u_prime])
 
-        # Compute finite mask
-        finite_mask_logdetj_prime = np.isfinite(logdetj_prime)
-        finite_mask_x_prime = np.isfinite(x_prime).all(axis=1)
-        finite_mask = finite_mask_logdetj_prime & finite_mask_x_prime
-
-        # Evaluate prior
-        logp_prime = np.empty(n_walkers)
-        logp_prime[finite_mask] = log_prior(x_prime[finite_mask])
-        logp_prime[~finite_mask] = -np.inf
-        finite_mask_logp = np.isfinite(logp_prime)
-        finite_mask = finite_mask & finite_mask_logp
-        
-        # Evaluate likelihood
-        logl_prime = np.empty(n_walkers)
-        if have_blobs:
-            blobs_prime = np.empty(n_walkers, dtype=np.dtype((blobs[0].dtype, blobs[0].shape)))
-            logl_prime[finite_mask], blobs_prime[finite_mask] = log_like(x_prime[finite_mask])
+        # Evaluate log-likelihood
+        if blobs is not None:
+            logl_prime, blobs_prime = log_likelihood(x_prime)
         else:
-            logl_prime[finite_mask], _ = log_like(x_prime[finite_mask])
-        logl_prime[~finite_mask] = -np.inf
-        
-        # Update likelihood call counter
-        n_calls += np.sum(finite_mask)
+            logl_prime, _ = log_likelihood(x_prime)
+            blobs_prime = None
 
-        # Compute Metropolis factors
-        diff_prime = theta_prime-mu
-        A = np.empty(n_walkers)
-        B = np.empty(n_walkers)
-        for k in range(n_walkers):
-            A[k] = -(n_dim+nu)/2*np.log(1+np.dot(diff_prime[k],np.dot(inv_cov,diff_prime[k]))/nu)
-            B[k] = -(n_dim+nu)/2*np.log(1+np.dot(diff[k],np.dot(inv_cov,diff[k]))/nu)
-        alpha = np.minimum(
-            np.ones(n_walkers),
-            np.exp(logl_prime * beta - logl * beta + logp_prime - logp + logdetj_prime - logdetj + logdetj_flow_prime - logdetj_flow - A + B)
-        )
-        alpha[np.isnan(alpha)] = 0.0
+        n_calls += n_walkers
+
+        # Compute Metropolis acceptance factors
+        diff_prime = u_prime - means_assigned  # Shape: [n_walkers, n_dim]
+        dot_prime = np.einsum('ij,ijk,ik->i', diff_prime, inv_covs[assignments], diff_prime)
+        A = -0.5 * (n_dim + degrees_of_freedom[assignments]) * np.log(1 + dot_prime / degrees_of_freedom[assignments])
+        B = -0.5 * (n_dim + degrees_of_freedom[assignments]) * np.log(1 + dot_products / degrees_of_freedom[assignments])
+
+        # Calculate acceptance probability
+        alpha = np.exp(beta * (logl_prime - logl) - A + B)
+        alpha = np.minimum(1.0, alpha)
+        alpha = np.nan_to_num(alpha, nan=0.0)
 
         # Metropolis criterion
         u_rand = np.random.rand(n_walkers)
-        mask = u_rand < alpha
+        mask_accept = u_rand < alpha
 
-        # Accept new points
-        theta[mask] = theta_prime[mask]
-        u[mask] = u_prime[mask]
-        x[mask] = x_prime[mask]
-        logdetj[mask] = logdetj_prime[mask]
-        logdetj_flow[mask] = logdetj_flow_prime[mask]
-        logl[mask] = logl_prime[mask]
-        logp[mask] = logp_prime[mask]
-        if have_blobs:
-            blobs[mask] = blobs_prime[mask]
+        # Update accepted walkers
+        u[mask_accept] = u_prime[mask_accept]
+        x[mask_accept] = x_prime[mask_accept]
+        logl[mask_accept] = logl_prime[mask_accept]
+        if blobs is not None:
+            blobs[mask_accept] = blobs_prime[mask_accept]
 
-        # Adapt scale parameter using diminishing adaptation
-        sigma = np.abs(np.minimum(sigma + 1 / (i + 1)**0.75 * (np.mean(alpha) - 0.234), np.minimum(2.38 / n_dim**0.5, 0.99)))
-        #sigma = np.minimum(sigma + 1 / (i + 1)**0.5 * (np.mean(alpha) - 0.234), 0.99)
+        # Adapt sigmas and means
+        for c in range(n_clusters):
+            mask_cluster = assignments == c
+            if not np.any(mask_cluster):
+                continue
 
-        # Adapt mean parameter using diminishing adaptation
-        mu = mu + 1.0 / (i + 1.0) * (np.mean(theta, axis=0) - mu)
+            mean_accept = alpha[mask_cluster].mean()
+            adaptation_rate = 1.0 / (iteration + 1) ** 1.0  # r = 1.0
 
-        # Update progress bar if available
-        if progress_bar is not None:
-            progress_bar.update_stats(
-                dict(calls=progress_bar.info['calls'] + np.sum(finite_mask),
-                    acc=np.mean(alpha),
-                    steps=i,
-                    logP=np.mean(logl + logp),
-                    eff=sigma / (2.38 / np.sqrt(n_dim)),
-                    )
+            # Update sigma with diminishing adaptation
+            sigmas[c] = np.clip(
+                sigmas[c] + adaptation_rate**0.75 * (mean_accept - 0.234),
+                0,
+                min(sigma_0, 0.99)
             )
 
-        # Loop termination criteria:
-        logp2_val_new = np.mean(logl + logp)
-        if logp2_val_new > logp2_val:
+            # Update mean with moving average
+            mean_update = u[mask_cluster].mean(axis=0)
+            means[c] += adaptation_rate * (mean_update - means[c])
+
+        # Update progress bar if provided
+        if progress_bar is not None and verbose:
+            progress_info = {
+                'calls': progress_bar.info.get('calls', 0) + n_walkers,
+                'acc': alpha.mean(),
+                'steps': iteration,
+                'logL': logl.mean(),
+                'eff': sigmas.mean() / sigma_0,
+            }
+            progress_bar.update_stats(progress_info)
+
+        # Check for convergence based on log-likelihood improvement
+        average_logl = logl.mean()
+        if average_logl > best_average_logl:
             cnt = 0
-            logp2_val = logp2_val_new
+            best_average_logl = average_logl
         else:
             cnt += 1
-            if cnt >= n_steps * ((2.38 / n_dim**0.5) / sigma)**2.0:
+            threshold = n_steps * (sigma_0 / np.median(sigmas)) ** 2.0
+            if cnt >= threshold:
                 break
 
-        if i >= n_max:
+        # Check maximum iterations
+        if iteration >= n_max:
             break
 
-    return dict(u=u, x=x, logdetj=logdetj, logl=logl, logp=logp, blobs=blobs, efficiency=sigma, 
-                accept=np.mean(alpha), steps=i, calls=n_calls, proposal_scale=sigma)
+    average_efficiency = sigmas.mean() / sigma_0
+    average_acceptance = alpha.mean()
 
-@torch.no_grad()
-def preconditioned_rwm(state_dict: dict,
-                       function_dict: dict,
-                       option_dict: dict):
+    return u, x, logl, blobs, average_efficiency, average_acceptance, iteration, n_calls
+
+
+def parallel_random_walk_metropolis(
+    u: np.ndarray,
+    x: np.ndarray,
+    logl: np.ndarray,
+    blobs: Optional[np.ndarray],
+    assignments: np.ndarray,
+    beta: float,
+    covariances: np.ndarray,
+    log_likelihood: Callable[[np.ndarray], Tuple[np.ndarray, Optional[np.ndarray]]],
+    prior_transform: Callable[[np.ndarray], np.ndarray],
+    progress_bar: Optional[Callable] = None,
+    n_steps: int = 1000,
+    n_max: int = 10000,
+    verbose: bool = True,
+) -> Tuple[
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    Optional[np.ndarray],
+    float,
+    float,
+    int,
+    int,
+]:
     """
-    Preconditioned Random-walk Metropolis
-    
+    Perform parallel Random Walk Metropolis updates for MCMC sampling.
+
     Parameters
     ----------
-    state_dict : dict
-        Dictionary of current state
-    function_dict : dict
-        Dictionary of functions.
-    option_dict : dict
-        Dictionary of options.
-    
+    u : np.ndarray
+        Array of transformed parameters (shape: [n_walkers, n_dim]).
+    x : np.ndarray
+        Array of parameters in original space (shape: [n_walkers, n_dim]).
+    logl : np.ndarray
+        Array of log-likelihoods (shape: [n_walkers]).
+    blobs : Optional[np.ndarray]
+        Array of blobs or auxiliary information (shape: [n_walkers, ...]).
+    assignments : np.ndarray
+        Array of cluster assignments for each walker (shape: [n_walkers]).
+    beta : float
+        Inverse temperature parameter.
+    covariances : np.ndarray
+        Array of covariance matrices for each cluster (shape: [n_clusters, n_dim, n_dim]).
+    log_likelihood : Callable
+        Function to compute log-likelihood given parameters in x space.
+    prior_transform : Callable
+        Function to transform parameters from u space to x space.
+    progress_bar : Optional[Callable], optional
+        Function to update progress, by default None.
+    n_steps : int, optional
+        Number of steps for termination based on adaptation, by default 1000.
+    n_max : int, optional
+        Maximum number of iterations, by default 10000.
+
     Returns
     -------
-    Results dictionary
+    Tuple containing updated u, x, logl, blobs, average efficiency, average acceptance rate,
+    number of iterations, and number of likelihood calls.
     """
-    # Likelihood call counter
     n_calls = 0
-
-    # Clone state variables
-    u = np.copy(state_dict.get('u'))
-    x = np.copy(state_dict.get('x'))
-    logdetj = np.copy(state_dict.get('logdetj'))
-    logl = np.copy(state_dict.get('logl'))
-    logp = np.copy(state_dict.get('logp'))
-    beta = state_dict.get('beta')
-    blobs = state_dict.get('blobs')
-    if blobs is None:
-        have_blobs = False
-    else:
-        have_blobs = True
-
-    # Get functions
-    log_like = function_dict.get('loglike')
-    log_prior = function_dict.get('logprior')
-    scaler = function_dict.get('scaler')
-    flow = flow_numpy_wrapper(function_dict.get('flow'))
-    geometry = function_dict.get('theta_geometry')
-
-    # Get MCMC options
-    n_max = option_dict.get('n_max')
-    n_steps = option_dict.get('n_steps')
-    progress_bar = option_dict.get('progress_bar')
-    sigma = option_dict.get('proposal_scale')
-
-    # Get number of particles and parameters/dimensions
     n_walkers, n_dim = x.shape
+    n_clusters = covariances.shape[0]
 
-    cov = geometry.normal_cov
-    chol = np.linalg.cholesky(cov)
+    # Clone state variables to avoid modifying inputs
+    u = u.copy()
+    x = x.copy()
+    logl = logl.copy()
+    if blobs is not None:
+        blobs = blobs.copy()
+    assignments = assignments.copy()
+    covariances = covariances.copy()
 
-    # Transform u to theta
-    theta, logdetj_flow = flow.forward(u)
+    # Precompute sigmas and Cholesky decompositions
+    sigma_0 = 2.38 / np.sqrt(n_dim)
+    sigmas = np.ones(n_clusters) * sigma_0
 
-    logp2_val = np.mean(logl + logp + logdetj)
+    chol_covs = np.linalg.cholesky(covariances)  # Shape: [n_clusters, n_dim, n_dim]
+
+    best_average_logl = np.mean(logl)
     cnt = 0
+    iteration = 0
 
-    i = 0
     while True:
-        i += 1
+        iteration += 1
 
-        # Propose new points in theta space
-        theta_prime = np.empty((n_walkers, n_dim))
+        # Propose new u_prime for each walker, ensuring all components are within [0, 1]
+        u_prime = np.empty_like(u)
         for k in range(n_walkers):
-            theta_prime[k] = theta[k] + sigma * np.dot(chol, np.random.randn(n_dim))
-
-        # Transform to u space
-        u_prime, logdetj_flow_prime = flow.inverse(theta_prime)
+            chol_cov = chol_covs[assignments[k]]
+            sigma = sigmas[assignments[k]]
+            while True:
+                proposal = u[k] + sigma * chol_cov @ np.random.randn(n_dim)
+                if np.all(proposal >= 0) and np.all(proposal <= 1):
+                    u_prime[k] = proposal
+                    break
 
         # Transform to x space
-        x_prime, logdetj_prime = scaler.inverse(u_prime)
+        x_prime = np.array([prior_transform(u_p) for u_p in u_prime])
 
-        # Compute finite mask
-        finite_mask_logdetj_prime = np.isfinite(logdetj_prime)
-        finite_mask_x_prime = np.isfinite(x_prime).all(axis=1)
-        finite_mask = finite_mask_logdetj_prime & finite_mask_x_prime
-
-        # Evaluate prior
-        logp_prime = np.empty(n_walkers)
-        logp_prime[finite_mask] = log_prior(x_prime[finite_mask])
-        logp_prime[~finite_mask] = -np.inf
-        finite_mask_logp = np.isfinite(logp_prime)
-        finite_mask = finite_mask & finite_mask_logp
-
-        # Compute log-likelihood, log-prior, and log-posterior
-        logl_prime = np.empty(n_walkers)
-        if have_blobs:
-            blobs_prime = np.empty(n_walkers, dtype=np.dtype((blobs[0].dtype, blobs[0].shape)))
-            logl_prime[finite_mask], blobs_prime[finite_mask] = log_like(x_prime[finite_mask])
+        # Evaluate log-likelihood
+        if blobs is not None:
+            logl_prime, blobs_prime = log_likelihood(x_prime)
         else:
-            logl_prime[finite_mask], _ = log_like(x_prime[finite_mask])
-        logl_prime[~finite_mask] = -np.inf
+            logl_prime, _ = log_likelihood(x_prime)
+            blobs_prime = None
 
-        # Update likelihood call counter
-        n_calls += np.sum(finite_mask)
+        n_calls += n_walkers
 
-        # Compute Metropolis factors
-        alpha = np.minimum(
-            np.ones(n_walkers),
-            np.exp(logl_prime * beta - logl * beta + logp_prime - logp + logdetj_prime - logdetj + logdetj_flow_prime - logdetj_flow)
-        )
-        alpha[np.isnan(alpha)] = 0.0
+        # Calculate acceptance probability
+        alpha = np.exp(beta * (logl_prime - logl))
+        alpha = np.minimum(1.0, alpha)
+        alpha = np.nan_to_num(alpha, nan=0.0)
 
         # Metropolis criterion
         u_rand = np.random.rand(n_walkers)
-        mask = u_rand < alpha
+        mask_accept = u_rand < alpha
 
-        # Accept new points
-        theta[mask] = theta_prime[mask]
-        u[mask] = u_prime[mask]
-        x[mask] = x_prime[mask]
-        logdetj[mask] = logdetj_prime[mask]
-        logdetj_flow[mask] = logdetj_flow_prime[mask]
-        logl[mask] = logl_prime[mask]
-        logp[mask] = logp_prime[mask]
-        if have_blobs:
-            blobs[mask] = blobs_prime[mask]
+        # Update accepted walkers
+        u[mask_accept] = u_prime[mask_accept]
+        x[mask_accept] = x_prime[mask_accept]
+        logl[mask_accept] = logl_prime[mask_accept]
+        if blobs is not None:
+            blobs[mask_accept] = blobs_prime[mask_accept]
 
-        # Adapt scale parameter using diminishing adaptation
-        sigma = sigma + 1 / (i + 1) * (np.mean(alpha) - 0.234)
+        # Adapt sigmas
+        for c in range(n_clusters):
+            mask_cluster = assignments == c
+            if not np.any(mask_cluster):
+                continue
 
-        # Update progress bar if available
-        if progress_bar is not None:
-            progress_bar.update_stats(
-                dict(calls=progress_bar.info['calls'] + np.sum(finite_mask),
-                    acc=np.mean(alpha),
-                    steps=i,
-                    logP=np.mean(logl + logp),
-                    eff=sigma / (2.38 / np.sqrt(n_dim)))
-            )
+            mean_accept = alpha[mask_cluster].mean()
+            adaptation_rate = 1.0 / (iteration + 1)  # r = 1.0
 
-        # Loop termination criteria:
-        logp2_val_new = np.mean(logl + logp + logdetj)
-        if logp2_val_new > logp2_val:
+            # Update sigma with diminishing adaptation
+            sigmas[c] = sigmas[c] + adaptation_rate * (mean_accept - 0.234),
+
+        # Update progress bar if provided
+        if progress_bar is not None and verbose:
+            progress_info = {
+                'calls': getattr(progress_bar, 'info', {}).get('calls', 0) + n_walkers,
+                'acc': alpha.mean(),
+                'steps': iteration,
+                'logL': logl.mean(),
+                'eff': sigmas.mean() / sigma_0,
+            }
+            progress_bar.update_stats(progress_info)
+
+        # Check for convergence based on log-likelihood improvement
+        average_logl = logl.mean()
+        if average_logl > best_average_logl:
             cnt = 0
-            logp2_val = logp2_val_new
+            best_average_logl = average_logl
         else:
             cnt += 1
-            if cnt >= n_steps * (np.minimum(1.0, (2.38 / n_dim**0.5) / sigma))**2.0:
+            threshold = n_steps * (sigma_0 / np.median(sigmas)) ** 2.0
+            if cnt >= threshold:
                 break
 
-        if i >= n_max:
+        # Check maximum iterations
+        if iteration >= n_max:
             break
 
+    average_efficiency = sigmas.mean() / sigma_0
+    average_acceptance = alpha.mean()
 
-    return dict(u=u, x=x, logdetj=logdetj, logl=logl, logp=logp, blobs=blobs, efficiency=sigma, 
-                accept=np.mean(alpha), steps=i, calls=n_calls, proposal_scale=sigma)
-
-
-def pcn(state_dict: dict,
-        function_dict: dict,
-        option_dict: dict):
-    """
-    Preconditioned Crank-Nicolson
-    
-    Parameters
-    ----------
-    state_dict : dict
-        Dictionary of current state
-    function_dict : dict
-        Dictionary of functions.
-    option_dict : dict
-        Dictionary of options.
-    
-    Returns
-    -------
-    Results dictionary
-    """
-    # Likelihood call counter
-    n_calls = 0
-
-    # Clone state variables
-    u = np.copy(state_dict.get('u'))
-    x = np.copy(state_dict.get('x'))
-    logdetj = np.copy(state_dict.get('logdetj'))
-    logl = np.copy(state_dict.get('logl'))
-    logp = np.copy(state_dict.get('logp'))
-    beta = state_dict.get('beta')
-    blobs = state_dict.get('blobs')
-    if blobs is None:
-        have_blobs = False
-    else:
-        have_blobs = True
-
-    # Get functions
-    log_like = function_dict.get('loglike')
-    log_prior = function_dict.get('logprior')
-    scaler = function_dict.get('scaler')
-    geometry = function_dict.get('u_geometry')
-
-    # Get MCMC options
-    n_max = option_dict.get('n_max')
-    n_steps = option_dict.get('n_steps')
-    progress_bar = option_dict.get('progress_bar')
-    sigma = np.minimum(option_dict.get('proposal_scale'), 0.99)
-
-    # Get number of particles and parameters/dimensions
-    n_walkers, n_dim = x.shape
-
-    mu = geometry.t_mean
-    cov = geometry.t_cov
-    nu = geometry.t_nu
-
-    inv_cov = np.linalg.inv(cov)
-    chol_cov = np.linalg.cholesky(cov)
-
-    logp2_val = np.mean(logl + logp)
-    #logp2_val = np.mean(logl * beta + logp)
-    cnt = 0
-
-    i = 0
-    while True:
-        i += 1
-
-        diff = u - mu
-        s = np.empty(n_walkers)
-        for k in range(n_walkers):
-            s[k] = 1./np.random.gamma((n_dim + nu) / 2, 2.0/(nu + np.dot(diff[k],np.dot(inv_cov,diff[k]))))
-
-        # Propose new points in u space
-        u_prime = np.empty((n_walkers, n_dim))
-        for k in range(n_walkers):
-            u_prime[k] = mu + (1.0 - sigma ** 2.0) ** 0.5 * diff[k] + sigma * np.sqrt(s[k]) * np.dot(chol_cov, np.random.randn(n_dim)) 
-
-        # Transform to x space
-        x_prime, logdetj_prime = scaler.inverse(u_prime)
-
-        # Compute finite mask
-        finite_mask_logdetj_prime = np.isfinite(logdetj_prime)
-        finite_mask_x_prime = np.isfinite(x_prime).all(axis=1)
-        finite_mask = finite_mask_logdetj_prime & finite_mask_x_prime
-
-        # Evaluate prior
-        logp_prime = np.empty(n_walkers)
-        logp_prime[finite_mask] = log_prior(x_prime[finite_mask])
-        logp_prime[~finite_mask] = -np.inf
-        finite_mask_logp = np.isfinite(logp_prime)
-        finite_mask = finite_mask & finite_mask_logp
-
-        # Evaluate likelihood
-        logl_prime = np.empty(n_walkers)
-        if have_blobs:
-            blobs_prime = np.empty(n_walkers, dtype=np.dtype((blobs[0].dtype, blobs[0].shape)))
-            logl_prime[finite_mask], blobs_prime[finite_mask] = log_like(x_prime[finite_mask])
-        else:
-            logl_prime[finite_mask], _ = log_like(x_prime[finite_mask])
-        logl_prime[~finite_mask] = -np.inf
-        
-        # Update likelihood call counter
-        n_calls += np.sum(finite_mask)
-
-        # Compute Metropolis factors
-        diff_prime = u_prime - mu
-        A = np.empty(n_walkers)
-        B = np.empty(n_walkers)
-        for k in range(n_walkers):
-            A[k] = -(n_dim+nu)/2*np.log(1+np.dot(diff_prime[k],np.dot(inv_cov,diff_prime[k]))/nu)
-            B[k] = -(n_dim+nu)/2*np.log(1+np.dot(diff[k],np.dot(inv_cov,diff[k]))/nu)
-        alpha = np.minimum(
-            np.ones(n_walkers),
-            np.exp(logl_prime * beta - logl * beta + logp_prime - logp + logdetj_prime - logdetj - A + B)
-        )
-        alpha[np.isnan(alpha)] = 0.0
-
-        # Metropolis criterion
-        u_rand = np.random.rand(n_walkers)
-        mask = u_rand < alpha
-
-        # Accept new points
-        u[mask] = u_prime[mask]
-        x[mask] = x_prime[mask]
-        logdetj[mask] = logdetj_prime[mask]
-        logl[mask] = logl_prime[mask]
-        logp[mask] = logp_prime[mask]
-        if have_blobs:
-            blobs[mask] = blobs_prime[mask]
-
-        # Adapt scale parameter using diminishing adaptation
-        sigma = np.abs(np.minimum(sigma + 1 / (i + 1)**0.75 * (np.mean(alpha) - 0.234), np.minimum(2.38 / n_dim**0.5, 0.99)))
-        #sigma = sigma + 1 / (i + 1)**0.75 * (np.mean(alpha) - 0.234)
-
-        # Update progress bar if available
-        if progress_bar is not None:
-            progress_bar.update_stats(
-                dict(calls=progress_bar.info['calls'] + np.sum(finite_mask),
-                    acc=np.mean(alpha),
-                    steps=i,
-                    logP=np.mean(logl + logp),
-                    eff=sigma / (2.38 / np.sqrt(n_dim)))
-            )
-
-        # Loop termination criteria:
-        logp2_val_new = np.mean(logl + logp)
-        if logp2_val_new > logp2_val:
-            cnt = 0
-            logp2_val = logp2_val_new
-        else:
-            cnt += 1
-            if cnt >= n_steps * ((2.38 / n_dim**0.5) / sigma)**2.0:
-                break
-
-        if i >= n_max:
-            break
-
-    return dict(u=u, x=x, logdetj=logdetj, logl=logl, logp=logp, blobs=blobs, efficiency=sigma, 
-                accept=np.mean(alpha), steps=i, calls=n_calls, proposal_scale=sigma)
-
-def rwm(state_dict: dict,
-        function_dict: dict,
-        option_dict: dict):
-    """
-    Random-walk Metropolis
-    
-    Parameters
-    ----------
-    state_dict : dict
-        Dictionary of current state
-    function_dict : dict
-        Dictionary of functions.
-    option_dict : dict
-        Dictionary of options.
-    
-    Returns
-    -------
-    Results dictionary
-    """
-    # Likelihood call counter
-    n_calls = 0
-
-    # Clone state variables
-    u = np.copy(state_dict.get('u'))
-    x = np.copy(state_dict.get('x'))
-    logdetj = np.copy(state_dict.get('logdetj'))
-    logl = np.copy(state_dict.get('logl'))
-    logp = np.copy(state_dict.get('logp'))
-    beta = state_dict.get('beta')
-    blobs = state_dict.get('blobs')
-    if blobs is None:
-        have_blobs = False
-    else:
-        have_blobs = True
-
-    # Get functions
-    log_like = function_dict.get('loglike')
-    log_prior = function_dict.get('logprior')
-    scaler = function_dict.get('scaler')
-    geometry = function_dict.get('u_geometry')
-
-    # Get MCMC options
-    n_max = option_dict.get('n_max')
-    n_steps = option_dict.get('n_steps')
-    progress_bar = option_dict.get('progress_bar')
-    sigma = option_dict.get('proposal_scale')
-
-    # Get number of particles and parameters/dimensions
-    n_walkers, n_dim = x.shape
-
-    cov = geometry.normal_cov
-    chol = np.linalg.cholesky(cov)
-
-    logp2_val = np.mean(logl + logp + logdetj)
-    cnt = 0
-
-    i = 0
-    while True:
-        i += 1
-
-        # Propose new points in theta space
-        u_prime = np.empty((n_walkers, n_dim))
-        for k in range(n_walkers):
-            u_prime[k] = u[k] + sigma * np.dot(chol, np.random.randn(n_dim))
-
-        # Transform to x space
-        x_prime, logdetj_prime = scaler.inverse(u_prime)
-
-        # Compute finite mask
-        finite_mask_logdetj_prime = np.isfinite(logdetj_prime)
-        finite_mask_x_prime = np.isfinite(x_prime).all(axis=1)
-        finite_mask = finite_mask_logdetj_prime & finite_mask_x_prime
-
-        # Evaluate prior
-        logp_prime = np.empty(n_walkers)
-        logp_prime[finite_mask] = log_prior(x_prime[finite_mask])
-        logp_prime[~finite_mask] = -np.inf
-        finite_mask_logp = np.isfinite(logp_prime)
-        finite_mask = finite_mask & finite_mask_logp
-
-        # Evaluate likelihood
-        logl_prime = np.empty(n_walkers)
-        if have_blobs:
-            blobs_prime = np.empty(n_walkers, dtype=np.dtype((blobs[0].dtype, blobs[0].shape)))
-            logl_prime[finite_mask], blobs_prime[finite_mask] = log_like(x_prime[finite_mask])
-        else:
-            logl_prime[finite_mask], _ = log_like(x_prime[finite_mask])
-        logl_prime[~finite_mask] = -np.inf
-
-        # Update likelihood call counter
-        n_calls += np.sum(finite_mask)
-
-        # Compute Metropolis factors
-        alpha = np.minimum(
-            np.ones(n_walkers),
-            np.exp(logl_prime * beta - logl * beta + logp_prime - logp + logdetj_prime - logdetj)
-        )
-        alpha[np.isnan(alpha)] = 0.0
-
-        # Metropolis criterion
-        u_rand = np.random.rand(n_walkers)
-        mask = u_rand < alpha
-
-        # Accept new points
-        u[mask] = u_prime[mask]
-        x[mask] = x_prime[mask]
-        logdetj[mask] = logdetj_prime[mask]
-        logl[mask] = logl_prime[mask]
-        logp[mask] = logp_prime[mask]
-        if have_blobs:
-            blobs[mask] = blobs_prime[mask]
-
-        # Adapt scale parameter using diminishing adaptation
-        sigma = np.abs(sigma + 1 / (i + 1) * (np.mean(alpha) - 0.234))
-
-        # Update progress bar if available
-        if progress_bar is not None:
-            progress_bar.update_stats(
-                dict(calls=progress_bar.info['calls'] + np.sum(finite_mask),
-                    acc=np.mean(alpha),
-                    steps=i,
-                    logP=np.mean(logl + logp),
-                    eff=sigma / (2.38 / np.sqrt(n_dim)))
-            )
-
-        # Loop termination criteria:
-        logp2_val_new = np.mean(logl + logp + logdetj)
-        if logp2_val_new > logp2_val:
-            cnt = 0
-            logp2_val = logp2_val_new
-        else:
-            cnt += 1
-            if cnt >= n_steps * ((2.38 / n_dim**0.5) / sigma)**2.0:
-                break
-
-        if i >= n_max:
-            break
-
-
-    return dict(u=u, x=x, logdetj=logdetj, logl=logl, logp=logp, blobs=blobs, efficiency=sigma, 
-                accept=np.mean(alpha), steps=i, calls=n_calls, proposal_scale=sigma)
+    return u, x, logl, blobs, average_efficiency, average_acceptance, iteration, n_calls

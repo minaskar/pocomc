@@ -24,7 +24,6 @@ __license__ = "GPL-3.0"
 __description__ = "A Python implementation of Preconditioned Monte Carlo for accelerated Bayesian Computation"
 
 
-from .flow import *
 from .sampler import *
 from .prior import *
 from .parallel import *
