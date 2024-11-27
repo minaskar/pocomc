@@ -157,6 +157,7 @@ class Sampler:
                  output_dir: str = None,
                  output_label: str = None,
                  random_state: int = None,
+                 flow_config=None,
                  # deprecated
                  n_ess=None,
                  pytorch_threads=None,
@@ -274,11 +275,31 @@ class Sampler:
         self.theta_geometry = Geometry()
 
         # Normalizing Flow
-        self.flow = sf.Flow(n_transforms=500,
-                            n_knots=1000,
-                            validation_fraction=0.2,
-                            early_stopping=True,
-                            n_iter_no_change=2*self.n_dim,)
+        self.flow_config = dict(n_transforms=500, 
+                                n_directions=None,
+                                n_knots=1000, 
+                                validation_fraction=0.2, 
+                                early_stopping=True,
+                                n_iter_no_change=2*self.n_dim,
+                                learning_rate=1000.0,
+                                beta=0.2,
+                                max_iter=1000,
+                                tol=1e-6,
+                                )
+        if flow_config is not None:
+            for key in flow_config.keys():
+                self.flow_config[key] = flow_config[key]
+        self.flow = sf.Flow(n_transforms=self.flow_config['n_transforms'],
+                            n_directions=self.flow_config['n_directions'],
+                            n_knots=self.flow_config['n_knots'],
+                            validation_fraction=self.flow_config['validation_fraction'],
+                            early_stopping=self.flow_config['early_stopping'],
+                            n_iter_no_change=self.flow_config['n_iter_no_change'],
+                            learning_rate=self.flow_config['learning_rate'],
+                            beta=self.flow_config['beta'],
+                            max_iter=self.flow_config['max_iter'],
+                            tol=self.flow_config['tol'],
+                            )
 
         
         if train_frequency is None:
