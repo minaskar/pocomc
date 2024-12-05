@@ -53,33 +53,39 @@ class Flow:
 
         if flow == 'maf3':
             self.flow = zuko.flows.MAF(n_dim, 
+                                       context=1,
                                        transforms=3, 
                                        hidden_features=[n_hidden] * 3,
                                        residual=True,)
         elif flow == 'maf6':
             self.flow = zuko.flows.MAF(n_dim, 
+                                       context=1,
                                        transforms=6, 
                                        hidden_features=[n_hidden] * 3,
                                        residual=True,)
         elif flow == 'maf12':
             self.flow = zuko.flows.MAF(n_dim, 
+                                       context=1,
                                        transforms=12, 
                                        hidden_features=[n_hidden] * 3,
                                        residual=True,)
         elif flow == 'nsf3':
             self.flow = zuko.flows.NSF(features=n_dim, 
+                                       context=1,
                                        bins=8, 
                                        transforms=3, 
                                        hidden_features=[n_hidden] * 3,
                                        residual=True)
         elif flow == 'nsf6':
             self.flow = zuko.flows.NSF(features=n_dim, 
+                                       context=1,
                                        bins=8, 
                                        transforms=6, 
                                        hidden_features=[n_hidden] * 3,
                                        residual=True)
         elif flow == 'nsf12':
             self.flow = zuko.flows.NSF(features=n_dim, 
+                                       context=1,
                                        bins=8, 
                                        transforms=12, 
                                        hidden_features=[n_hidden] * 3,
@@ -94,7 +100,7 @@ class Flow:
         """
         Transformation object.
         """
-        return self.flow().transform
+        return self.flow([1.0]).transform
 
     def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
@@ -111,7 +117,8 @@ class Flow:
             Transformed samples in latent space with the same shape as the original space inputs.
         """
         x = torch_double_to_float(x)
-        return self.transform.call_and_ladj(x)
+        #return self.transform.call_and_ladj(x)
+        return self.flow(torch.ones(x.shape[0],1)).transform.call_and_ladj(x)
 
     def inverse(self, u: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
@@ -128,7 +135,8 @@ class Flow:
             Transformed samples in the original space with the same shape as the latent space inputs.
         """
         u = torch_double_to_float(u)
-        x, logdetj = self.transform.inv.call_and_ladj(u)
+        #x, logdetj = self.transform.inv.call_and_ladj(u)
+        x, logdetj = self.flow(torch.ones(u.shape[0],1)).transform.inv.call_and_ladj(u)
         return x, logdetj
 
     def log_prob(self, x: torch.Tensor) -> torch.Tensor:
@@ -144,7 +152,8 @@ class Flow:
         Log-probability of samples.
         """
         x = torch_double_to_float(x)
-        return self.flow().log_prob(x)
+        #return self.flow([1.0]).log_prob(x)
+        return self.flow(torch.ones(x.shape[0],1)).log_prob(x)
 
     def sample(self, size: int = 1) -> Tuple[torch.Tensor, torch.Tensor]:
         """
@@ -159,22 +168,20 @@ class Flow:
         samples, log_prob : ``tuple``
             Samples as a ``torch.Tensor`` with shape ``(size, n_dimensions)`` and log probability values with shape ``(size, )``.
         """
-        x, log_p = self.flow().rsample_and_log_prob((size,))
+        x, log_p = self.flow(torch.tensor([1.0])).rsample_and_log_prob((size,))
+        #x, log_p = self.flow(torch.ones(size,1)).rsample_and_log_prob((size,))
         return x, log_p
 
     def fit(self,
             x,
-            weights=None,
+            levels,
             validation_split=0.0,
             epochs=1000,
             batch_size=1000,
             patience=20,
             learning_rate=1e-3,
             weight_decay=0,
-            laplace_scale=None,
-            gaussian_scale=None,
             annealing=True,
-            noise=None,
             shuffle=True,
             clip_grad_norm=1.0,
             verbose=0,
@@ -234,35 +241,20 @@ class Flow:
         if shuffle:
             rand_indx = torch.randperm(n_samples)
             x = x[rand_indx]
-            if weights is not None:
-                weights = weights[rand_indx]
-
-        if noise is not None:
-            min_dists = torch.empty(n_samples)
-            for i in range(n_samples):
-                min_dist = torch.linalg.norm(x[i] - x, axis=1)
-                min_dists[i] = torch.min(min_dist[min_dist > 0.0])
-            mean_min_dist = torch.mean(min_dist)
+            levels = levels[rand_indx]
 
         if validation_split > 0.0:
             x_train = x[:int(validation_split * n_samples)]
             x_valid = x[int(validation_split * n_samples):]
-            if weights is None:
-                train_dl = DataLoader(TensorDataset(x_train), batch_size, shuffle)
-                val_dl = DataLoader(TensorDataset(x_valid), batch_size, shuffle)
-            else:
-                weights_train = weights[:int(validation_split * n_samples)]
-                weights_valid = weights[int(validation_split * n_samples):]
-                train_dl = DataLoader(TensorDataset(x_train, weights_train), batch_size, shuffle)
-                val_dl = DataLoader(TensorDataset(x_valid, weights_valid), batch_size, shuffle)
+            levels_train = levels[:int(validation_split * n_samples)]
+            levels_valid = levels[int(validation_split * n_samples):]
+            train_dl = DataLoader(TensorDataset(x_train, levels_train), batch_size, shuffle)
+            val_dl = DataLoader(TensorDataset(x_valid, levels_valid), batch_size, shuffle)
             validation = True
         else:
             x_train = x
-            if weights is None:
-                train_dl = DataLoader(TensorDataset(x_train), batch_size, shuffle)
-            else:
-                weights_train = weights
-                train_dl = DataLoader(TensorDataset(x_train, weights_train), batch_size, shuffle)
+            levels_train = levels
+            train_dl = DataLoader(TensorDataset(x_train, levels_train), batch_size, shuffle)
             validation = False
 
         optimizer = torch.optim.AdamW(self.flow.parameters(), 
@@ -301,18 +293,9 @@ class Flow:
             for batch in train_dl:
 
                 optimizer.zero_grad()
-                if noise is None:
-                    x_ = batch[0]
-                else:
-                    x_ = batch[0] + noise * mean_min_dist * torch.randn_like(batch[0])
-                if weights is None:
-                    loss = -self.flow().log_prob(x_).sum()
-                else:
-                    loss = -self.flow().log_prob(x_) * batch[1] * 1000.0
-                    loss = loss.sum() / batch[1].sum()
-
-                if laplace_scale is not None or gaussian_scale is not None:
-                    loss -= regularization_loss(self.flow, laplace_scale, gaussian_scale)
+                x_ = batch[0]
+                levels_ = batch[1].reshape(-1, 1)
+                loss = -self.flow(levels_).log_prob(x_).sum()
 
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(self.flow.parameters(), clip_grad_norm)
@@ -330,18 +313,10 @@ class Flow:
 
                 for batch in val_dl:
 
-                    if noise is None:
-                        x_ = batch[0]
-                    else:
-                        x_ = batch[0] + noise * mean_min_dist * torch.randn_like(batch[0])
-                    if weights is None:
-                        loss = -self.flow().log_prob(x_).sum()
-                    else:
-                        loss = -self.flow().log_prob(x_) * batch[1] * 1000.0
-                        loss = loss.sum() / batch[1].sum()
+                    x_ = batch[0]
+                    levels_ = batch[1].reshape(-1, 1)
                     
-                    if laplace_scale is not None or gaussian_scale is not None:
-                        loss -= regularization_loss(self.flow, laplace_scale, gaussian_scale)
+                    loss = -self.flow(levels_).log_prob(x_).sum()
 
                     val_loss += loss.data.item()
 
@@ -382,41 +357,3 @@ class Flow:
             print('Time per epoch: %5.2f sec' % time_per_epoch_sec)
 
         return history
-
-
-def regularization_loss(model, laplace_scale=None, gaussian_scale=None):
-    """
-    Compute regularization loss.
-
-    Parameters
-    ----------
-    model : ``zuko.flows.Flow``
-        Normalizing flow model.
-    laplace_scale : ``float``, optional
-        Laplace regularization scale. Default: ``None``.
-    gaussian_scale : ``float``, optional
-        Gaussian regularization scale. Default: ``None``.
-    
-    Returns
-    -------
-    Regularization loss.
-    """
-    total_laplace = 0.0
-    total_gaussian = 0.0
-
-    for i, transform in enumerate(model.transforms):
-        if hasattr(transform, "hyper"):
-            for parameter_name, parameter in transform.hyper.named_parameters():
-                if parameter_name.endswith('weight'):
-                    if laplace_scale is not None:
-                        total_laplace += parameter.abs().sum()
-                    if gaussian_scale is not None:
-                        total_gaussian += parameter.square().sum()
-    
-    total = 0.0
-    if laplace_scale is not None:
-        total += - total_laplace / laplace_scale
-    if gaussian_scale is not None:
-        total += - total_gaussian / (2.0 * gaussian_scale**2.0)
-
-    return total

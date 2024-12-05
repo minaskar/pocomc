@@ -291,9 +291,6 @@ class Sampler:
                                  patience=int(self.n_dim),
                                  learning_rate=1e-3,
                                  annealing=False,
-                                 gaussian_scale=None,
-                                 laplace_scale=None,
-                                 noise=None,
                                  shuffle=True,
                                  clip_grad_norm=1.0,
                                  verbose=0,
@@ -651,20 +648,24 @@ class Sampler:
         u = current_particles.get("u")
         w = current_particles.get("weights")
 
+        u_history = self.particles.get("u", index=None, flat=False)
+        m = np.minimum(len(u_history), 10)
+        u_history = u_history[-m:]
+        levels = np.linspace(np.zeros(self.n_active), np.ones(self.n_active), m)
+        u_history_flat = u_history.reshape(-1, self.n_dim)
+        levels_flat = levels.reshape(-1)
+
         if self.preconditioned and (self.t % self.train_frequency == 0 or self.flow_untrained):
             if self.current_particles.get("beta") < 1.0 or self.post_annealing_train:
                 self.flow_untrained = False
-                self.flow.fit(numpy_to_torch(u),
-                          weights=numpy_to_torch(w),
+                self.flow.fit(numpy_to_torch(u_history_flat),
+                          levels=numpy_to_torch(levels_flat),
                           validation_split=self.train_config["validation_split"],
                           epochs=self.train_config["epochs"],
                           batch_size=int(np.minimum(len(u)//2, self.train_config["batch_size"])),
-                          gaussian_scale=self.train_config["gaussian_scale"],
-                          laplace_scale=self.train_config["laplace_scale"],
                           patience=self.train_config["patience"],
                           learning_rate=self.train_config["learning_rate"],
                           annealing=self.train_config["annealing"],
-                          noise=self.train_config["noise"],
                           shuffle=self.train_config["shuffle"],
                           clip_grad_norm=self.train_config["clip_grad_norm"],
                           verbose=self.train_config["verbose"],
@@ -791,7 +792,7 @@ class Sampler:
 
         idx, weights = trim_weights(np.arange(len(weights)), weights, ess=0.99, bins=1000)
         current_particles["x"] = self.particles.get("x", index=None, flat=True)[idx]
-        self.scaler.fit(current_particles["x"])
+        #self.scaler.fit(current_particles["x"])
         current_particles["u"], current_particles["logdetj"] = self.scaler.forward(current_particles["x"])
         current_particles["logdetj"] = -current_particles["logdetj"]
         current_particles["logl"] = self.particles.get("logl", index=None, flat=True)[idx]
