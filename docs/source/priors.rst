@@ -75,3 +75,44 @@ This would look like::
                 return np.array([m, s, c]).T
 
         prior = CustomPrior()
+
+
+Boundary conditions
+-------------------
+
+By default, ``pocoMC`` assumes that all parameters specified in the prior have hard bounds. In other words, each
+parameter is free to vary in a prespecified range. Anytime a value is proposed by ``pocoMC`` that lies outside of
+this range, it is automatically rejected. This is the desired behavior for most problems, since individual parameters 
+are often either defined everywhere (i.e. from negative infinity to infinity) or over a finite range (e.g., from -1 to 
++1).
+
+However, there are problems in which specific parameters may behave differently. ``pocoMC`` supports two such cases:
+
+- **Periodic boundary conditions**. In this case, ``pocoMC`` assumes that the parameter is periodic. For example, 
+  if the parameter is on the interval ``[0, 2*np.pi]``, then the parameter can be wrapped around to the other side
+  of the interval. This can be useful for phase parameters that might be periodic e.g. on a range ``[0,2*np.pi]``.
+- **Reflective boundary conditions**. In this case, ``pocoMC`` assumes that the parameter is reflective. For example,
+  if the parameter is on the interval ``[0, 1]``, then the parameter can be flipped around to the other side of the
+  interval. This can be useful for parameters that are ratios where ``a/b`` and  ``b/a`` are equivalent.
+
+Given the above, it is possible to set the ``periodic`` and ``reflective`` attributes of the prior. For example, in 
+a five-parameter model, if we want the first two parameters to be periodic, and the third and fourth to be reflective, 
+we would do::
+
+    from scipy.stats import uniform, norm
+
+    prior = pc.Prior([
+        uniform(loc=0.0, scale=2*np.pi), # this parameter is periodic
+        uniform(loc=0.0, scale=2*np.pi), # this parameter is periodic
+        uniform(loc=0.0, scale=1.0), # this parameter is reflective
+        uniform(loc=0.0, scale=1.0), # this parameter is reflective
+        norm(loc=0.0, scale=3.0), # this parameter is neither periodic nor reflective
+    ])
+
+    sampler = pc.Sampler(prior, 
+                        loglike, 
+                        periodic=[0,1], 
+                        reflective=[2,3])
+
+As you can see, nothing changes in the definition of the prior. Instead, we just need to provide the indices of the
+parameters that should be periodic and reflective to the sampler.

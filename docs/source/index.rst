@@ -114,6 +114,23 @@ Copyright 2022-2024 Minas Karamanis and contributors.
 Changelog
 =========
 
+**1.2.6 (20/09/24)**
+
+- Removed unnecessary log-likelihood evaluations during evidence estimation
+
+**1.2.5 (16/09/24)**
+
+- Removed unnecessary log-likelihood evaluations during MCMC sampling.
+
+**1.2.4 (28/08/24)**
+
+- Fix bug in periodic and reflective parameters.
+
+**1.2.3 (27/08/24)**
+
+- Added support for periodic and reflective parameters.
+- Changed default normalizing flow to ``nsf6``.
+
 **1.2.2 (20/06/24)**
 
 - Fixed bug in ``posterior`` method related to blobs.

@@ -89,24 +89,34 @@ def preconditioned_pcn(state_dict: dict,
         # Transform to x space
         x_prime, logdetj_prime = scaler.inverse(u_prime)
 
+        # Apply boundary conditions
+        if (scaler.periodic is not None) or (scaler.reflective is not None):
+            x_prime = scaler.apply_boundary_conditions_x(x_prime)
+            u_prime = scaler.forward(x_prime, check_input=False)
+            x_prime, logdetj_prime = scaler.inverse(u_prime)
+
         # Compute finite mask
         finite_mask_logdetj_prime = np.isfinite(logdetj_prime)
         finite_mask_x_prime = np.isfinite(x_prime).all(axis=1)
         finite_mask = finite_mask_logdetj_prime & finite_mask_x_prime
 
-        # Compute log-likelihood, log-prior, and log-posterior
-        u_rand = np.random.rand(n_walkers)
-        logl_prime = np.empty(n_walkers)
+        # Evaluate prior
         logp_prime = np.empty(n_walkers)
+        logp_prime[finite_mask] = log_prior(x_prime[finite_mask])
+        logp_prime[~finite_mask] = -np.inf
+        finite_mask_logp = np.isfinite(logp_prime)
+        finite_mask = finite_mask & finite_mask_logp
+        
+        # Evaluate likelihood
+        logl_prime = np.empty(n_walkers)
         if have_blobs:
             blobs_prime = np.empty(n_walkers, dtype=np.dtype((blobs[0].dtype, blobs[0].shape)))
             logl_prime[finite_mask], blobs_prime[finite_mask] = log_like(x_prime[finite_mask])
         else:
             logl_prime[finite_mask], _ = log_like(x_prime[finite_mask])
-        logp_prime[finite_mask] = log_prior(x_prime[finite_mask])
         logl_prime[~finite_mask] = -np.inf
-        logp_prime[~finite_mask] = -np.inf
-
+        
+        # Update likelihood call counter
         n_calls += np.sum(finite_mask)
 
         # Compute Metropolis factors
@@ -123,6 +133,7 @@ def preconditioned_pcn(state_dict: dict,
         alpha[np.isnan(alpha)] = 0.0
 
         # Metropolis criterion
+        u_rand = np.random.rand(n_walkers)
         mask = u_rand < alpha
 
         # Accept new points
@@ -222,7 +233,6 @@ def preconditioned_rwm(state_dict: dict,
     # Get number of particles and parameters/dimensions
     n_walkers, n_dim = x.shape
 
-
     cov = geometry.normal_cov
     chol = np.linalg.cholesky(cov)
 
@@ -247,24 +257,34 @@ def preconditioned_rwm(state_dict: dict,
         # Transform to x space
         x_prime, logdetj_prime = scaler.inverse(u_prime)
 
+        # Apply boundary conditions
+        if (scaler.periodic is not None) or (scaler.reflective is not None):
+            x_prime = scaler.apply_boundary_conditions_x(x_prime)
+            u_prime = scaler.forward(x_prime, check_input=False)
+            x_prime, logdetj_prime = scaler.inverse(u_prime)
+
         # Compute finite mask
         finite_mask_logdetj_prime = np.isfinite(logdetj_prime)
         finite_mask_x_prime = np.isfinite(x_prime).all(axis=1)
         finite_mask = finite_mask_logdetj_prime & finite_mask_x_prime
 
-        # Compute log-likelihood, log-prior, and log-posterior
-        u_rand = np.random.rand(n_walkers)
-        logl_prime = np.empty(n_walkers)
+        # Evaluate prior
         logp_prime = np.empty(n_walkers)
+        logp_prime[finite_mask] = log_prior(x_prime[finite_mask])
+        logp_prime[~finite_mask] = -np.inf
+        finite_mask_logp = np.isfinite(logp_prime)
+        finite_mask = finite_mask & finite_mask_logp
+
+        # Compute log-likelihood, log-prior, and log-posterior
+        logl_prime = np.empty(n_walkers)
         if have_blobs:
             blobs_prime = np.empty(n_walkers, dtype=np.dtype((blobs[0].dtype, blobs[0].shape)))
             logl_prime[finite_mask], blobs_prime[finite_mask] = log_like(x_prime[finite_mask])
         else:
             logl_prime[finite_mask], _ = log_like(x_prime[finite_mask])
-        logp_prime[finite_mask] = log_prior(x_prime[finite_mask])
         logl_prime[~finite_mask] = -np.inf
-        logp_prime[~finite_mask] = -np.inf
 
+        # Update likelihood call counter
         n_calls += np.sum(finite_mask)
 
         # Compute Metropolis factors
@@ -275,6 +295,7 @@ def preconditioned_rwm(state_dict: dict,
         alpha[np.isnan(alpha)] = 0.0
 
         # Metropolis criterion
+        u_rand = np.random.rand(n_walkers)
         mask = u_rand < alpha
 
         # Accept new points
@@ -392,29 +413,39 @@ def pcn(state_dict: dict,
         # Propose new points in u space
         u_prime = np.empty((n_walkers, n_dim))
         for k in range(n_walkers):
-            u_prime[k] = mu + (1.0 - sigma ** 2.0) ** 0.5 * diff[k] + sigma * np.sqrt(s[k]) * np.dot(chol_cov, np.random.randn(n_dim))        
+            u_prime[k] = mu + (1.0 - sigma ** 2.0) ** 0.5 * diff[k] + sigma * np.sqrt(s[k]) * np.dot(chol_cov, np.random.randn(n_dim)) 
 
         # Transform to x space
         x_prime, logdetj_prime = scaler.inverse(u_prime)
+
+        # Apply boundary conditions
+        if (scaler.periodic is not None) or (scaler.reflective is not None):
+            x_prime = scaler.apply_boundary_conditions_x(x_prime)
+            u_prime = scaler.forward(x_prime, check_input=False)
+            x_prime, logdetj_prime = scaler.inverse(u_prime)
 
         # Compute finite mask
         finite_mask_logdetj_prime = np.isfinite(logdetj_prime)
         finite_mask_x_prime = np.isfinite(x_prime).all(axis=1)
         finite_mask = finite_mask_logdetj_prime & finite_mask_x_prime
 
-        # Compute log-likelihood, log-prior, and log-posterior
-        u_rand = np.random.rand(n_walkers)
-        logl_prime = np.empty(n_walkers)
+        # Evaluate prior
         logp_prime = np.empty(n_walkers)
+        logp_prime[finite_mask] = log_prior(x_prime[finite_mask])
+        logp_prime[~finite_mask] = -np.inf
+        finite_mask_logp = np.isfinite(logp_prime)
+        finite_mask = finite_mask & finite_mask_logp
+
+        # Evaluate likelihood
+        logl_prime = np.empty(n_walkers)
         if have_blobs:
             blobs_prime = np.empty(n_walkers, dtype=np.dtype((blobs[0].dtype, blobs[0].shape)))
             logl_prime[finite_mask], blobs_prime[finite_mask] = log_like(x_prime[finite_mask])
         else:
             logl_prime[finite_mask], _ = log_like(x_prime[finite_mask])
-        logp_prime[finite_mask] = log_prior(x_prime[finite_mask])
         logl_prime[~finite_mask] = -np.inf
-        logp_prime[~finite_mask] = -np.inf
         
+        # Update likelihood call counter
         n_calls += np.sum(finite_mask)
 
         # Compute Metropolis factors
@@ -431,6 +462,7 @@ def pcn(state_dict: dict,
         alpha[np.isnan(alpha)] = 0.0
 
         # Metropolis criterion
+        u_rand = np.random.rand(n_walkers)
         mask = u_rand < alpha
 
         # Accept new points
@@ -540,24 +572,34 @@ def rwm(state_dict: dict,
         # Transform to x space
         x_prime, logdetj_prime = scaler.inverse(u_prime)
 
+        # Apply boundary conditions
+        if (scaler.periodic is not None) or (scaler.reflective is not None):
+            x_prime = scaler.apply_boundary_conditions_x(x_prime)
+            u_prime = scaler.forward(x_prime, check_input=False)
+            x_prime, logdetj_prime = scaler.inverse(u_prime)
+
         # Compute finite mask
         finite_mask_logdetj_prime = np.isfinite(logdetj_prime)
         finite_mask_x_prime = np.isfinite(x_prime).all(axis=1)
         finite_mask = finite_mask_logdetj_prime & finite_mask_x_prime
 
-        # Compute log-likelihood, log-prior, and log-posterior
-        u_rand = np.random.rand(n_walkers)
-        logl_prime = np.empty(n_walkers)
+        # Evaluate prior
         logp_prime = np.empty(n_walkers)
+        logp_prime[finite_mask] = log_prior(x_prime[finite_mask])
+        logp_prime[~finite_mask] = -np.inf
+        finite_mask_logp = np.isfinite(logp_prime)
+        finite_mask = finite_mask & finite_mask_logp
+
+        # Evaluate likelihood
+        logl_prime = np.empty(n_walkers)
         if have_blobs:
             blobs_prime = np.empty(n_walkers, dtype=np.dtype((blobs[0].dtype, blobs[0].shape)))
             logl_prime[finite_mask], blobs_prime[finite_mask] = log_like(x_prime[finite_mask])
         else:
             logl_prime[finite_mask], _ = log_like(x_prime[finite_mask])
-        logp_prime[finite_mask] = log_prior(x_prime[finite_mask])
         logl_prime[~finite_mask] = -np.inf
-        logp_prime[~finite_mask] = -np.inf
 
+        # Update likelihood call counter
         n_calls += np.sum(finite_mask)
 
         # Compute Metropolis factors
@@ -568,6 +610,7 @@ def rwm(state_dict: dict,
         alpha[np.isnan(alpha)] = 0.0
 
         # Metropolis criterion
+        u_rand = np.random.rand(n_walkers)
         mask = u_rand < alpha
 
         # Accept new points
