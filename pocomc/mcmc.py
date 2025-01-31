@@ -1,8 +1,7 @@
 import numpy as np
 import torch
 
-from .tools import numpy_to_torch, torch_to_numpy, flow_numpy_wrapper
-from .student import fit_mvstud
+from .tools import flow_numpy_wrapper
 
 @torch.no_grad()
 def preconditioned_pcn(state_dict: dict,
