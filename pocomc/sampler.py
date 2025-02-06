@@ -137,6 +137,7 @@ class Sampler:
                  dynamic: bool = True,
                  pool=None,
                  clustering: bool = True,
+                 split_threshold: float = 2.0,
                  n_max_clusters: int = None,
                  metric: str = 'ess',
                  n_prior: int = None,
@@ -252,11 +253,12 @@ class Sampler:
             self.clusterer = RecursiveDensityClustering(max_components=n_max_clusters,
                                                         n_init=10,
                                                         min_points=None,
-                                                        alpha=2.0,
+                                                        alpha=split_threshold,
                                                         rescale=True,
                                                         verbose=False)
         else:
             self.clusterer = None
+        
 
         # Resampling algorithm
         if resample not in ['mult', 'syst']:
