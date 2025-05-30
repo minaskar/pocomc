@@ -567,9 +567,9 @@ class Sampler:
             self.covariances = np.array(covariances)
             self.degrees_of_freedom = np.array(degrees_of_freedom)
 
-            import matplotlib.pyplot as plt
-            plt.scatter(self.u[:,0], self.u[:,1], c=labels)
-            plt.show()
+            #import matplotlib.pyplot as plt
+            #plt.scatter(self.u[:,0], self.u[:,1], c=labels)
+            #plt.show()
         else:
             self.means = None
             self.covariances = np.cov(self.u, rowvar=False, aweights=self.weights).reshape(1, self.n_dim, self.n_dim)
