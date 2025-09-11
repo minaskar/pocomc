@@ -9,7 +9,7 @@ from multiprocess import Pool
 from .mcmc import parallel_mcmc
 from .tools import systematic_resample, FunctionWrapper, trim_weights, ProgressBar, effective_sample_size, unique_sample_size
 from .particles import Particles
-from .cluster import RecursiveDensityClustering
+from .cluster import get_knn_clusters
 from .student import fit_mvstud
 
 class Sampler:
@@ -137,7 +137,6 @@ class Sampler:
                  dynamic: bool = True,
                  pool=None,
                  clustering: bool = True,
-                 split_threshold: float = 2.0,
                  n_max_clusters: int = None,
                  metric: str = 'ess',
                  n_prior: int = None,
@@ -249,13 +248,9 @@ class Sampler:
 
         # Clusterer
         self.clustering = clustering
+        self.n_max_clusters = int(n_max_clusters)
         if self.clustering:
-            self.clusterer = RecursiveDensityClustering(max_components=n_max_clusters,
-                                                        n_init=10,
-                                                        min_points=None,
-                                                        alpha=split_threshold,
-                                                        rescale=True,
-                                                        verbose=False)
+            self.clusterer = get_knn_clusters
         else:
             self.clusterer = None
         
@@ -549,14 +544,16 @@ class Sampler:
         if self.clustering:
             u_resampled = self.u[np.random.choice(np.arange(len(self.weights)), size=self.n_effective*4, replace=True, p=self.weights)]
 
-            self.clusterer.fit(u_resampled)
-            labels = self.clusterer.predict(self.u)
+            #self.clusterer.fit(u_resampled)
+            #labels = self.clusterer.predict(self.u)
+            labels = self.clusterer(u_resampled, max_components=self.n_max_clusters)[1]
             means = []
             covariances = []
             degrees_of_freedom = []
             for label in range(np.unique(labels).shape[0]):
                 idx = np.where(labels == label)[0]
-                mean, covariance, dof = fit_mvstud(self.u[idx])
+                #mean, covariance, dof = fit_mvstud(self.u[idx])
+                mean, covariance, dof = fit_mvstud(u_resampled[idx])
                 if ~np.isfinite(dof):
                     dof = 1e6 
                 means.append(mean)
@@ -566,6 +563,7 @@ class Sampler:
             self.means = np.array(means)
             self.covariances = np.array(covariances)
             self.degrees_of_freedom = np.array(degrees_of_freedom)
+            self.labels = labels
 
             #import matplotlib.pyplot as plt
             #plt.scatter(self.u[:,0], self.u[:,1], c=labels)
@@ -607,7 +605,7 @@ class Sampler:
             self.blobs = blobs[idx_resampled]
 
         if self.clustering:
-            self.assignments = self.clusterer.predict(self.u)
+            self.assignments = self.labels[idx_resampled]
         else:
             self.assignments = np.zeros(self.n_active, dtype=int)
     
