@@ -1,7 +1,6 @@
 import numpy as np
 import torch
 
-from .tools import numpy_to_torch, torch_to_numpy, flow_numpy_wrapper
 from .student import fit_mvstud
 
 @torch.no_grad()
@@ -44,7 +43,7 @@ def preconditioned_pcn(state_dict: dict,
     log_like = function_dict.get('loglike')
     log_prior = function_dict.get('logprior')
     scaler = function_dict.get('scaler')
-    flow = flow_numpy_wrapper(function_dict.get('flow'))
+    flow = function_dict.get('flow')
     geometry = function_dict.get('theta_geometry')
 
     # Get MCMC options
@@ -56,16 +55,17 @@ def preconditioned_pcn(state_dict: dict,
     # Get number of particles and parameters/dimensions
     n_walkers, n_dim = x.shape
 
-    # Transform u to theta
-    theta, logdetj_flow = flow.forward(u)
+    # PyTorch variables
+    u_t = torch.tensor(u, dtype=torch.float32)
+    theta_t, logdetj_flow_t = flow.forward(u_t)
+    logdetj_flow_t = -logdetj_flow_t
 
-
-    mu = geometry.t_mean
-    cov = geometry.t_cov
+    mu_t = torch.tensor(geometry.t_mean, dtype=torch.float32)
+    cov_t = torch.tensor(geometry.t_cov, dtype=torch.float32)
     nu = geometry.t_nu
 
-    inv_cov = np.linalg.inv(cov)
-    chol_cov = np.linalg.cholesky(cov)
+    inv_cov_t = torch.linalg.inv(cov_t)
+    chol_cov_t = torch.linalg.cholesky(cov_t)
 
     logp2_val = np.mean(logl + logp)
     cnt = 0
@@ -74,18 +74,20 @@ def preconditioned_pcn(state_dict: dict,
     while True:
         i += 1
 
-        diff = theta - mu
-        s = np.empty(n_walkers)
-        for k in range(n_walkers):
-            s[k] = 1./np.random.gamma((n_dim + nu) / 2, 2.0/(nu + np.dot(diff[k],np.dot(inv_cov,diff[k]))))
+        diff_t = theta_t - mu_t
+        quad_form_t = torch.einsum('ki,ij,kj->k', diff_t, inv_cov_t, diff_t)
+        scale_gamma_t = 2.0 / (nu + quad_form_t)
 
-        # Propose new points in theta space
-        theta_prime = np.empty((n_walkers, n_dim))
-        for k in range(n_walkers):
-            theta_prime[k] = mu + (1.0 - sigma ** 2.0) ** 0.5 * diff[k] + sigma * np.sqrt(s[k]) * np.dot(chol_cov, np.random.randn(n_dim))      
+        gamma_dist = torch.distributions.Gamma((n_dim + nu) / 2, 1.0 / scale_gamma_t)
+        s_t = 1.0 / gamma_dist.sample()
 
-        # Transform to u space
-        u_prime, logdetj_flow_prime = flow.inverse(theta_prime)
+        randn_term_t = torch.randn(n_walkers, n_dim) @ chol_cov_t.T
+        theta_prime_t = mu_t + (1.0 - sigma ** 2.0) ** 0.5 * diff_t + sigma * torch.sqrt(s_t)[:, None] * randn_term_t
+
+        u_prime_t, logdetj_flow_prime_t = flow.inverse(theta_prime_t)
+
+        # Convert to numpy for scaler and likelihood
+        u_prime = u_prime_t.numpy().astype(np.float64)
 
         # Transform to x space
         x_prime, logdetj_prime = scaler.inverse(u_prime)
@@ -95,6 +97,7 @@ def preconditioned_pcn(state_dict: dict,
             x_prime = scaler.apply_boundary_conditions_x(x_prime)
             u_prime = scaler.forward(x_prime, check_input=False)
             x_prime, logdetj_prime = scaler.inverse(u_prime)
+            u_prime_t = torch.tensor(u_prime, dtype=torch.float32)
 
         # Compute finite mask
         finite_mask_logdetj_prime = np.isfinite(logdetj_prime)
@@ -121,12 +124,14 @@ def preconditioned_pcn(state_dict: dict,
         n_calls += np.sum(finite_mask)
 
         # Compute Metropolis factors
-        diff_prime = theta_prime-mu
-        A = np.empty(n_walkers)
-        B = np.empty(n_walkers)
-        for k in range(n_walkers):
-            A[k] = -(n_dim+nu)/2*np.log(1+np.dot(diff_prime[k],np.dot(inv_cov,diff_prime[k]))/nu)
-            B[k] = -(n_dim+nu)/2*np.log(1+np.dot(diff[k],np.dot(inv_cov,diff[k]))/nu)
+        diff_prime_t = theta_prime_t - mu_t
+        quad_form_prime_t = torch.einsum('ki,ij,kj->k', diff_prime_t, inv_cov_t, diff_prime_t)
+        A = -(n_dim + nu) / 2 * np.log(1 + quad_form_prime_t.numpy() / nu)
+        B = -(n_dim + nu) / 2 * np.log(1 + quad_form_t.numpy() / nu)
+
+        logdetj_flow_prime = logdetj_flow_prime_t.numpy()
+        logdetj_flow = logdetj_flow_t.numpy()
+
         alpha = np.minimum(
             np.ones(n_walkers),
             np.exp(logl_prime * beta - logl * beta + logp_prime - logp + logdetj_prime - logdetj + logdetj_flow_prime - logdetj_flow - A + B)
@@ -138,11 +143,13 @@ def preconditioned_pcn(state_dict: dict,
         mask = u_rand < alpha
 
         # Accept new points
-        theta[mask] = theta_prime[mask]
+        mask_t = torch.from_numpy(mask)
+        theta_t[mask_t] = theta_prime_t[mask_t]
+        u_t[mask_t] = u_prime_t[mask_t]
+        logdetj_flow_t[mask_t] = logdetj_flow_prime_t[mask_t]
         u[mask] = u_prime[mask]
         x[mask] = x_prime[mask]
         logdetj[mask] = logdetj_prime[mask]
-        logdetj_flow[mask] = logdetj_flow_prime[mask]
         logl[mask] = logl_prime[mask]
         logp[mask] = logp_prime[mask]
         if have_blobs:
@@ -153,7 +160,7 @@ def preconditioned_pcn(state_dict: dict,
         #sigma = np.minimum(sigma + 1 / (i + 1)**0.5 * (np.mean(alpha) - 0.234), 0.99)
 
         # Adapt mean parameter using diminishing adaptation
-        mu = mu + 1.0 / (i + 1.0) * (np.mean(theta, axis=0) - mu)
+        mu_t = mu_t + 1.0 / (i + 1.0) * (torch.mean(theta_t, axis=0) - mu_t)
 
         # Update progress bar if available
         if progress_bar is not None:
@@ -222,7 +229,7 @@ def preconditioned_rwm(state_dict: dict,
     log_like = function_dict.get('loglike')
     log_prior = function_dict.get('logprior')
     scaler = function_dict.get('scaler')
-    flow = flow_numpy_wrapper(function_dict.get('flow'))
+    flow = function_dict.get('flow')
     geometry = function_dict.get('theta_geometry')
 
     # Get MCMC options
@@ -234,11 +241,13 @@ def preconditioned_rwm(state_dict: dict,
     # Get number of particles and parameters/dimensions
     n_walkers, n_dim = x.shape
 
-    cov = geometry.normal_cov
-    chol = np.linalg.cholesky(cov)
+    cov_t = torch.tensor(geometry.normal_cov, dtype=torch.float32)
+    chol_t = torch.linalg.cholesky(cov_t)
 
-    # Transform u to theta
-    theta, logdetj_flow = flow.forward(u)
+    # PyTorch variables
+    u_t = torch.tensor(u, dtype=torch.float32)
+    theta_t, logdetj_flow_t = flow.forward(u_t)
+    logdetj_flow_t = -logdetj_flow_t
 
     logp2_val = np.mean(logl + logp + logdetj)
     cnt = 0
@@ -248,12 +257,13 @@ def preconditioned_rwm(state_dict: dict,
         i += 1
 
         # Propose new points in theta space
-        theta_prime = np.empty((n_walkers, n_dim))
-        for k in range(n_walkers):
-            theta_prime[k] = theta[k] + sigma * np.dot(chol, np.random.randn(n_dim))
+        randn_term_t = torch.randn(n_walkers, n_dim) @ chol_t.T
+        theta_prime_t = theta_t + sigma * randn_term_t
 
         # Transform to u space
-        u_prime, logdetj_flow_prime = flow.inverse(theta_prime)
+        u_prime_t, logdetj_flow_prime_t = flow.inverse(theta_prime_t)
+
+        u_prime = u_prime_t.numpy().astype(np.float64)
 
         # Transform to x space
         x_prime, logdetj_prime = scaler.inverse(u_prime)
@@ -263,6 +273,7 @@ def preconditioned_rwm(state_dict: dict,
             x_prime = scaler.apply_boundary_conditions_x(x_prime)
             u_prime = scaler.forward(x_prime, check_input=False)
             x_prime, logdetj_prime = scaler.inverse(u_prime)
+            u_prime_t = torch.tensor(u_prime, dtype=torch.float32)
 
         # Compute finite mask
         finite_mask_logdetj_prime = np.isfinite(logdetj_prime)
@@ -288,6 +299,9 @@ def preconditioned_rwm(state_dict: dict,
         # Update likelihood call counter
         n_calls += np.sum(finite_mask)
 
+        logdetj_flow_prime = logdetj_flow_prime_t.numpy()
+        logdetj_flow = logdetj_flow_t.numpy()
+
         # Compute Metropolis factors
         alpha = np.minimum(
             np.ones(n_walkers),
@@ -300,11 +314,13 @@ def preconditioned_rwm(state_dict: dict,
         mask = u_rand < alpha
 
         # Accept new points
-        theta[mask] = theta_prime[mask]
+        mask_t = torch.from_numpy(mask)
+        theta_t[mask_t] = theta_prime_t[mask_t]
+        u_t[mask_t] = u_prime_t[mask_t]
+        logdetj_flow_t[mask_t] = logdetj_flow_prime_t[mask_t]
         u[mask] = u_prime[mask]
         x[mask] = x_prime[mask]
         logdetj[mask] = logdetj_prime[mask]
-        logdetj_flow[mask] = logdetj_flow_prime[mask]
         logl[mask] = logl_prime[mask]
         logp[mask] = logp_prime[mask]
         if have_blobs:
@@ -407,14 +423,13 @@ def pcn(state_dict: dict,
         i += 1
 
         diff = u - mu
-        s = np.empty(n_walkers)
-        for k in range(n_walkers):
-            s[k] = 1./np.random.gamma((n_dim + nu) / 2, 2.0/(nu + np.dot(diff[k],np.dot(inv_cov,diff[k]))))
+        quad_form = np.einsum('ki,ij,kj->k', diff, inv_cov, diff)
+        scale_gamma = 2.0 / (nu + quad_form)
+        s = 1.0 / np.random.gamma((n_dim + nu) / 2, scale_gamma, size=n_walkers)
 
         # Propose new points in u space
-        u_prime = np.empty((n_walkers, n_dim))
-        for k in range(n_walkers):
-            u_prime[k] = mu + (1.0 - sigma ** 2.0) ** 0.5 * diff[k] + sigma * np.sqrt(s[k]) * np.dot(chol_cov, np.random.randn(n_dim)) 
+        randn_term = np.random.randn(n_walkers, n_dim) @ chol_cov.T
+        u_prime = mu + (1.0 - sigma ** 2.0) ** 0.5 * diff + sigma * np.sqrt(s)[:, None] * randn_term
 
         # Transform to x space
         x_prime, logdetj_prime = scaler.inverse(u_prime)
@@ -451,11 +466,10 @@ def pcn(state_dict: dict,
 
         # Compute Metropolis factors
         diff_prime = u_prime - mu
-        A = np.empty(n_walkers)
-        B = np.empty(n_walkers)
-        for k in range(n_walkers):
-            A[k] = -(n_dim+nu)/2*np.log(1+np.dot(diff_prime[k],np.dot(inv_cov,diff_prime[k]))/nu)
-            B[k] = -(n_dim+nu)/2*np.log(1+np.dot(diff[k],np.dot(inv_cov,diff[k]))/nu)
+        quad_form_prime = np.einsum('ki,ij,kj->k', diff_prime, inv_cov, diff_prime)
+        A = -(n_dim + nu) / 2 * np.log(1 + quad_form_prime / nu)
+        B = -(n_dim + nu) / 2 * np.log(1 + quad_form / nu)
+
         alpha = np.minimum(
             np.ones(n_walkers),
             np.exp(logl_prime * beta - logl * beta + logp_prime - logp + logdetj_prime - logdetj - A + B)
@@ -566,9 +580,8 @@ def rwm(state_dict: dict,
         i += 1
 
         # Propose new points in theta space
-        u_prime = np.empty((n_walkers, n_dim))
-        for k in range(n_walkers):
-            u_prime[k] = u[k] + sigma * np.dot(chol, np.random.randn(n_dim))
+        randn_term = np.random.randn(n_walkers, n_dim) @ chol.T
+        u_prime = u + sigma * randn_term
 
         # Transform to x space
         x_prime, logdetj_prime = scaler.inverse(u_prime)
