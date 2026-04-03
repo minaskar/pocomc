@@ -238,11 +238,11 @@ class Flow:
                 weights = weights[rand_indx]
 
         if noise is not None:
-            min_dists = torch.empty(n_samples)
-            for i in range(n_samples):
-                min_dist = torch.linalg.norm(x[i] - x, axis=1)
-                min_dists[i] = torch.min(min_dist[min_dist > 0.0])
-            mean_min_dist = torch.mean(min_dist)
+            dists = torch.cdist(x, x)
+            # Mask out the diagonal
+            dists.fill_diagonal_(float('inf'))
+            min_dists = torch.min(dists, dim=1).values
+            mean_min_dist = torch.mean(min_dists)
 
         if validation_split > 0.0:
             x_train = x[:int(validation_split * n_samples)]

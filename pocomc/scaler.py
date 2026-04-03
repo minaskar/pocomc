@@ -124,11 +124,8 @@ class Reparameterize:
         if self.periodic is not None:
             x = x.copy()
             for i in self.periodic:
-                for j in range(len(x)):
-                    while x[j, i] > self.high[i]:
-                        x[j, i] = self.low[i] + x[j, i] - self.high[i]
-                    while x[j, i] < self.low[i]:
-                        x[j, i] = self.high[i] + x[j, i] - self.low[i]
+                width = self.high[i] - self.low[i]
+                x[:, i] = self.low[i] + np.mod(x[:, i] - self.low[i], width)
         return x
 
     def _apply_reflective_boundary_conditions_x(self, x: np.ndarray):
@@ -148,11 +145,9 @@ class Reparameterize:
         if self.reflective is not None:
             x = x.copy()
             for i in self.reflective:
-                for j in range(len(x)):
-                    while x[j, i] > self.high[i]:
-                        x[j, i] = self.high[i] - x[j, i] + self.high[i]
-                    while x[j, i] < self.low[i]:
-                        x[j, i] = self.low[i] + self.low[i] - x[j, i]
+                w = self.high[i] - self.low[i]
+                d_mod = np.mod(x[:, i] - self.low[i], 2 * w)
+                x[:, i] = np.where(d_mod < w, self.low[i] + d_mod, self.low[i] + 2 * w - d_mod)
 
         return x
 
@@ -288,7 +283,7 @@ class Reparameterize:
         if self.diagonal:
             return (x - self.mu) / self.sigma
         else:
-            return np.array([np.dot(self.L_inv, xi - self.mu) for xi in x])
+            return (x - self.mu) @ self.L_inv.T
 
     def _inverse_affine(self, u: np.ndarray):
         """
@@ -309,7 +304,7 @@ class Reparameterize:
             log_det_J = np.sum(np.log(self.sigma))
             return self.mu + self.sigma * u, log_det_J * np.ones(len(u))
         else:
-            x = self.mu + np.array([np.dot(self.L, ui) for ui in u])
+            x = self.mu + u @ self.L.T
             return x, self.log_det_L * np.ones(len(u))
 
     def _forward_left(self, x: np.ndarray):
@@ -390,7 +385,7 @@ class Reparameterize:
         Transformed input data
         """
         p = (x[:, self.mask_both] - self.low[self.mask_both]) / (self.high[self.mask_both] - self.low[self.mask_both])
-        np.clip(p, 1e-13, 1.0 - 1e-13)
+        p = np.clip(p, 1e-13, 1.0 - 1e-13)
 
         if self.transform == "logit":
             u = np.log(p / (1.0 - p))

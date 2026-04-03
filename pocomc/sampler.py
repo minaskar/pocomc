@@ -8,7 +8,7 @@ from multiprocess import Pool
 import torch
 
 from .mcmc import preconditioned_pcn, preconditioned_rwm, pcn, rwm
-from .tools import systematic_resample, FunctionWrapper, numpy_to_torch, torch_to_numpy, trim_weights, ProgressBar, flow_numpy_wrapper, effective_sample_size, unique_sample_size
+from .tools import systematic_resample, FunctionWrapper, numpy_to_torch, torch_to_numpy, trim_weights, ProgressBar, effective_sample_size, unique_sample_size
 from .scaler import Reparameterize
 from .flow import Flow
 from .particles import Particles
@@ -668,7 +668,9 @@ class Sampler:
                           verbose=self.train_config["verbose"],
                           )
             
-            theta = flow_numpy_wrapper(self.flow).forward(u)[0]
+            u_t = torch.tensor(u, dtype=torch.float32)
+            theta_t, _ = self.flow.forward(u_t)
+            theta = theta_t.detach().numpy().astype(np.float64)
             self.theta_geometry.fit(theta, weights=w)
         else:
             self.u_geometry.fit(u, weights=w)
